@@ -1,0 +1,18 @@
+{
+  "captureCountsByName" : {
+    "_val" : 1,
+    "export" : 6,
+    "function.definition" : 17,
+    "interface" : 1,
+    "method" : 15,
+    "method_signature" : 4,
+    "ts.class.decl" : 2,
+    "ts.interface.decl" : 1,
+    "type.class" : 2,
+    "typeAlias" : 2,
+    "variable.field" : 2,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/ts/function_overloads.ts",
+  "totalCaptures" : 54
+}

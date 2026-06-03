@@ -1,0 +1,2 @@
+{"type":"response_item","payload":{"type":"function_call","call_id":"call_write_stdin_1","name":"functions.write_stdin","arguments":"{\"session_id\":27588,\"chars\":\"\",\"yield_time_ms\":1000}"}}
+{"type":"response_item","payload":{"type":"function_call_output","call_id":"call_write_stdin_1","output":"{\"status\":\"running\"}"}}

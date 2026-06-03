@@ -1,0 +1,44 @@
+{
+  "configurations" : [
+    {
+      "id" : "D3B16767-572A-484C-AAE4-DFD426A4AC5A",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "OS_ACTIVITY_MODE",
+        "value" : "disable"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:RepoPrompt.xcodeproj",
+      "identifier" : "A489F8B62C2B850D00C0E1EA",
+      "name" : "RepoPrompt"
+    }
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "ChangedFileAndParserTests"
+      ],
+      "target" : {
+        "containerPath" : "container:RepoPrompt.xcodeproj",
+        "identifier" : "A489F8C92C2B850E00C0E1EA",
+        "name" : "RepoPromptTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:RepoPrompt.xcodeproj",
+        "identifier" : "A489F8D32C2B850E00C0E1EA",
+        "name" : "RepoPromptUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

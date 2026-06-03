@@ -1,0 +1,11 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 1,
+    "function.param" : 3,
+    "import" : 2,
+    "type.class" : 1,
+    "type.class.decl" : 1
+  },
+  "fixture" : "fixtures/cpp/initializer_list.cpp",
+  "totalCaptures" : 8
+}

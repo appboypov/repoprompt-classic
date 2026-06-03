@@ -1,0 +1,14 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 4,
+    "export" : 6,
+    "function.definition" : 2,
+    "method" : 2,
+    "ts.class.decl" : 1,
+    "type.class" : 1,
+    "variable.field" : 1,
+    "variable.global" : 4
+  },
+  "fixture" : "fixtures/ts/noise_locals.ts",
+  "totalCaptures" : 21
+}

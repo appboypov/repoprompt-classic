@@ -1,0 +1,112 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "process(input: string): string",
+          "lineNumber" : 57,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "async asyncProcess(): Promise<void>",
+          "lineNumber" : 71,
+          "name" : "asyncProcess",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<void>"
+        }
+      ],
+      "name" : "Processor",
+      "properties" : [
+        {
+          "name" : "private state: number",
+          "typeName" : "number"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export class Processor {",
+    "export const CONFIG = (() => {",
+    "export const GLOBAL_CONFIG = { debug: true };",
+    "export const MAX_RETRIES = 3;",
+    "export const formatOutput = (value: unknown): string => {",
+    "export function processItems(items: string[]): string[] {"
+  ],
+  "filePath" : "fixtures/ts/noise_locals.ts",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function processItems(items: string[]): string[]",
+      "lineNumber" : 9,
+      "name" : "processItems",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string[]"
+        }
+      ],
+      "returnType" : "string[]"
+    },
+    {
+      "definitionLine" : "export const formatOutput = (value: unknown): string =>",
+      "lineNumber" : 79,
+      "name" : "formatOutput",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "unknown"
+        }
+      ],
+      "returnType" : "string"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const CONFIG",
+      "name" : "CONFIG"
+    },
+    {
+      "definitionLine" : "export const GLOBAL_CONFIG",
+      "name" : "GLOBAL_CONFIG"
+    },
+    {
+      "definitionLine" : "export const MAX_RETRIES",
+      "name" : "MAX_RETRIES"
+    }
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "captureCountsByName" : {
+    "export" : 5,
+    "method" : 10,
+    "ts.class.decl" : 4,
+    "type.class" : 4,
+    "variable.field" : 17
+  },
+  "fixture" : "fixtures/ts/class_fields_and_accessors.ts",
+  "totalCaptures" : 40
+}

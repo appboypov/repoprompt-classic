@@ -1,0 +1,243 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "Config",
+      "properties" : [
+        {
+          "name" : "MaxUsers",
+          "typeName" : ""
+        },
+        {
+          "name" : "Timeout",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func (u *User) DisplayName() string",
+          "lineNumber" : 37,
+          "name" : "DisplayName",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "func (u *User) Validate() error",
+          "lineNumber" : 42,
+          "name" : "Validate",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "CreatedAt",
+          "typeName" : ""
+        },
+        {
+          "name" : "Email",
+          "typeName" : ""
+        },
+        {
+          "name" : "ID",
+          "typeName" : ""
+        },
+        {
+          "name" : "Name",
+          "typeName" : ""
+        },
+        {
+          "name" : "Role",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func (s *UserService) Fetch(ctx context.Context) ([]*User, error)",
+          "lineNumber" : 81,
+          "name" : "Fetch",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "context.Context"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "func (s *UserService) Save(ctx context.Context, user *User) error",
+          "lineNumber" : 93,
+          "name" : "Save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "context.Context"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "*User"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "func (s *UserService) Delete(ctx context.Context, id string) error",
+          "lineNumber" : 110,
+          "name" : "Delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "context.Context"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "string"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "func (s *UserService) GetByRole(role UserRole) []*User",
+          "lineNumber" : 123,
+          "name" : "GetByRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ]
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "config",
+          "typeName" : ""
+        },
+        {
+          "name" : "mu",
+          "typeName" : ""
+        },
+        {
+          "name" : "users",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/go/smoke.go",
+  "functionSignatureTypes" : [
+    "Config",
+    "User",
+    "UserRole",
+    "context.Context"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "func NewUserService(cfg Config) *UserService",
+      "lineNumber" : 73,
+      "name" : "NewUserService",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "Config"
+        }
+      ]
+    },
+    {
+      "definitionLine" : "func CreateUser(name, email string, role UserRole) *User",
+      "lineNumber" : 137,
+      "name" : "CreateUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param2",
+          "typeName" : "UserRole"
+        }
+      ]
+    },
+    {
+      "definitionLine" : "func generateID() string",
+      "lineNumber" : 148,
+      "name" : "generateID",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "var DefaultTimeout = 30 * time.Second",
+      "name" : "DefaultTimeout",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "const MaxUsers = 1000",
+      "name" : "MaxUsers",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "RoleAdmin  UserRole = \"admin\"",
+      "name" : "RoleAdmin",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "RoleEditor UserRole = \"editor\"",
+      "name" : "RoleEditor",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "RoleGuest  UserRole = \"guest\"",
+      "name" : "RoleGuest",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "RoleViewer UserRole = \"viewer\"",
+      "name" : "RoleViewer",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "import (\n\t\"context\"\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "User",
+    "UserRole",
+    "context.Context"
+  ]
+}

@@ -1,0 +1,344 @@
+import Foundation
+import SwiftUI
+
+/// Manager for chat presets - handles both built-in and user-defined chat presets
+@MainActor
+class ChatPresetManager: ObservableObject {
+    // MARK: - Singleton
+    static let shared = ChatPresetManager()
+    
+    // MARK: - Published Properties
+    @Published private(set) var userPresets: [ChatPreset] = [] {
+        didSet {
+            rebuildAllPresetsCache()
+        }
+    }
+    @Published private var presetVisibility: [UUID: Bool] = [:]
+    @Published private(set) var overrides: [UUID: ChatPresetOverrides] = [:] {
+        didSet {
+            rebuildAllPresetsCache()
+        }
+    }
+    
+    // MARK: - Storage
+    private let presetFileStore = PresetFileStore.shared
+
+    /// All presets (built-in + user), with overrides applied to built-ins
+    @Published private(set) var allPresets: [ChatPreset] = []
+
+    // MARK: - Initialization
+    private init() {
+        load()
+        rebuildAllPresetsCache()
+    }
+
+    // MARK: - Built-in Presets
+
+	/// All built-in chat presets
+	var builtInPresets: [ChatPreset] {
+		ChatPreset.BuiltIn.all
+	}
+
+    private func rebuildAllPresetsCache() {
+        let overridesSnapshot = overrides
+        let resolvedBuiltIns = builtInPresets.map { preset -> ChatPreset in
+            guard let override = overridesSnapshot[preset.id] else { return preset }
+            return apply(overrides: override, to: preset)
+        }
+        allPresets = resolvedBuiltIns + userPresets
+    }
+    
+    // MARK: - Preset Lookup
+    
+    /// Find any preset by ID (built-in or user)
+    func preset(with id: UUID) -> ChatPreset? {
+        allPresets.first { $0.id == id }
+    }
+    
+    /// Find presets by mode
+    func presets(for mode: ChatPresetMode) -> [ChatPreset] {
+        allPresets.filter { $0.mode == mode }
+    }
+    
+    // No linkage to copy presets from chat presets
+    
+    // MARK: - User Preset Management
+    
+    /// Load user presets, visibility, and built-in overrides from Application Support JSON.
+    /// Falls back to/migrates from legacy UserDefaults when the JSON file is missing.
+    func load() {
+        let document = presetFileStore.loadWorkflowPresets()
+        userPresets = document.chatUserPresets
+        presetVisibility = document.chatVisibility
+        overrides = Dictionary(document.chatOverrides.map { ($0.presetID, $0) }, uniquingKeysWith: { _, new in new })
+    }
+    
+    /// Save user presets to Application Support JSON and legacy UserDefaults mirrors.
+    func save() {
+        persistChatState()
+    }
+    
+    /// Add a new user preset
+    func add(_ preset: ChatPreset) {
+        guard !preset.isBuiltIn else {
+            print("Cannot add built-in preset as user preset")
+            return
+        }
+        userPresets.append(preset)
+        save()
+    }
+    
+    /// Update an existing user preset
+    func update(_ preset: ChatPreset) {
+        guard !preset.isBuiltIn else {
+            print("Cannot update built-in preset")
+            return
+        }
+        
+        if let index = userPresets.firstIndex(where: { $0.id == preset.id }) {
+            userPresets[index] = preset
+            save()
+        }
+    }
+    
+    /// Remove a user preset
+    func remove(_ preset: ChatPreset) {
+        guard !preset.isBuiltIn else {
+            print("Cannot remove built-in preset")
+            return
+        }
+        
+        userPresets.removeAll { $0.id == preset.id }
+        save()
+    }
+    
+    /// Remove a user preset by ID
+    func remove(id: UUID) {
+        userPresets.removeAll { $0.id == id }
+        save()
+    }
+    
+    /// Add a preset (convenience method matching the settings view)
+    func addPreset(_ preset: ChatPreset) {
+        add(preset)
+    }
+    
+    /// Update a preset (convenience method matching the settings view)
+    func updatePreset(_ preset: ChatPreset) {
+        update(preset)
+    }
+    
+    /// Delete a preset (convenience method matching the settings view)
+    func deletePreset(_ preset: ChatPreset) {
+        remove(preset)
+    }
+    
+    /// Toggle preset visibility
+    func togglePresetVisibility(_ preset: ChatPreset) {
+        let currentVisibility = presetVisibility[preset.id] ?? true
+        presetVisibility[preset.id] = !currentVisibility
+        saveVisibility()
+    }
+    
+    /// Check if a preset is visible
+    func isPresetVisible(_ preset: ChatPreset) -> Bool {
+        return presetVisibility[preset.id] ?? true
+    }
+    
+    /// Load visibility settings from Application Support JSON.
+    private func loadVisibility() {
+        presetVisibility = presetFileStore.loadWorkflowPresets().chatVisibility
+    }
+    
+    /// Save visibility settings to Application Support JSON and legacy UserDefaults mirrors.
+    private func saveVisibility() {
+        persistChatState()
+    }
+    
+    /// Create a chat preset from current settings
+    func createPresetFromSettings(
+        name: String,
+        mode: ChatPresetMode,
+        modelPresetName: String? = nil,
+        description: String? = nil,
+        icon: String? = nil
+    ) -> ChatPreset {
+        let preset = ChatPreset(
+            name: name,
+            mode: mode,
+            modelPresetName: modelPresetName,
+            description: description,
+            icon: icon,
+            isBuiltIn: false
+        )
+        
+        add(preset)
+        return preset
+    }
+    
+    // MARK: - Default Preset Selection
+    
+    /// Get the default preset for a given mode
+    func defaultPreset(for mode: ChatPresetMode) -> ChatPreset? {
+        // First try to find a built-in preset for this mode
+        switch mode {
+        case .chat:
+            return builtInPresets.first { $0.name == "Chat" }
+        case .plan:
+            return builtInPresets.first { $0.name == "Plan" }
+        case .edit:
+            return builtInPresets.first { $0.name == "Edit" }
+        case .proEdit:
+            return builtInPresets.first { $0.mode == .proEdit }
+        case .review:
+            return builtInPresets.first { $0.name == "Review" }
+        }
+    }
+    
+    /// Get a suggested preset based on context
+    func suggestedPreset(hasGitChanges: Bool, fileCount: Int, hasXMLContent: Bool) -> ChatPreset? {
+        // If there are git changes, suggest review
+        if hasGitChanges {
+            return builtInPresets.first { $0.name == "Review" }
+        }
+        
+        // If there's XML content, suggest edit mode
+        if hasXMLContent {
+            return builtInPresets.first { $0.name == "Edit" }
+        }
+        
+        // If many files, suggest planning
+        if fileCount > 10 {
+            return builtInPresets.first { $0.name == "Plan" }
+        }
+        
+        // Default to chat
+        return builtInPresets.first { $0.name == "Chat" }
+    }
+    
+    // MARK: - Validation
+    
+    /// Check if a preset name is already in use
+    func isNameTaken(_ name: String, excluding: UUID? = nil) -> Bool {
+        allPresets.contains { preset in
+            preset.name == name && preset.id != excluding
+        }
+    }
+    
+    /// Generate a unique name based on a base name
+    func generateUniqueName(baseName: String) -> String {
+        var name = baseName
+        var counter = 1
+        
+        while isNameTaken(name) {
+            name = "\(baseName) \(counter)"
+            counter += 1
+        }
+        
+        return name
+    }
+    
+    // MARK: - Model Preset Integration
+    
+    /// Validate that a chat preset's model reference is valid
+    /// This will need to be connected to ModelPresetsManager when available
+    func validateModelReference(for preset: ChatPreset) -> Bool {
+        // TODO: Check against ModelPresetsManager
+        // For now, return true if no model specified (use default)
+        return preset.modelPresetName == nil || !preset.modelPresetName!.isEmpty
+    }
+    
+    // MARK: - Copy Preset Integration
+    // Removed: chat presets no longer reference copy presets
+    
+    // MARK: - Override Management
+    
+    /// Check if a preset has overrides
+    func hasOverrides(_ id: UUID) -> Bool {
+        return overrides[id] != nil && !overrides[id]!.isEmpty
+    }
+    
+    /// Get overrides for a preset
+    func getOverrides(_ id: UUID) -> ChatPresetOverrides? {
+        return overrides[id]
+    }
+    
+    /// Update or insert overrides for a preset
+    func upsertOverrides(_ override: ChatPresetOverrides) {
+        guard let base = builtInPresets.first(where: { $0.id == override.presetID }) else { return }
+        
+        let trimmed = override.trimmed(against: base)
+        if trimmed.isEmpty {
+            clearOverrides(for: override.presetID)
+        } else {
+            overrides[override.presetID] = trimmed
+            saveOverrides()
+        }
+    }
+    
+    /// Update overrides using a mutation closure
+    func updateOverrides(for id: UUID, mutate: (inout ChatPresetOverrides) -> Void) {
+        var override = overrides[id] ?? ChatPresetOverrides.empty(for: id)
+        mutate(&override)
+        upsertOverrides(override)
+    }
+    
+    /// Clear all overrides for a preset
+    func clearOverrides(for id: UUID) {
+        overrides.removeValue(forKey: id)
+        saveOverrides()
+    }
+    
+    /// Get a resolved preset with overrides applied
+    func resolvedPreset(with id: UUID) -> ChatPreset? {
+        // Check built-in presets first
+        if let builtIn = builtInPresets.first(where: { $0.id == id }) {
+            if let override = overrides[id] {
+                return apply(overrides: override, to: builtIn)
+            }
+            return builtIn
+        }
+        
+        // Then check user presets
+        return userPresets.first(where: { $0.id == id })
+    }
+    
+    /// Apply overrides to a base preset
+    private func apply(overrides: ChatPresetOverrides, to base: ChatPreset) -> ChatPreset {
+        // Create a new preset with overrides applied
+        return ChatPreset(
+            id: base.id,
+            name: base.name,
+            mode: base.mode,
+            modelPresetName: overrides.modelPresetName ?? base.modelPresetName,
+            description: base.description,
+            icon: base.icon,
+            isBuiltIn: base.isBuiltIn,
+            fileTreeMode: overrides.fileTreeMode ?? base.fileTreeMode,
+            codeMapUsage: overrides.codeMapUsage ?? base.codeMapUsage,
+            gitInclusion: overrides.gitInclusion ?? base.gitInclusion,
+			storedPromptIds: overrides.storedPromptIds ?? base.storedPromptIds,
+			useStoredPromptsAsSystem: overrides.useStoredPromptsAsSystem ?? base.useStoredPromptsAsSystem
+        )
+    }
+    
+    /// Load overrides from Application Support JSON.
+    private func loadOverrides() {
+        let overridesList = presetFileStore.loadWorkflowPresets().chatOverrides
+        self.overrides = Dictionary(overridesList.map { ($0.presetID, $0) }, uniquingKeysWith: { _, new in new })
+    }
+    
+    /// Save overrides to Application Support JSON and legacy UserDefaults mirrors.
+    private func saveOverrides() {
+        persistChatState()
+    }
+
+    private func persistChatState() {
+        let overridesList = Array(overrides.values)
+        presetFileStore.updateWorkflowPresets { document in
+            document.chatUserPresets = userPresets
+            document.chatVisibility = presetVisibility
+            document.chatOverrides = overridesList
+        }
+    }
+}

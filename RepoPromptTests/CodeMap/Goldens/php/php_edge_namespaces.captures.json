@@ -1,0 +1,20 @@
+{
+  "captureCountsByName" : {
+    "constant.class" : 1,
+    "enum.entry" : 2,
+    "function.definition" : 5,
+    "function.param" : 4,
+    "import" : 1,
+    "module" : 1,
+    "type.class" : 1,
+    "type.class.decl" : 2,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.interface" : 1,
+    "type.interface.decl" : 1,
+    "type.trait" : 1,
+    "variable.field" : 1
+  },
+  "fixture" : "fixtures/php/edge_namespaces.php",
+  "totalCaptures" : 23
+}

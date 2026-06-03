@@ -1,0 +1,227 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "Config",
+      "properties" : [
+        {
+          "name" : "max_users",
+          "typeName" : ""
+        },
+        {
+          "name" : "timeout_secs",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "email",
+          "typeName" : ""
+        },
+        {
+          "name" : "id",
+          "typeName" : ""
+        },
+        {
+          "name" : "name",
+          "typeName" : ""
+        },
+        {
+          "name" : "role",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "config",
+          "typeName" : ""
+        },
+        {
+          "name" : "user_count",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ROLE_ADMIN",
+        "ROLE_EDITOR",
+        "ROLE_VIEWER",
+        "ROLE_GUEST"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/c/smoke.c",
+  "functionSignatureTypes" : [
+    "User",
+    "UserRole",
+    "UserService"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "void user_service_destroy(UserService* service)",
+      "lineNumber" : 76,
+      "name" : "user_service_destroy",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "UserService*"
+        }
+      ],
+      "returnType" : "void"
+    },
+    {
+      "definitionLine" : "int user_service_save(UserService* service, User* user)",
+      "lineNumber" : 85,
+      "name" : "user_service_save",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "UserService*"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "User*"
+        }
+      ],
+      "returnType" : "int"
+    },
+    {
+      "definitionLine" : "bool user_service_delete(UserService* service, const char* id)",
+      "lineNumber" : 105,
+      "name" : "user_service_delete",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "UserService*"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "char*"
+        }
+      ],
+      "returnType" : "bool"
+    },
+    {
+      "definitionLine" : "int user_service_get_by_role(UserService* service, UserRole role, User** results, int max_results)",
+      "lineNumber" : 122,
+      "name" : "user_service_get_by_role",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "UserService*"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "UserRole"
+        },
+        {
+          "localName" : "param2",
+          "typeName" : "User**"
+        },
+        {
+          "localName" : "param3",
+          "typeName" : "int"
+        }
+      ],
+      "returnType" : "int"
+    },
+    {
+      "definitionLine" : "void user_destroy(User* user)",
+      "lineNumber" : 146,
+      "name" : "user_destroy",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "User*"
+        }
+      ],
+      "returnType" : "void"
+    },
+    {
+      "definitionLine" : "bool user_validate(const User* user)",
+      "lineNumber" : 150,
+      "name" : "user_validate",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "User*"
+        }
+      ],
+      "returnType" : "bool"
+    },
+    {
+      "definitionLine" : "static void generate_id(char* buffer, size_t size)",
+      "lineNumber" : 163,
+      "name" : "generate_id",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "char*"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "size_t"
+        }
+      ],
+      "returnType" : "void"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "Config default_config =",
+      "name" : "default_config",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "#include <stdbool.h>",
+    "#include <stdio.h>",
+    "#include <stdlib.h>",
+    "#include <string.h>",
+    "#include <time.h>"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+    "DEFAULT_TIMEOUT",
+    "MAX_NAME_LENGTH",
+    "MAX_USERS"
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "User",
+    "UserRole",
+    "UserService"
+  ]
+}

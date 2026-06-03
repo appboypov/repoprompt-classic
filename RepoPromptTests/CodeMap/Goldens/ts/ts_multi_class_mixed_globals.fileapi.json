@@ -1,0 +1,256 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "export type ServiceType = ServiceA | ServiceB | ServiceC",
+      "name" : "ServiceType"
+    }
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "process(input: string): string",
+          "lineNumber" : 11,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "validate(data: unknown): boolean",
+          "lineNumber" : 15,
+          "name" : "validate",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "unknown"
+            }
+          ],
+          "returnType" : "boolean"
+        }
+      ],
+      "name" : "ServiceA",
+      "properties" : [
+        {
+          "name" : "private name"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "process(input: string): string",
+          "lineNumber" : 33,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "validate(data: unknown): boolean",
+          "lineNumber" : 38,
+          "name" : "validate",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "unknown"
+            }
+          ],
+          "returnType" : "boolean"
+        },
+        {
+          "definitionLine" : "transform(items: string[]): string[]",
+          "lineNumber" : 43,
+          "name" : "transform",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string[]"
+            }
+          ],
+          "returnType" : "string[]"
+        }
+      ],
+      "name" : "ServiceB",
+      "properties" : [
+        {
+          "name" : "private name"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "process(input: string): string",
+          "lineNumber" : 56,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "validate(data: unknown): boolean",
+          "lineNumber" : 60,
+          "name" : "validate",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "unknown"
+            }
+          ],
+          "returnType" : "boolean"
+        }
+      ],
+      "name" : "ServiceC",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Idle",
+        "Running",
+        "Stopped"
+      ],
+      "name" : "ServiceStatus"
+    }
+  ],
+  "exports" : [
+    "export class ServiceA {",
+    "export class ServiceB {",
+    "export class ServiceC implements SharedContract {",
+    "export const FINAL_CONSTANT = 42;",
+    "export const GLOBAL_VERSION = '1.0.0';",
+    "export const SHARED_CONFIG = { timeout: 5000 };",
+    "export const arrowAfterClasses = (x: number): number => x * 2;",
+    "export enum ServiceStatus {",
+    "export function helperFunction(a: number, b: number): number {",
+    "export function standaloneProcessor(): void {",
+    "export interface SharedContract {",
+    "export type ServiceType = ServiceA | ServiceB | ServiceC;"
+  ],
+  "filePath" : "fixtures/ts/multi_class_mixed_globals.ts",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function helperFunction(a: number, b: number): number",
+      "lineNumber" : 24,
+      "name" : "helperFunction",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "number"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "number"
+        }
+      ],
+      "returnType" : "number"
+    },
+    {
+      "definitionLine" : "export function standaloneProcessor(): void",
+      "lineNumber" : 68,
+      "name" : "standaloneProcessor",
+      "parameters" : [
+
+      ],
+      "returnType" : "void"
+    },
+    {
+      "definitionLine" : "export const arrowAfterClasses = (x: number): number =>",
+      "lineNumber" : 72,
+      "name" : "arrowAfterClasses",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "number"
+        }
+      ],
+      "returnType" : "number"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const FINAL_CONSTANT",
+      "name" : "FINAL_CONSTANT"
+    },
+    {
+      "definitionLine" : "export const GLOBAL_VERSION",
+      "name" : "GLOBAL_VERSION"
+    },
+    {
+      "definitionLine" : "export const SHARED_CONFIG",
+      "name" : "SHARED_CONFIG"
+    }
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "process(input: string): string",
+          "lineNumber" : 50,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "validate(data: unknown): boolean",
+          "lineNumber" : 51,
+          "name" : "validate",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "unknown"
+            }
+          ],
+          "returnType" : "boolean"
+        }
+      ],
+      "name" : "SharedContract",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "ServiceA",
+    "ServiceB",
+    "ServiceC",
+    "SharedContract",
+    "x  2"
+  ]
+}

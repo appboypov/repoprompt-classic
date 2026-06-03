@@ -1,0 +1,1662 @@
+{
+  "serializationVersion": 4,
+  "id": "BC9F6691-5A0F-46E7-0E09-E9C8153C05D3",
+  "name": "ACP steering coalesce (minimized)",
+  "agentKind": "codexExec",
+  "agentModel": "test-model",
+  "lastRunState": "completed",
+  "isMCPOriginated": false,
+  "items": [],
+  "transcript": {
+    "version": 3,
+    "turns": [
+      {
+        "id": "2A8EAB93-E3D0-4128-7E7A-068A2FA62EA7",
+        "request": {
+          "id": "AB5A2AE5-D9B2-41A5-7F1A-5B75DB1C7E7E",
+          "timestamp": 1735689600.0,
+          "sequenceIndex": 0,
+          "text": "user message 0",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "3574B849-0AE1-4030-DFE2-92523BA81CB7",
+            "lifecycle": "completed",
+            "startedAt": 1735689601.0,
+            "lastActivityAt": 1735689629.0,
+            "completedAt": 1735689630.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "archived",
+        "startedAt": 1735689600.0,
+        "lastActivityAt": 1735689629.0,
+        "completedAt": 1735689630.0,
+        "summary": {
+          "middleSummaryItemID": "F360181E-4AD5-41C3-9349-4731C033713F",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": true
+        }
+      },
+      {
+        "id": "89E05A64-BD17-4873-E986-11C3ADBDBFCF",
+        "request": {
+          "id": "D22FF9B9-413E-4AAE-F9D5-7913578D99A0",
+          "timestamp": 1735689660.0,
+          "sequenceIndex": 1,
+          "text": "user message 1",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "65B0A8F0-0056-4A7F-C183-21699A9B0237",
+            "lifecycle": "completed",
+            "startedAt": 1735689661.0,
+            "lastActivityAt": 1735689689.0,
+            "completedAt": 1735689690.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "archived",
+        "startedAt": 1735689660.0,
+        "lastActivityAt": 1735689689.0,
+        "completedAt": 1735689690.0,
+        "summary": {
+          "middleSummaryItemID": "D194D182-961C-497D-E497-C7E9EF7DE953",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "6049C703-80FC-48D3-1656-E016D6787E83",
+        "request": {
+          "id": "CC0A6E19-3AB8-4AB8-2AE1-8A31C364F1F8",
+          "timestamp": 1735689720.0,
+          "sequenceIndex": 2,
+          "text": "user message 2",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "C103B7CC-875B-4226-3B6F-405C09D5BF6F",
+            "lifecycle": "completed",
+            "startedAt": 1735689721.0,
+            "lastActivityAt": 1735689749.0,
+            "completedAt": 1735689750.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "archived",
+        "startedAt": 1735689720.0,
+        "lastActivityAt": 1735689749.0,
+        "completedAt": 1735689750.0,
+        "summary": {
+          "middleSummaryItemID": "03AF165A-B4DF-4347-AF14-CA10F3E6A449",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "211C82AA-C57F-4B8C-88E4-BB6C085BC195",
+        "request": {
+          "id": "518A3614-18DB-492D-D475-5AE56114B2D9",
+          "timestamp": 1735689780.0,
+          "sequenceIndex": 3,
+          "text": "user message 3",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "CB2AD1BE-2C2D-4610-1964-DE36C08E18FE",
+            "lifecycle": "completed",
+            "startedAt": 1735689781.0,
+            "lastActivityAt": 1735689809.0,
+            "completedAt": 1735689810.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "archived",
+        "startedAt": 1735689780.0,
+        "lastActivityAt": 1735689809.0,
+        "completedAt": 1735689810.0,
+        "summary": {
+          "middleSummaryItemID": "B666870C-056D-4EDC-964B-EAE407BCB259",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "43E6B04C-E568-4A91-5B2E-1CE882C467A0",
+        "request": {
+          "id": "391A7E92-4134-4B1C-2021-3DA1F9F9186E",
+          "timestamp": 1735689840.0,
+          "sequenceIndex": 4,
+          "text": "user message 4",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "F2CAD9C4-41E3-4FE1-E050-9EE395680DE5",
+            "lifecycle": "completed",
+            "startedAt": 1735689841.0,
+            "lastActivityAt": 1735689869.0,
+            "completedAt": 1735689870.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "archived",
+        "startedAt": 1735689840.0,
+        "lastActivityAt": 1735689869.0,
+        "completedAt": 1735689870.0,
+        "summary": {
+          "middleSummaryItemID": "CA053401-1C91-48D5-4176-961037CA8935",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "ABC4511B-8403-48A7-02AF-A3BD891B60A9",
+        "request": {
+          "id": "CA7B4D4E-088B-4A08-702C-283DEDCA86EA",
+          "timestamp": 1735689900.0,
+          "sequenceIndex": 5,
+          "text": "user message 5",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "AA0F102B-464E-4F8C-5FC4-1E62558A7B54",
+            "lifecycle": "completed",
+            "startedAt": 1735689901.0,
+            "lastActivityAt": 1735689929.0,
+            "completedAt": 1735689930.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "archived",
+        "startedAt": 1735689900.0,
+        "lastActivityAt": 1735689929.0,
+        "completedAt": 1735689930.0,
+        "summary": {
+          "middleSummaryItemID": "B7F0813D-5D79-4436-F7B8-042D32F8FEB8",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "623A5DCB-1A4E-45EE-0DDB-B71488BC93A9",
+        "request": {
+          "id": "5CDB0996-9491-4D17-BF0F-83884575B23A",
+          "timestamp": 1735689960.0,
+          "sequenceIndex": 6,
+          "text": "user message 6",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "F837C563-3278-4A7D-825E-9DF80786B058",
+            "lifecycle": "completed",
+            "startedAt": 1735689961.0,
+            "lastActivityAt": 1735689989.0,
+            "completedAt": 1735689990.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735689960.0,
+        "lastActivityAt": 1735689989.0,
+        "completedAt": 1735689990.0,
+        "summary": {
+          "middleSummaryItemID": "811695E3-0BDF-4892-4175-366B1817E00F",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "930BFD16-2B1C-4020-8336-C22DD6917B75",
+        "request": {
+          "id": "A80FFDB4-49DA-4C75-D383-CD01F25D3204",
+          "timestamp": 1735690020.0,
+          "sequenceIndex": 7,
+          "text": "user message 7",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "DBDF13C2-1540-425D-9AF0-56BDE4B4E7B3",
+            "lifecycle": "completed",
+            "startedAt": 1735690021.0,
+            "lastActivityAt": 1735690049.0,
+            "completedAt": 1735690050.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690020.0,
+        "lastActivityAt": 1735690049.0,
+        "completedAt": 1735690050.0,
+        "summary": {
+          "middleSummaryItemID": "EC77184B-89A7-481F-0911-864230BD4F6B",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "DF5E4698-EDEE-4861-474F-7139A1F5ABDF",
+        "request": {
+          "id": "6987F45F-B00B-4D4B-4D37-916BE16525AF",
+          "timestamp": 1735690080.0,
+          "sequenceIndex": 8,
+          "text": "user message 8",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "9222E7E2-A455-4F39-616D-EFCAB10397B5",
+            "lifecycle": "completed",
+            "startedAt": 1735690081.0,
+            "lastActivityAt": 1735690109.0,
+            "completedAt": 1735690110.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690080.0,
+        "lastActivityAt": 1735690109.0,
+        "completedAt": 1735690110.0,
+        "summary": {
+          "middleSummaryItemID": "A388234D-2DE2-445F-621C-FFA20BA0F69E",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "8917D648-EC6F-46BB-5AA2-842A9C47A0D7",
+        "request": {
+          "id": "B781366C-023C-4061-5C58-DC7D2C5183DB",
+          "timestamp": 1735690140.0,
+          "sequenceIndex": 9,
+          "text": "user message 9",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "D4087057-A580-47AC-1806-29397ADF297F",
+            "lifecycle": "completed",
+            "startedAt": 1735690141.0,
+            "lastActivityAt": 1735690169.0,
+            "completedAt": 1735690170.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690140.0,
+        "lastActivityAt": 1735690169.0,
+        "completedAt": 1735690170.0,
+        "conclusionActivityID": "476DC5B4-3A5A-414E-C7F7-04770B3E8D11",
+        "summary": {
+          "middleSummaryItemID": "11748B00-8E6C-4751-6712-F1483D287F16",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 9."
+        }
+      },
+      {
+        "id": "49CBBB15-9026-4CFA-EDA3-FC364860EC18",
+        "request": {
+          "id": "257CA6EF-76A6-4699-7DDD-A28D15B06C91",
+          "timestamp": 1735690200.0,
+          "sequenceIndex": 11,
+          "text": "user message 10",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "E2255E11-64EB-41D0-2786-BC1686148CD7",
+            "lifecycle": "completed",
+            "startedAt": 1735690201.0,
+            "lastActivityAt": 1735690229.0,
+            "completedAt": 1735690230.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690200.0,
+        "lastActivityAt": 1735690229.0,
+        "completedAt": 1735690230.0,
+        "summary": {
+          "middleSummaryItemID": "8C47B4B6-D517-4CE4-A07A-7764F8E53322",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "D1AC0E97-869B-417B-B67B-1BDCC6CA8461",
+        "request": {
+          "id": "AB11AF67-A6B2-4016-0878-DE7BAF62C791",
+          "timestamp": 1735690260.0,
+          "sequenceIndex": 12,
+          "text": "user message 11",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "D58A5A16-4A24-4C51-04F1-7EEC5946323A",
+            "lifecycle": "completed",
+            "startedAt": 1735690261.0,
+            "lastActivityAt": 1735690289.0,
+            "completedAt": 1735690290.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690260.0,
+        "lastActivityAt": 1735690289.0,
+        "completedAt": 1735690290.0,
+        "summary": {
+          "middleSummaryItemID": "3FD52FF1-4BA9-44DF-4478-A968C338BFB9",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "C2D464B5-CA68-434A-615E-64D43CCBD0DC",
+        "request": {
+          "id": "4B0CB2F1-A971-4EEF-479A-86C33441447E",
+          "timestamp": 1735690320.0,
+          "sequenceIndex": 13,
+          "text": "user message 12",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "08FFF3D1-9AE0-41B7-7D8B-22546038B94C",
+            "lifecycle": "completed",
+            "startedAt": 1735690321.0,
+            "lastActivityAt": 1735690349.0,
+            "completedAt": 1735690350.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690320.0,
+        "lastActivityAt": 1735690349.0,
+        "completedAt": 1735690350.0,
+        "conclusionActivityID": "6F10C1CD-3F1A-4ED7-A21E-28DC7CCC34B8",
+        "summary": {
+          "middleSummaryItemID": "E32B8872-F9C0-4F2B-BF3D-4B76FBC29E35",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 12."
+        }
+      },
+      {
+        "id": "EB2FDE47-7448-43BB-19ED-57379AC82CEB",
+        "request": {
+          "id": "19B94634-2C69-4DBF-F865-55FD98A105F2",
+          "timestamp": 1735690380.0,
+          "sequenceIndex": 15,
+          "text": "user message 13",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "7C9B2522-2B34-4F5B-F166-6C968CC01A81",
+            "lifecycle": "completed",
+            "startedAt": 1735690381.0,
+            "lastActivityAt": 1735690409.0,
+            "completedAt": 1735690410.0,
+            "activities": []
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690380.0,
+        "lastActivityAt": 1735690409.0,
+        "completedAt": 1735690410.0,
+        "summary": {
+          "middleSummaryItemID": "3290ACBD-26A7-4E9D-1104-64B2FD1410BC",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "3A2EFFE9-BB67-445C-4CBF-A75D89A7247A",
+        "request": {
+          "id": "C18D939F-318B-4E7A-4935-11436893568B",
+          "timestamp": 1735690440.0,
+          "sequenceIndex": 16,
+          "text": "user message 14",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "60B2BBF6-629E-4635-71D2-476FF37C7C88",
+            "lifecycle": "completed",
+            "startedAt": 1735690441.0,
+            "lastActivityAt": 1735690469.0,
+            "completedAt": 1735690470.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690440.0,
+        "lastActivityAt": 1735690469.0,
+        "completedAt": 1735690470.0,
+        "summary": {
+          "middleSummaryItemID": "A843F568-2C0F-4C65-EA35-5AB6FDBD297E",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "E04B7FC7-AD0F-4640-4734-38DF477982A8",
+        "request": {
+          "id": "71E21BA4-CA77-476C-BEC7-7A906C6BAAF1",
+          "timestamp": 1735690500.0,
+          "sequenceIndex": 17,
+          "text": "user message 15",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "FCAFF592-9FBE-446B-EF8C-450825499B16",
+            "lifecycle": "completed",
+            "startedAt": 1735690501.0,
+            "lastActivityAt": 1735690529.0,
+            "completedAt": 1735690530.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690500.0,
+        "lastActivityAt": 1735690529.0,
+        "completedAt": 1735690530.0,
+        "conclusionActivityID": "096F187D-7379-4AB9-D667-08FDBDFD4475",
+        "summary": {
+          "middleSummaryItemID": "A31BCF88-F4A6-4A4D-1D49-8403AC065A9E",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 15."
+        }
+      },
+      {
+        "id": "11696A6E-6D4D-46AE-207B-61816F5F52B9",
+        "request": {
+          "id": "D48EC903-C029-42E8-6FE1-C57D67EAFA40",
+          "timestamp": 1735690560.0,
+          "sequenceIndex": 19,
+          "text": "user message 16",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "9FB74CCC-509B-4C94-1B25-AF55254C337C",
+            "lifecycle": "completed",
+            "startedAt": 1735690561.0,
+            "lastActivityAt": 1735690589.0,
+            "completedAt": 1735690590.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690560.0,
+        "lastActivityAt": 1735690589.0,
+        "completedAt": 1735690590.0,
+        "summary": {
+          "middleSummaryItemID": "3B85FFAE-212F-42BA-6977-CA1E16B9BCD0",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "CEC91E43-54BF-46B5-1C41-18F409AA0006",
+        "request": {
+          "id": "3BA36211-1441-4337-15F0-8D71DE5EC7AF",
+          "timestamp": 1735690620.0,
+          "sequenceIndex": 20,
+          "text": "user message 17",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "ECA7E3F7-968E-4181-76AA-C3BB9D61F926",
+            "lifecycle": "completed",
+            "startedAt": 1735690621.0,
+            "lastActivityAt": 1735690649.0,
+            "completedAt": 1735690650.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690620.0,
+        "lastActivityAt": 1735690649.0,
+        "completedAt": 1735690650.0,
+        "summary": {
+          "middleSummaryItemID": "B8865648-E1E5-4FF9-D3B6-3E1B25629D07",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "511D09AE-80E7-4D45-5BF9-2F3869FA3519",
+        "request": {
+          "id": "35E839F5-78C0-42D8-76B5-E3ABDE45C422",
+          "timestamp": 1735690680.0,
+          "sequenceIndex": 21,
+          "text": "user message 18",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "5802F122-55A6-4599-6EAF-E08ED2C72C79",
+            "lifecycle": "completed",
+            "startedAt": 1735690681.0,
+            "lastActivityAt": 1735690709.0,
+            "completedAt": 1735690710.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690680.0,
+        "lastActivityAt": 1735690709.0,
+        "completedAt": 1735690710.0,
+        "conclusionActivityID": "CCCA1593-4534-4E9D-B338-E6235494B3FF",
+        "summary": {
+          "middleSummaryItemID": "EDA74FE2-7A6D-4ED3-CB94-9D318904AD0D",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 18."
+        }
+      },
+      {
+        "id": "3E177FF1-BEFB-450F-5562-C7352C914EAA",
+        "request": {
+          "id": "7BDD767E-CF55-44AE-D684-3F829384FEC1",
+          "timestamp": 1735690740.0,
+          "sequenceIndex": 23,
+          "text": "user message 19",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "B690EBD0-AC11-41B4-B8C3-81DEEBC949A7",
+            "lifecycle": "completed",
+            "startedAt": 1735690741.0,
+            "lastActivityAt": 1735690769.0,
+            "completedAt": 1735690770.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690740.0,
+        "lastActivityAt": 1735690769.0,
+        "completedAt": 1735690770.0,
+        "summary": {
+          "middleSummaryItemID": "1207478D-0FEC-4B21-D913-E96A1A093B69",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "46AFE1FA-80C0-4FC7-3EDA-A997C8252B2C",
+        "request": {
+          "id": "8DC2813A-4FEC-4448-7D22-BB9784AA1B27",
+          "timestamp": 1735690800.0,
+          "sequenceIndex": 24,
+          "text": "user message 20",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "3126C4F6-195D-4A08-43BD-253C5BA8DE84",
+            "lifecycle": "completed",
+            "startedAt": 1735690801.0,
+            "lastActivityAt": 1735690829.0,
+            "completedAt": 1735690830.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690800.0,
+        "lastActivityAt": 1735690829.0,
+        "completedAt": 1735690830.0,
+        "summary": {
+          "middleSummaryItemID": "C81ECD49-8CB2-4CEA-CDA0-0FB7BE4FB547",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "0D1DBB1C-6749-452D-D796-0CFDBD4AA228",
+        "request": {
+          "id": "1AB3D929-2868-430A-366F-42102A508212",
+          "timestamp": 1735690860.0,
+          "sequenceIndex": 25,
+          "text": "user message 21",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "B3FACF3C-FDCB-4544-09A0-43691B5EAF7F",
+            "lifecycle": "completed",
+            "startedAt": 1735690861.0,
+            "lastActivityAt": 1735690889.0,
+            "completedAt": 1735690890.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690860.0,
+        "lastActivityAt": 1735690889.0,
+        "completedAt": 1735690890.0,
+        "conclusionActivityID": "8AF43DE9-F188-475E-E633-5A419457F28C",
+        "summary": {
+          "middleSummaryItemID": "A1F96A2D-91BA-4C90-7C00-5FADEA8B4FE0",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 21."
+        }
+      },
+      {
+        "id": "F22C9068-6AD9-4D47-78F2-C8E00ECBE97E",
+        "request": {
+          "id": "C266D5C6-423F-4F55-55C5-C82EAF537AFB",
+          "timestamp": 1735690920.0,
+          "sequenceIndex": 27,
+          "text": "user message 22",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "BDF48DAB-D9D6-4961-48D9-AFA7953298E9",
+            "lifecycle": "completed",
+            "startedAt": 1735690921.0,
+            "lastActivityAt": 1735690949.0,
+            "completedAt": 1735690950.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690920.0,
+        "lastActivityAt": 1735690949.0,
+        "completedAt": 1735690950.0,
+        "summary": {
+          "middleSummaryItemID": "78FB51F0-9BC0-4778-E6EC-4A25155886C9",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "16FF767C-CAF6-407C-BCFD-AF32571D23B9",
+        "request": {
+          "id": "CADF139E-4F2F-4DDF-9D85-50D104ECF761",
+          "timestamp": 1735690980.0,
+          "sequenceIndex": 28,
+          "text": "user message 23",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "6404A622-2C03-4AEC-D7A7-CBA45192DFC6",
+            "lifecycle": "completed",
+            "startedAt": 1735690981.0,
+            "lastActivityAt": 1735691009.0,
+            "completedAt": 1735691010.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735690980.0,
+        "lastActivityAt": 1735691009.0,
+        "completedAt": 1735691010.0,
+        "summary": {
+          "middleSummaryItemID": "3BF0E096-DFD2-42FD-BBF8-1D25CB8B166E",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "9EF54AD8-14D3-4F71-2714-24622DB78F81",
+        "request": {
+          "id": "7D7FA094-50BF-4243-27DA-9A5A075FA860",
+          "timestamp": 1735691040.0,
+          "sequenceIndex": 29,
+          "text": "user message 24",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "4D5603B4-998B-4CB3-2F73-78803D063CAC",
+            "lifecycle": "completed",
+            "startedAt": 1735691041.0,
+            "lastActivityAt": 1735691069.0,
+            "completedAt": 1735691070.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691040.0,
+        "lastActivityAt": 1735691069.0,
+        "completedAt": 1735691070.0,
+        "conclusionActivityID": "2AAF0164-37D7-4065-042F-3DD22C083E1A",
+        "summary": {
+          "middleSummaryItemID": "DEB4F847-76BD-46D6-4787-1BF2D09604E9",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 24."
+        }
+      },
+      {
+        "id": "A5CAF55A-B702-4E31-3BFE-9A750AE8FF1D",
+        "request": {
+          "id": "0A813EED-8504-48EB-0A42-E77FC2C49644",
+          "timestamp": 1735691100.0,
+          "sequenceIndex": 31,
+          "text": "user message 25",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "8A7BE4E5-9D3F-4717-6204-0FBD44B79BBB",
+            "lifecycle": "completed",
+            "startedAt": 1735691101.0,
+            "lastActivityAt": 1735691129.0,
+            "completedAt": 1735691130.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691100.0,
+        "lastActivityAt": 1735691129.0,
+        "completedAt": 1735691130.0,
+        "summary": {
+          "middleSummaryItemID": "C475917A-AE06-4A22-C0DB-EC440EB40012",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "313F668B-BF20-434C-FE3F-F29DBED83B83",
+        "request": {
+          "id": "CF9C305D-73DC-4B7B-9D81-A541772E2FE2",
+          "timestamp": 1735691160.0,
+          "sequenceIndex": 32,
+          "text": "user message 26",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "1E569D14-2729-4A91-7A3C-F96BC8EFFB09",
+            "lifecycle": "completed",
+            "startedAt": 1735691161.0,
+            "lastActivityAt": 1735691189.0,
+            "completedAt": 1735691190.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691160.0,
+        "lastActivityAt": 1735691189.0,
+        "completedAt": 1735691190.0,
+        "summary": {
+          "middleSummaryItemID": "9AA78B77-BEF1-4361-F6C8-4C1B96F989B5",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "5871FC0B-2721-4048-95D1-38E93CFBA856",
+        "request": {
+          "id": "EDED6086-821F-4E39-0A36-D0EC58F6F476",
+          "timestamp": 1735691220.0,
+          "sequenceIndex": 33,
+          "text": "user message 27",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "F3FCA702-D2A6-478A-54B1-16203CBF55A7",
+            "lifecycle": "completed",
+            "startedAt": 1735691221.0,
+            "lastActivityAt": 1735691249.0,
+            "completedAt": 1735691250.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691220.0,
+        "lastActivityAt": 1735691249.0,
+        "completedAt": 1735691250.0,
+        "conclusionActivityID": "A85CF351-7FD5-4DEE-AE82-15E4CC762F42",
+        "summary": {
+          "middleSummaryItemID": "C6AE1A0F-B669-4F7D-4B88-815B5685BBAD",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 27."
+        }
+      },
+      {
+        "id": "73053307-92FA-44A2-2EA2-BFCCA52EC64D",
+        "request": {
+          "id": "59FB2134-9413-4CE4-4ACC-624D1E740A91",
+          "timestamp": 1735691280.0,
+          "sequenceIndex": 35,
+          "text": "user message 28",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "B4ED90DC-A5F9-4AF9-AA87-649C28728ADF",
+            "lifecycle": "completed",
+            "startedAt": 1735691281.0,
+            "lastActivityAt": 1735691309.0,
+            "completedAt": 1735691310.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691280.0,
+        "lastActivityAt": 1735691309.0,
+        "completedAt": 1735691310.0,
+        "summary": {
+          "middleSummaryItemID": "A31871AF-BD17-4EE9-3615-4A7670B8F67A",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "C62CF746-80CD-41C8-138E-2F044128321A",
+        "request": {
+          "id": "EE848B56-8659-4C36-A951-2A0EE508DEED",
+          "timestamp": 1735691340.0,
+          "sequenceIndex": 36,
+          "text": "user message 29",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "CAB77D91-02B0-4E77-5D28-AC420FF169B3",
+            "lifecycle": "completed",
+            "startedAt": 1735691341.0,
+            "lastActivityAt": 1735691369.0,
+            "completedAt": 1735691370.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691340.0,
+        "lastActivityAt": 1735691369.0,
+        "completedAt": 1735691370.0,
+        "summary": {
+          "middleSummaryItemID": "EC6F9208-4612-400B-7060-C1722CFA21D1",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "92BEDC41-6BF2-4343-DF72-20FE9E9F43A9",
+        "request": {
+          "id": "D1CE7EF3-DBA0-409D-9BEC-A070364D0BFD",
+          "timestamp": 1735691400.0,
+          "sequenceIndex": 37,
+          "text": "user message 30",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "77A1F4E1-D080-4D97-2263-4F90D2FD8D27",
+            "lifecycle": "completed",
+            "startedAt": 1735691401.0,
+            "lastActivityAt": 1735691429.0,
+            "completedAt": 1735691430.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691400.0,
+        "lastActivityAt": 1735691429.0,
+        "completedAt": 1735691430.0,
+        "conclusionActivityID": "771A5F3E-720D-41E8-70A0-1BF8D36E2DA8",
+        "summary": {
+          "middleSummaryItemID": "126BFE58-1A43-4DE2-CB1C-2CC9D9D8EB1F",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 30."
+        }
+      },
+      {
+        "id": "5236B435-8E5C-4B16-5C94-4B05A136274C",
+        "request": {
+          "id": "E59065F3-7384-42D6-651D-5B1FCF3F98BB",
+          "timestamp": 1735691460.0,
+          "sequenceIndex": 39,
+          "text": "user message 31",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "3D891E60-B338-42E3-DA6F-514E30D23805",
+            "lifecycle": "completed",
+            "startedAt": 1735691461.0,
+            "lastActivityAt": 1735691489.0,
+            "completedAt": 1735691490.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691460.0,
+        "lastActivityAt": 1735691489.0,
+        "completedAt": 1735691490.0,
+        "summary": {
+          "middleSummaryItemID": "B057B57E-DB5A-4F11-B799-4B452EBA6F8D",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "BA94A01E-F52C-4A29-F0FE-53697AD1011D",
+        "request": {
+          "id": "3E8CC287-9BFC-4F1C-6F37-44760DF7596D",
+          "timestamp": 1735691520.0,
+          "sequenceIndex": 40,
+          "text": "user message 32",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "DBB4483C-999C-445C-9EE0-E75BCADE5405",
+            "lifecycle": "completed",
+            "startedAt": 1735691521.0,
+            "lastActivityAt": 1735691549.0,
+            "completedAt": 1735691550.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691520.0,
+        "lastActivityAt": 1735691549.0,
+        "completedAt": 1735691550.0,
+        "summary": {
+          "middleSummaryItemID": "66AA13C4-02B0-40A9-CE43-2DF1D81F226C",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "291C5D70-2CBD-4E81-4362-41448EF8D6BF",
+        "request": {
+          "id": "6D54D49D-8C3D-4028-3D8D-56FD4672A4DC",
+          "timestamp": 1735691580.0,
+          "sequenceIndex": 41,
+          "text": "user message 33",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "5688872D-3F49-40F8-F6B5-3D2A89AB9488",
+            "lifecycle": "completed",
+            "startedAt": 1735691581.0,
+            "lastActivityAt": 1735691609.0,
+            "completedAt": 1735691610.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691580.0,
+        "lastActivityAt": 1735691609.0,
+        "completedAt": 1735691610.0,
+        "conclusionActivityID": "75B6F3AA-2C68-4C0D-D137-585B16033C64",
+        "summary": {
+          "middleSummaryItemID": "6A1434F2-2E46-4647-7CF8-C0DB34101524",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 33."
+        }
+      },
+      {
+        "id": "774F91C5-B735-4ED9-3518-7988075E054C",
+        "request": {
+          "id": "D15DD554-091C-4FAD-03B9-4715C6BDD0EC",
+          "timestamp": 1735691640.0,
+          "sequenceIndex": 43,
+          "text": "user message 34",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "1F2913FB-51F5-47AA-85E9-A6EB9A2C360B",
+            "lifecycle": "completed",
+            "startedAt": 1735691641.0,
+            "lastActivityAt": 1735691669.0,
+            "completedAt": 1735691670.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691640.0,
+        "lastActivityAt": 1735691669.0,
+        "completedAt": 1735691670.0,
+        "summary": {
+          "middleSummaryItemID": "4F9786BA-6C06-4D53-894D-7A23AA0FE7C9",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "1A79D977-3A6A-4604-A055-CC849B5D3576",
+        "request": {
+          "id": "BEA071CB-EFFE-48DB-5D85-94271E01E2E2",
+          "timestamp": 1735691700.0,
+          "sequenceIndex": 44,
+          "text": "user message 35",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "DA77A9BF-25BC-40B3-B8F7-13D8EC693DC8",
+            "lifecycle": "completed",
+            "startedAt": 1735691701.0,
+            "lastActivityAt": 1735691729.0,
+            "completedAt": 1735691730.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691700.0,
+        "lastActivityAt": 1735691729.0,
+        "completedAt": 1735691730.0,
+        "summary": {
+          "middleSummaryItemID": "87E20388-70AA-4F7D-F269-23F6FFB4A7C3",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "3E795305-A3A9-49DA-AB73-8296AB42EB12",
+        "request": {
+          "id": "BB06D9FC-09B9-416C-0502-61DE396F12C6",
+          "timestamp": 1735691760.0,
+          "sequenceIndex": 45,
+          "text": "user message 36",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "24193219-895C-4AF8-36AC-F3ACD10A2440",
+            "lifecycle": "completed",
+            "startedAt": 1735691761.0,
+            "lastActivityAt": 1735691789.0,
+            "completedAt": 1735691790.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691760.0,
+        "lastActivityAt": 1735691789.0,
+        "completedAt": 1735691790.0,
+        "conclusionActivityID": "8D4F2BEE-BFE9-4E93-B966-4F35A27708BF",
+        "summary": {
+          "middleSummaryItemID": "7B27F3A2-BB73-486D-F9D0-D3F86A5D94DD",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false,
+          "compactConclusionText": "Completed turn 36."
+        }
+      },
+      {
+        "id": "1841625F-6529-483A-5F10-55ECA00F1FF3",
+        "request": {
+          "id": "5603A3C8-4995-4B3C-ABAE-ADAB054B7C77",
+          "timestamp": 1735691820.0,
+          "sequenceIndex": 47,
+          "text": "user message 37",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "0E3BA49B-AE9E-4088-5006-A414CD26C9E8",
+            "lifecycle": "completed",
+            "startedAt": 1735691821.0,
+            "lastActivityAt": 1735691849.0,
+            "completedAt": 1735691850.0,
+            "activities": [],
+            "collapsedSummary": {
+              "hiddenToolCardCount": 3,
+              "hiddenAssistantCount": 1,
+              "hiddenProgressCount": 0,
+              "hiddenNoteCount": 0
+            }
+          }
+        ],
+        "retentionTier": "summary",
+        "startedAt": 1735691820.0,
+        "lastActivityAt": 1735691849.0,
+        "completedAt": 1735691850.0,
+        "summary": {
+          "middleSummaryItemID": "C4392535-2F06-4854-D733-5CDF21800D9E",
+          "toolCount": 3,
+          "notableToolNames": [
+            "read_file",
+            "bash"
+          ],
+          "keyPaths": [],
+          "compactedActivityCount": 5,
+          "hadWarning": false,
+          "hadError": false
+        }
+      },
+      {
+        "id": "79AD16C9-BCD2-40B1-564D-FD8FC5CE13EA",
+        "request": {
+          "id": "10302927-F68F-4315-803D-9299AE9BF55B",
+          "timestamp": 1735691880.0,
+          "sequenceIndex": 48,
+          "text": "user message 38",
+          "attachments": [],
+          "taggedFileAttachments": []
+        },
+        "responseSpans": [
+          {
+            "id": "5DEF7F43-44CB-4238-F83F-69DEE2E5A46A",
+            "lifecycle": "completed",
+            "startedAt": 1735691881.0,
+            "lastActivityAt": 1735691909.0,
+            "completedAt": 1735691910.0,
+            "activities": [
+              {
+                "id": "DD083F2E-6212-438D-2E4D-43839E897132",
+                "timestamp": 1735691909.0,
+                "sequenceIndex": 49,
+                "role": "assistant",
+                "itemKind": "assistant",
+                "text": "done with turn 38",
+                "attachments": [],
+                "taggedFileAttachments": [],
+                "isStreaming": false,
+                "isSubstantiveAssistant": true,
+                "sealsAssistantBoundary": true
+              }
+            ]
+          }
+        ],
+        "retentionTier": "full",
+        "startedAt": 1735691880.0,
+        "lastActivityAt": 1735691909.0,
+        "completedAt": 1735691910.0,
+        "conclusionActivityID": "DD083F2E-6212-438D-2E4D-43839E897132"
+      }
+    ],
+    "nextSequenceIndex": 50,
+    "compactionFrontier": {
+      "version": 1,
+      "frozenPrefixTurnCount": 38,
+      "lastFrozenTurnID": "1841625F-6529-483A-5F10-55ECA00F1FF3"
+    }
+  },
+  "itemCount": 77,
+  "savedAt": 1735691940.0,
+  "transcriptProjectionCounts": {
+    "canonicalVisibleRowCount": 77,
+    "defaultPresentedRowCount": 64
+  },
+  "autoEditEnabled": true
+}

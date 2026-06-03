@@ -1,0 +1,111 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function now(): DateTime",
+          "lineNumber" : 12,
+          "name" : "now",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "TimestampTrait",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function __construct(int $maxUsers)",
+          "lineNumber" : 29,
+          "name" : "__construct",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function log(string $message): void",
+          "lineNumber" : 33,
+          "name" : "log",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "maxUsers"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ACTIVE",
+        "DISABLED"
+      ],
+      "name" : "Status"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/php/edge_namespaces.php",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "function makeService(int $maxUsers): UserService",
+      "lineNumber" : 37,
+      "name" : "makeService",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "use DateTime;"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function log(string $message): void;",
+          "lineNumber" : 8,
+          "name" : "log",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "Logger",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

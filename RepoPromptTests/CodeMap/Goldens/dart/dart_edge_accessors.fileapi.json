@@ -1,0 +1,118 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "User(this.id, this.name);",
+          "lineNumber" : 5,
+          "name" : "User",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "untyped"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "User.anonymous() : id = 0, name = \"anon\";",
+          "lineNumber" : 7,
+          "name" : "User.anonymous",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "factory User.fromMap(Map<String, dynamic> data)",
+          "lineNumber" : 9,
+          "name" : "fromMap",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Map<String"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "dynamic>"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "String get displayName => \"$name#$id\";",
+          "lineNumber" : 13,
+          "name" : "displayName",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "set displayName(String value)",
+          "lineNumber" : 15,
+          "name" : "displayName",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ]
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/dart/edge_accessors.dart",
+  "functionSignatureTypes" : [
+    "User"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "String formatUser(User user) => \"${user.name}:${user.id}\";",
+      "lineNumber" : 20,
+      "name" : "formatUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "User"
+        }
+      ],
+      "returnType" : "String"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "User"
+  ]
+}

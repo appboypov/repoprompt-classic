@@ -1,0 +1,649 @@
+{
+  "cases": [
+    {
+      "agentKind": "cursor",
+      "caseID": "cursor-acp-ghost-newlines-7cf4991f",
+      "expectedMetricsAfterFix": {
+        "exportGhostAssistantCount": 0,
+        "placeholderVisibleBlockCount": 0,
+        "projectedGhostAssistantCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "activityGhostAssistantCount": 2,
+        "displaylessConclusionCount": 0,
+        "duplicateInvocationIDGroupCount": 0,
+        "exportGhostAssistantCount": 2,
+        "pendingToolAfterTerminalCount": 0,
+        "placeholderToolCount": 3,
+        "projectedGhostAssistantCount": 2,
+        "sourceGhostAssistantCount": 2,
+        "staleConclusionCount": 0
+      },
+      "fixturePath": "sessions/cursor-acp-ghost-newlines-7cf4991f.min.json",
+      "issues": [
+        "ghostAssistantRows",
+        "cursorOtherPlaceholderTools"
+      ],
+      "minimization": {
+        "fixtureByteCount": 8332,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [
+          "\n\n\n"
+        ],
+        "preservedSequenceIndexes": [
+          7,
+          8,
+          9,
+          20,
+          21,
+          22
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "cursor-acp",
+      "source": {
+        "sourceByteCount": 22101,
+        "sourceFileName": "AgentSession-7CF4991F-B84B-47E8-AF90-E82FB66B08F5.json",
+        "sourceFileSHA256": "sha256:89e0b34feb54b23022b331e938098e8d09f2acba54fcab1713ab41d52a96cd7b",
+        "sourceProviderSessionIDHash": "sha256:df293b8b61273a70228de98a41475ae9c7ee42535694c93eb8e4f94c974c8315",
+        "sourceSessionID": "7CF4991F-B84B-47E8-AF90-E82FB66B08F5",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 5179,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 22101,
+        "sourceGhostAssistantCount": 2,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "codexExec",
+      "caseID": "codex-empty-assistant-1a5fa4e5",
+      "expectedMetricsAfterFix": {
+        "exportGhostAssistantCount": 0,
+        "placeholderVisibleBlockCount": 0,
+        "projectedGhostAssistantCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "activityGhostAssistantCount": 1,
+        "assistantMicroNoiseCount": 0,
+        "displaylessConclusionCount": 0,
+        "exportGhostAssistantCount": 1,
+        "pendingToolAfterTerminalCount": 0,
+        "placeholderToolCount": 2,
+        "projectedGhostAssistantCount": 1,
+        "sourceGhostAssistantCount": 1,
+        "staleConclusionCount": 0
+      },
+      "fixturePath": "sessions/codex-empty-assistant-1a5fa4e5.min.json",
+      "issues": [
+        "ghostAssistantRows",
+        "codexRunningSessionPendingTools",
+        "placeholderToolNoise"
+      ],
+      "minimization": {
+        "fixtureByteCount": 7011,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [
+          ""
+        ],
+        "preservedSequenceIndexes": [
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "codex",
+      "source": {
+        "sourceByteCount": 112811,
+        "sourceFileName": "AgentSession-1A5FA4E5-07BB-442C-82AE-C25FAECB0652.json",
+        "sourceFileSHA256": "sha256:f30dad7b995ad3451cb59347218276227d729287e50a6ba0469b048c5c198f91",
+        "sourceProviderSessionIDHash": "sha256:76bbf7b0ede518a0b299c4aa69fa2dc7ef0962219489ae6a29ff8ee9e4425f81",
+        "sourceSessionID": "1A5FA4E5-07BB-442C-82AE-C25FAECB0652",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 2073,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 112811,
+        "sourceGhostAssistantCount": 1,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "codexExec",
+      "caseID": "codex-dot-assistant-dcc3d87f",
+      "expectedMetricsAfterFix": {
+        "assistantMicroNoiseCount": 1,
+        "exportGhostAssistantCount": 0,
+        "projectedGhostAssistantCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "activityGhostAssistantCount": 0,
+        "assistantMicroNoiseCount": 1,
+        "displaylessConclusionCount": 0,
+        "pendingToolAfterTerminalCount": 0,
+        "projectedGhostAssistantCount": 0,
+        "sourceGhostAssistantCount": 0,
+        "staleConclusionCount": 0
+      },
+      "fixturePath": "sessions/codex-dot-assistant-dcc3d87f.min.json",
+      "issues": [
+        "assistantMicroNoise"
+      ],
+      "minimization": {
+        "fixtureByteCount": 6643,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [
+          "."
+        ],
+        "preservedSequenceIndexes": [
+          55,
+          56,
+          57,
+          58,
+          59
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "codex",
+      "source": {
+        "sourceByteCount": 154807,
+        "sourceFileName": "AgentSession-DCC3D87F-D5FC-4638-8D85-5A297412F1F2.json",
+        "sourceFileSHA256": "sha256:9e9897a31488a6324dad195279d99d583db33571ac1072c29cbe80271f596a4e",
+        "sourceProviderSessionIDHash": "sha256:a210f744f90484976f7f7fa44d616d5f5dac515d5114918132b079d94fc2d308",
+        "sourceSessionID": "DCC3D87F-D5FC-4638-8D85-5A297412F1F2",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 13243,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 154807,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "codexExec",
+      "caseID": "codex-legacy-huge-no-transcript-929ef811",
+      "expectedMetricsAfterFix": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxPersistedToolSummaryBytes": 2048,
+        "persistedRawBashOutputCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "duplicatedTextResultJSONCharsOriginal": 1377830,
+        "maxToolPayloadCharsOriginal": 1046057,
+        "pendingToolAfterTerminalCount": 0,
+        "persistedRawBashOutputCount": 2,
+        "persistedThinkingRowCount": 4,
+        "sessionFileBytesOriginal": 3507017,
+        "sourceGhostAssistantCount": 0
+      },
+      "fixturePath": "sessions/codex-legacy-huge-no-transcript-929ef811.min.json",
+      "issues": [
+        "legacyNoTranscript",
+        "hugeRawToolPayloadPersistence",
+        "duplicatedTextResultJSONChars",
+        "persistedThinkingRows"
+      ],
+      "minimization": {
+        "fixtureByteCount": 4373,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          0,
+          32,
+          33,
+          34,
+          60,
+          61,
+          62
+        ],
+        "strategy": "legacy-items-window"
+      },
+      "provider": "codex",
+      "source": {
+        "sourceByteCount": 3507017,
+        "sourceFileName": "AgentSession-929EF811-7509-4D43-938A-A6B7DEB028A8.json",
+        "sourceFileSHA256": "sha256:9a0cf94ff69bf32040e9e1249d73e40512ea3266da06df6b020614f3c5e744ce",
+        "sourceProviderSessionIDHash": "sha256:7aea92dbd96c57a0c2da9c0a04009b40586658dc597883ddde823a0395134624",
+        "sourceSessionID": "929EF811-7509-4D43-938A-A6B7DEB028A8",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 1377830,
+        "maxToolPayloadChars": 1046057,
+        "persistedRawBashOutputCount": 2,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 3507017,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 27
+      }
+    },
+    {
+      "agentKind": "codexExec",
+      "caseID": "codex-v2-large-file-search-45f6783b",
+      "expectedMetricsAfterFix": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxPersistedToolSummaryBytes": 2048,
+        "persistedRawFileSearchCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "duplicatedTextResultJSONCharsOriginal": 140944,
+        "maxToolPayloadCharsOriginal": 140944,
+        "pendingToolAfterTerminalCount": 0,
+        "persistedRawFileSearchCount": 1,
+        "sourceGhostAssistantCount": 0
+      },
+      "fixturePath": "sessions/codex-v2-large-file-search-45f6783b.min.json",
+      "issues": [
+        "hugeRawToolPayloadPersistence",
+        "modernTranscriptSanitizerPath"
+      ],
+      "minimization": {
+        "fixtureByteCount": 9385,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          558,
+          559,
+          560,
+          561,
+          562
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "codex",
+      "source": {
+        "sourceByteCount": 1185633,
+        "sourceFileName": "AgentSession-45F6783B-A9E8-4473-B9B6-01A243A798C8.json",
+        "sourceFileSHA256": "sha256:6d6942d65ab729d295d21edad4881ad4096f56eca4fe47616857978bad5637d7",
+        "sourceProviderSessionIDHash": "sha256:f7caa023f4b5b7d47779e3de3ac3b4b660fbc2bef2af30f8c018fbcc0f22be25",
+        "sourceSessionID": "45F6783B-A9E8-4473-B9B6-01A243A798C8",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 140944,
+        "maxToolPayloadChars": 140944,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 1,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 1185633,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "claudeCode",
+      "caseID": "claude-stale-running-conclusion-ec15d540",
+      "expectedMetricsAfterFix": {
+        "displaylessConclusionCount": 0,
+        "pendingToolAfterTerminalCount": 0,
+        "staleConclusionCount": 0,
+        "staleToolCallWithoutResultCount": 0,
+        "unresolvedToolCallCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "displaylessConclusionCount": 0,
+        "pendingToolAfterTerminalCount": 1,
+        "sourceGhostAssistantCount": 0,
+        "staleConclusionCount": 1,
+        "staleToolCallWithoutResultCount": 1,
+        "unresolvedToolCallCount": 1
+      },
+      "fixturePath": "sessions/claude-stale-running-conclusion-ec15d540.min.json",
+      "issues": [
+        "staleRunningToolAfterTerminal",
+        "staleConclusion"
+      ],
+      "minimization": {
+        "fixtureByteCount": 4007,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          8,
+          9,
+          10
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "claude",
+      "source": {
+        "sourceByteCount": 10188,
+        "sourceFileName": "AgentSession-EC15D540-B62C-4AEA-8BA9-2485FF7F6D48.json",
+        "sourceFileSHA256": "sha256:e426ea4b0c0955316f75a7b7b33ee26615d2632f110dbe113e6fb0a90473547e",
+        "sourceLabel": "C1/C4",
+        "sourceProviderSessionIDHash": "sha256:a328fd772414dca53c12a94cf50c7fb326132ef72235af80fff6d72092c5d71d",
+        "sourceSessionID": "EC15D540-B62C-4AEA-8BA9-2485FF7F6D48",
+        "sourceWorkspaceIDHash": "sha256:e2f2965482e079ff5239a336547281778cc0e4304fac19fbf726d7a3a9c93f75"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 1646,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 10188,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "claudeCode",
+      "caseID": "claude-huge-read-file-c264b9ae",
+      "expectedMetricsAfterFix": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxPersistedToolSummaryBytes": 2048,
+        "persistedRawReadFileCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "duplicatedTextResultJSONCharsOriginal": 81275,
+        "maxToolPayloadCharsOriginal": 376505,
+        "pendingToolAfterTerminalCount": 0,
+        "persistedRawReadFileCount": 2,
+        "sourceGhostAssistantCount": 0
+      },
+      "fixturePath": "sessions/claude-huge-read-file-c264b9ae.min.json",
+      "issues": [
+        "hugeRawToolPayloadPersistence",
+        "persistedRawReadFile"
+      ],
+      "minimization": {
+        "fixtureByteCount": 5985,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          1,
+          2,
+          3
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "claude",
+      "source": {
+        "sourceByteCount": 558029,
+        "sourceFileName": "AgentSession-C264B9AE-8CFB-4F76-86FB-0AE65E9D1A61.json",
+        "sourceFileSHA256": "sha256:4b062d6656a3aabdf55ab8515197ab0d7bb4c9ea624c1fe809418cf858dd5473",
+        "sourceLabel": "C2",
+        "sourceProviderSessionIDHash": "sha256:526f773ed134f4098c8bb694af0a9e6001ff21123ac7fc296255e2501afceed6",
+        "sourceSessionID": "C264B9AE-8CFB-4F76-86FB-0AE65E9D1A61",
+        "sourceWorkspaceIDHash": "sha256:e2f2965482e079ff5239a336547281778cc0e4304fac19fbf726d7a3a9c93f75"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 376505,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 1,
+        "sourceByteCount": 558029,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "gemini",
+      "caseID": "gemini-stale-running-tool-52687d25",
+      "expectedMetricsAfterFix": {
+        "pendingToolAfterTerminalCount": 0,
+        "staleToolCallWithoutResultCount": 0,
+        "unresolvedToolCallCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "displaylessConclusionCount": 0,
+        "pendingToolAfterTerminalCount": 1,
+        "sourceGhostAssistantCount": 0,
+        "staleToolCallWithoutResultCount": 1,
+        "unresolvedToolCallCount": 1
+      },
+      "fixturePath": "sessions/gemini-stale-running-tool-52687d25.min.json",
+      "issues": [
+        "staleRunningToolAfterTerminal"
+      ],
+      "minimization": {
+        "fixtureByteCount": 3249,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          1
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "gemini",
+      "source": {
+        "sourceByteCount": 5458,
+        "sourceFileName": "AgentSession-52687D25-C1EE-4904-90D6-E797DAFA200F.json",
+        "sourceFileSHA256": "sha256:80e6d577cc72de41ac93da5dad71baa8d8e15ed84855177fad1d99bd0af466bc",
+        "sourceLabel": "G1",
+        "sourceProviderSessionIDHash": "sha256:ba5e4e6ebd05d0fc932614a79709a0f5056771961898e4b30e803c6923f2cbc6",
+        "sourceSessionID": "52687D25-C1EE-4904-90D6-E797DAFA200F",
+        "sourceWorkspaceIDHash": "sha256:e2f2965482e079ff5239a336547281778cc0e4304fac19fbf726d7a3a9c93f75"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 446,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 5458,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "gemini",
+      "caseID": "gemini-huge-read-file-44ac4441",
+      "expectedMetricsAfterFix": {
+        "maxPersistedToolSummaryBytes": 2048,
+        "persistedRawReadFileCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "maxToolPayloadCharsOriginal": 308078,
+        "pendingToolAfterTerminalCount": 0,
+        "pendingToolCount": 3,
+        "persistedRawReadFileCount": 1,
+        "persistedThinkingRowCount": 1,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCountOriginal": 3
+      },
+      "fixturePath": "sessions/gemini-huge-read-file-44ac4441.min.json",
+      "issues": [
+        "hugeRawToolPayloadPersistence",
+        "persistedRawReadFile",
+        "persistedThinkingRows",
+        "pendingToolInActiveRun"
+      ],
+      "minimization": {
+        "fixtureByteCount": 8298,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          63,
+          64,
+          65,
+          66,
+          67,
+          68
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "gemini",
+      "source": {
+        "sourceByteCount": 474386,
+        "sourceFileName": "AgentSession-44AC4441-1BBA-4F19-AA7E-C3BB03975FBF.json",
+        "sourceFileSHA256": "sha256:4062790a4a5fdc10569db0d9b88fee3f585de27bd58f9e3939a5b88efd2f4645",
+        "sourceLabel": "G2/G5",
+        "sourceSessionID": "44AC4441-1BBA-4F19-AA7E-C3BB03975FBF",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 308078,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 1,
+        "sourceByteCount": 474386,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 3
+      }
+    },
+    {
+      "agentKind": "gemini",
+      "caseID": "gemini-duplicate-invocation-readme-25e5e3f5",
+      "expectedMetricsAfterFix": {
+        "duplicateInvocationIDGroupCount": 1,
+        "pathLikeToolNameVisibleCount": 0,
+        "resultOverwriteCorruptionCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "duplicateInvocationIDGroupCount": 1,
+        "orphanToolResultCount": 0,
+        "pathLikeToolNameCount": 1,
+        "pendingToolAfterTerminalCount": 0,
+        "sourceGhostAssistantCount": 0
+      },
+      "fixturePath": "sessions/gemini-duplicate-invocation-readme-25e5e3f5.min.json",
+      "issues": [
+        "duplicateInvocationID",
+        "pathLikeToolName"
+      ],
+      "minimization": {
+        "fixtureByteCount": 5385,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [],
+        "preservedSequenceIndexes": [
+          5,
+          9
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "gemini",
+      "source": {
+        "sourceByteCount": 10829,
+        "sourceFileName": "AgentSession-25E5E3F5-BB19-4425-A568-2A83B3140679.json",
+        "sourceFileSHA256": "sha256:acbf8c8fc33507d0d2ce7f905dae99dd5da36bb6b660031cdd80d8a2a0e765f2",
+        "sourceLabel": "G3/G4",
+        "sourceProviderSessionIDHash": "sha256:d532d53e22f9559759b151b7366d2e00c331b319416905913b4d3fcec4d8411a",
+        "sourceSessionID": "25E5E3F5-BB19-4425-A568-2A83B3140679",
+        "sourceWorkspaceIDHash": "sha256:e2f2965482e079ff5239a336547281778cc0e4304fac19fbf726d7a3a9c93f75"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 1000,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 10829,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    },
+    {
+      "agentKind": "openCode",
+      "caseID": "opencode-concise-final-e181fce3",
+      "expectedMetricsAfterFix": {
+        "displaylessConclusionCount": 0,
+        "lowSubstantiveFinalAnswerCount": 1,
+        "missingConclusionWithAssistantCount": 0
+      },
+      "expectedMetricsCurrent": {
+        "displaylessConclusionCount": 0,
+        "lowSubstantiveFinalAnswerCount": 1,
+        "missingConclusionWithAssistantCount": 0,
+        "sourceGhostAssistantCount": 0,
+        "staleConclusionCount": 0
+      },
+      "fixturePath": "sessions/opencode-concise-final-e181fce3.min.json",
+      "issues": [
+        "lowSubstantiveFinalAnswer",
+        "conclusionIntegrity"
+      ],
+      "minimization": {
+        "fixtureByteCount": 2122,
+        "payloadPolicy": "redact-tool-payloads-preserve-tool-name-status-invocation-equivalence",
+        "preservedExactTexts": [
+          "resumed after stop"
+        ],
+        "preservedSequenceIndexes": [
+          3
+        ],
+        "strategy": "windowed-turns"
+      },
+      "provider": "opencode",
+      "source": {
+        "sourceByteCount": 3319,
+        "sourceFileName": "AgentSession-E181FCE3-583C-4747-8AEC-A5D496300E8E.json",
+        "sourceFileSHA256": "sha256:d171e8c268071d6bb96fc9229780686e23c99347304f578906d7445b8f625292",
+        "sourceLabel": "O1",
+        "sourceProviderSessionIDHash": "sha256:a51abca20f1314330d2e51a78c61a31778c9004322e2db74c76501f3b0196835",
+        "sourceSessionID": "E181FCE3-583C-4747-8AEC-A5D496300E8E",
+        "sourceWorkspaceIDHash": "sha256:1a399d15856a3a0ede02305701085cfce457684143e03ff5213a415d1b3544d7"
+      },
+      "sourceOriginalMetrics": {
+        "duplicatedTextResultJSONChars": 0,
+        "maxToolPayloadChars": 96,
+        "persistedRawBashOutputCount": 0,
+        "persistedRawFileSearchCount": 0,
+        "persistedRawReadFileCount": 0,
+        "sourceByteCount": 3319,
+        "sourceGhostAssistantCount": 0,
+        "sourceThinkingRowCount": 0
+      }
+    }
+  ],
+  "createdAt": "2026-04-15T00:00:00Z",
+  "deferredSamples": [
+    {
+      "caseID": "cursor-acp-clean-baseline",
+      "reason": "Deferred from v1 to keep the audit corpus focused on correctness failures; no raw session committed."
+    },
+    {
+      "caseID": "claude-thinking-persisted-c3",
+      "reason": "No clean Claude itemKind=thinking source was resolved in this staging pass; covered generically by Codex/Gemini thinking payload cases.",
+      "sourceLabel": "C3"
+    },
+    {
+      "caseID": "claude-clean-baseline-c5",
+      "reason": "Deferred baseline; correctness cases C1/C2/C4 are staged first.",
+      "sourceLabel": "C5"
+    },
+    {
+      "caseID": "opencode-sanitization-o2",
+      "reason": "No separate clean sanitization source filename was resolved; OpenCode provider coverage is staged via O1.",
+      "sourceLabel": "O2"
+    },
+    {
+      "caseID": "opencode-shape-o3",
+      "reason": "Deferred baseline/shape sample; no distinct source filename was available in the Oracle export.",
+      "sourceLabel": "O3"
+    },
+    {
+      "caseID": "opencode-baseline-o4",
+      "reason": "Deferred clean baseline; no distinct source filename was available in the Oracle export.",
+      "sourceLabel": "O4"
+    }
+  ],
+  "description": "Redacted minimized historical AgentSession corpus for transcript correctness and payload-quality regressions.",
+  "globalPolicies": {
+    "maxPersistedToolSummaryBytes": 2048,
+    "rawToolPayloadsCommitted": false,
+    "redaction": "deterministic-tokenized",
+    "timestamps": "relative-shifted",
+    "uuidRemapping": "deterministic-per-fixture"
+  },
+  "version": 1
+}

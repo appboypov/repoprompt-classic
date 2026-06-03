@@ -1,0 +1,290 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function __construct(\n public readonly int $maxUsers = MAX_USERS, public readonly int $timeoutSeconds = DEFAULT_TIMEOUT",
+          "lineNumber" : 105,
+          "name" : "__construct",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "Config",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function __construct(\n public readonly string $id, public string $name, public string $email, public UserRole $role = UserRole::Guest",
+          "lineNumber" : 60,
+          "name" : "__construct",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function getDisplayName(): string",
+          "lineNumber" : 69,
+          "name" : "getDisplayName",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function validate(): bool",
+          "lineNumber" : 74,
+          "name" : "validate",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function toArray(): array",
+          "lineNumber" : 79,
+          "name" : "toArray",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public static function fromArray(array $data): self",
+          "lineNumber" : 89,
+          "name" : "fromArray",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "createdAt"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public static function validateEmail(string $email): bool",
+          "lineNumber" : 206,
+          "name" : "validateEmail",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserFactory",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public static function createUser(\n string $name, string $email, UserRole $role = UserRole::Guest",
+          "lineNumber" : 185,
+          "name" : "createUser",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserFactoryTrait",
+      "properties" : [
+        {
+          "name" : "counter"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function displayName(): string",
+          "lineNumber" : 32,
+          "name" : "displayName",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserRole",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function __construct(\n private readonly Config $config = new Config()",
+          "lineNumber" : 119,
+          "name" : "__construct",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public static function getInstance(?Config $config = null): self",
+          "lineNumber" : 123,
+          "name" : "getInstance",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function getCount(): int",
+          "lineNumber" : 131,
+          "name" : "getCount",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function fetch(): array",
+          "lineNumber" : 136,
+          "name" : "fetch",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function save(mixed $user): void",
+          "lineNumber" : 141,
+          "name" : "save",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function delete(string $id): bool",
+          "lineNumber" : 155,
+          "name" : "delete",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function find(string $id): ?User",
+          "lineNumber" : 164,
+          "name" : "find",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function getByRole(UserRole $role): array",
+          "lineNumber" : 169,
+          "name" : "getByRole",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "instance"
+        },
+        {
+          "name" : "users"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Admin",
+        "Editor",
+        "Viewer",
+        "Guest"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/php/smoke.php",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "function createUser(string $name, string $email): User",
+      "lineNumber" : 215,
+      "name" : "createUser",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "function validateEmail(string $email): bool",
+      "lineNumber" : 223,
+      "name" : "validateEmail",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "use DateTime;",
+    "use Exception;",
+    "use InvalidArgumentException;"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public function fetch(): array;",
+          "lineNumber" : 48,
+          "name" : "fetch",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function save(mixed $item): void;",
+          "lineNumber" : 49,
+          "name" : "save",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "public function delete(string $id): bool;",
+          "lineNumber" : 50,
+          "name" : "delete",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "DataProvider",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

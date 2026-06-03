@@ -1,0 +1,17 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 2,
+    "function.definition" : 4,
+    "function.param" : 4,
+    "import" : 1,
+    "type.class" : 2,
+    "type.class.decl" : 2,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.interface" : 1,
+    "type.interface.decl" : 1,
+    "variable.global" : 2
+  },
+  "fixture" : "fixtures/cs/edge_generics.cs",
+  "totalCaptures" : 21
+}

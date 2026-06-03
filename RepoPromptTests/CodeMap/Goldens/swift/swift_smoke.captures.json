@@ -1,0 +1,26 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 4,
+    "function.definition" : 6,
+    "import" : 2,
+    "swift.function.method" : 5,
+    "swift.function.name" : 7,
+    "swift.function.toplevel" : 1,
+    "swift.param.external" : 2,
+    "swift.param.local" : 4,
+    "swift.param.node" : 4,
+    "swift.param.type" : 4,
+    "swift.property.decl" : 13,
+    "swift.property.member" : 10,
+    "swift.property.toplevel" : 2,
+    "swift.protocol.decl" : 1,
+    "swift.protocol.method" : 1,
+    "swift.protocol.name" : 1,
+    "swift.type.decl" : 5,
+    "swift.type.name" : 5,
+    "type.class" : 5,
+    "type.enum" : 1
+  },
+  "fixture" : "fixtures/swift/smoke.swift",
+  "totalCaptures" : 83
+}

@@ -1,0 +1,111 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func innerMethod(value: String) -> Int",
+          "lineNumber" : 11,
+          "name" : "innerMethod",
+          "parameters" : [
+            {
+              "localName" : "value",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Int"
+        }
+      ],
+      "name" : "Inner",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func outerMethod(flag: Bool)",
+          "lineNumber" : 16,
+          "name" : "outerMethod",
+          "parameters" : [
+            {
+              "localName" : "flag",
+              "typeName" : "Bool"
+            }
+          ]
+        }
+      ],
+      "name" : "Outer",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/swift/nested_types.swift",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func innerRequirement()",
+          "lineNumber" : 7,
+          "name" : "innerRequirement",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "InnerProtocol",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func outerRequirement()",
+          "lineNumber" : 2,
+          "name" : "outerRequirement",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "OuterProtocol",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

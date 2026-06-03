@@ -1,0 +1,208 @@
+import Foundation
+
+// MARK: - MCP Agent Role Defaults Storage
+
+/// Storage boundary for global MCP Agent Mode role defaults.
+/// Role defaults are global across workspaces; legacy workspace-scoped values are migrated by GlobalSettingsStore.
+@MainActor
+protocol MCPAgentRoleDefaultsStoring: AnyObject {
+	func globalMCPAgentRoleOverrides() -> [String: String]?
+	func updateGlobalMCPAgentRoleOverrides(_ overrides: [String: String]?, commit: Bool)
+}
+
+extension GlobalSettingsStore: MCPAgentRoleDefaultsStoring {}
+
+// MARK: - MCP Agent Role Defaults Service
+
+/// Centralized resolution and persistence for global MCP agent role defaults.
+/// Used by the recommendation wizard, settings UI, and MCP runtime.
+@MainActor
+enum MCPAgentRoleDefaultsService {
+
+	// MARK: - Resolution Result
+
+	struct RoleDefaultResolution: Sendable, Equatable {
+		let role: AgentModelCatalog.TaskLabelKind
+		let roleLabel: String
+		let roleDescription: String
+
+		/// What the recommendation engine says is best for this role.
+		let recommended: AgentModelCatalog.NormalizedAgentSelection
+		let recommendedDisplayName: String
+
+		/// What will actually be used at runtime (may differ if user overrode).
+		let effective: AgentModelCatalog.NormalizedAgentSelection
+		let effectiveDisplayName: String
+
+		let hasCustomOverride: Bool
+		let overrideUnavailable: Bool
+
+		var selectionID: AgentModelSelectionID {
+			AgentModelSelectionID(agentRaw: effective.agent.rawValue, modelRaw: effective.modelRaw)
+		}
+	}
+
+	// MARK: - Resolve All
+
+	/// Returns global resolutions for all task label roles in canonical order.
+	static func resolutions(
+		availability: AgentModelCatalog.AvailabilityContext = .current,
+		recommendedAvailability: AgentModelCatalog.AvailabilityContext? = nil,
+		codexDynamicModels: [CodexAppServerClient.RemoteModel]? = nil,
+		settingsStore: any MCPAgentRoleDefaultsStoring = GlobalSettingsStore.shared
+	) -> [RoleDefaultResolution] {
+		let overrides = settingsStore.globalMCPAgentRoleOverrides()
+		let recommendationAvailability = recommendedAvailability ?? defaultRecommendedAvailability(from: availability, settingsStore: settingsStore)
+		return AgentModelCatalog.TaskLabelKind.allCases.compactMap { kind in
+			resolve(
+				kind: kind,
+				overrides: overrides,
+				availability: availability,
+				recommendedAvailability: recommendationAvailability,
+				codexDynamicModels: codexDynamicModels
+			)
+		}
+	}
+
+	/// Resolve one role's effective global selection.
+	static func effectiveSelection(
+		for role: AgentModelCatalog.TaskLabelKind,
+		availability: AgentModelCatalog.AvailabilityContext = .current,
+		recommendedAvailability: AgentModelCatalog.AvailabilityContext? = nil,
+		codexDynamicModels: [CodexAppServerClient.RemoteModel]? = nil,
+		settingsStore: any MCPAgentRoleDefaultsStoring = GlobalSettingsStore.shared
+	) -> RoleDefaultResolution? {
+		let overrides = settingsStore.globalMCPAgentRoleOverrides()
+		return resolve(
+			kind: role,
+			overrides: overrides,
+			availability: availability,
+			recommendedAvailability: recommendedAvailability ?? defaultRecommendedAvailability(from: availability, settingsStore: settingsStore),
+			codexDynamicModels: codexDynamicModels
+		)
+	}
+
+	/// Resolve just the effective normalized selection for runtime role-label resolution.
+	static func effectiveNormalizedSelection(
+		for role: AgentModelCatalog.TaskLabelKind,
+		availability: AgentModelCatalog.AvailabilityContext = .current,
+		settingsStore: any MCPAgentRoleDefaultsStoring = GlobalSettingsStore.shared
+	) -> AgentModelCatalog.NormalizedAgentSelection? {
+		effectiveSelection(
+			for: role,
+			availability: availability,
+			settingsStore: settingsStore
+		)?.effective
+	}
+
+	// MARK: - Mutations
+
+	/// Set a user-selected global override for a role.
+	/// If the selection matches the recommended default, the override is removed.
+	@discardableResult
+	static func setSelection(
+		_ selection: AgentModelCatalog.NormalizedAgentSelection,
+		for role: AgentModelCatalog.TaskLabelKind,
+		availability: AgentModelCatalog.AvailabilityContext = .current,
+		settingsStore: any MCPAgentRoleDefaultsStoring = GlobalSettingsStore.shared
+	) -> Bool {
+		let recommendationAvailability = defaultRecommendedAvailability(from: availability, settingsStore: settingsStore)
+		let recommended = AgentModelCatalog.resolveTaskLabelKind(role, availability: recommendationAvailability)
+		let selectionID = AgentModelSelectionID(agentRaw: selection.agent.rawValue, modelRaw: selection.modelRaw)
+		var overrides = settingsStore.globalMCPAgentRoleOverrides() ?? [:]
+
+		if let rec = recommended, rec == selection {
+			// Matches recommended — remove override
+			overrides.removeValue(forKey: role.rawValue)
+		} else {
+			overrides[role.rawValue] = selectionID.rawValue
+		}
+
+		settingsStore.updateGlobalMCPAgentRoleOverrides(overrides.isEmpty ? nil : overrides, commit: true)
+		return true
+	}
+
+	/// Clear one role's global override.
+	static func clearOverride(
+		for role: AgentModelCatalog.TaskLabelKind,
+		settingsStore: any MCPAgentRoleDefaultsStoring = GlobalSettingsStore.shared
+	) {
+		var overrides = settingsStore.globalMCPAgentRoleOverrides() ?? [:]
+		overrides.removeValue(forKey: role.rawValue)
+		settingsStore.updateGlobalMCPAgentRoleOverrides(overrides.isEmpty ? nil : overrides, commit: true)
+	}
+
+	/// Clear all global role overrides (revert to recommended defaults).
+	static func clearAllOverrides(
+		settingsStore: any MCPAgentRoleDefaultsStoring = GlobalSettingsStore.shared
+	) {
+		settingsStore.updateGlobalMCPAgentRoleOverrides(nil, commit: true)
+	}
+
+	// MARK: - Private
+
+	private static func defaultRecommendedAvailability(
+		from availability: AgentModelCatalog.AvailabilityContext,
+		settingsStore: any MCPAgentRoleDefaultsStoring
+	) -> AgentModelCatalog.AvailabilityContext {
+		guard let globalStore = settingsStore as? GlobalSettingsStore else {
+			return availability
+		}
+		return availability.filteredForRecommendationProviders(globalStore.globalRecommendationProviderFilter())
+	}
+
+	private static func resolve(
+		kind: AgentModelCatalog.TaskLabelKind,
+		overrides: [String: String]?,
+		availability: AgentModelCatalog.AvailabilityContext,
+		recommendedAvailability: AgentModelCatalog.AvailabilityContext,
+		codexDynamicModels: [CodexAppServerClient.RemoteModel]?
+	) -> RoleDefaultResolution? {
+		guard let taskLabel = AgentModelCatalog.taskLabel(for: kind) else { return nil }
+		guard let recommended = AgentModelCatalog.resolveTaskLabelKind(kind, availability: recommendedAvailability) else {
+			return nil
+		}
+
+		let recommendedDisplayName = "\(recommended.agent.displayName) \(AgentModelCatalog.displayName(for: recommended.modelRaw, agentKind: recommended.agent, codexDynamicModels: codexDynamicModels))"
+
+		// Check for stored override
+		let effective: AgentModelCatalog.NormalizedAgentSelection
+		var hasCustomOverride = false
+		var overrideUnavailable = false
+
+		if let overrideRaw = overrides?[kind.rawValue],
+			let parsed = AgentModelSelectionID.parse(overrideRaw),
+			let agent = DiscoverAgentKind(rawValue: parsed.agentRaw) {
+			// Codex may have dynamic model IDs, so validate agent availability and defer model-level validation.
+			if AgentModelCatalog.isAgentAvailable(agent, availability: availability) {
+				let sel = AgentModelCatalog.NormalizedAgentSelection(agent: agent, modelRaw: parsed.modelRaw)
+				effective = sel
+				hasCustomOverride = (sel != recommended)
+			} else {
+				effective = recommended
+				hasCustomOverride = true
+				overrideUnavailable = true
+			}
+		} else {
+			effective = recommended
+			if overrides?[kind.rawValue] != nil {
+				hasCustomOverride = true
+				overrideUnavailable = true
+			}
+		}
+
+		let effectiveDisplayName = "\(effective.agent.displayName) \(AgentModelCatalog.displayName(for: effective.modelRaw, agentKind: effective.agent, codexDynamicModels: codexDynamicModels))"
+
+		return RoleDefaultResolution(
+			role: kind,
+			roleLabel: taskLabel.label,
+			roleDescription: taskLabel.description,
+			recommended: recommended,
+			recommendedDisplayName: recommendedDisplayName,
+			effective: effective,
+			effectiveDisplayName: effectiveDisplayName,
+			hasCustomOverride: hasCustomOverride,
+			overrideUnavailable: overrideUnavailable
+		)
+	}
+}

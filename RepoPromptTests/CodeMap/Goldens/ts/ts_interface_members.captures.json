@@ -1,0 +1,13 @@
+{
+  "captureCountsByName" : {
+    "call_signature" : 1,
+    "construct_signature" : 1,
+    "index_signature" : 1,
+    "interface" : 8,
+    "method_signature" : 18,
+    "property_signature" : 14,
+    "ts.interface.decl" : 8
+  },
+  "fixture" : "fixtures/ts/interface_members.ts",
+  "totalCaptures" : 51
+}

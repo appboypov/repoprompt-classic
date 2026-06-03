@@ -1,0 +1,11 @@
+{
+  "captureCountsByName" : {
+    "class" : 1,
+    "export" : 4,
+    "function.definition" : 2,
+    "function.param" : 5,
+    "method" : 2
+  },
+  "fixture" : "fixtures/js/edge_exports.js",
+  "totalCaptures" : 14
+}

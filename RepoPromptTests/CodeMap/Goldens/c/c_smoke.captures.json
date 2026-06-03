@@ -1,0 +1,16 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 4,
+    "function.definition" : 7,
+    "import" : 5,
+    "macro" : 3,
+    "type.class.decl" : 5,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.struct" : 5,
+    "variable.field" : 8,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/c/smoke.c",
+  "totalCaptures" : 40
+}

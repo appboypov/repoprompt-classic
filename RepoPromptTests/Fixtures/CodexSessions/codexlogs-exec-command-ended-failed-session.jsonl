@@ -1,0 +1,4 @@
+{"method":"codex/event/exec_command_begin","payload":{"msg":{"type":"exec_command_begin","call_id":"call_test_ended","process_id":"85178","cwd":"/Users/example/Documents/XCode/RepoPrompt"}}}
+{"method":"item/commandExecution/outputDelta","payload":{"itemId":"call_test_ended","delta":"[smoke-2] tick 2\n"}}
+{"method":"codex/event/exec_command_end","payload":{"msg":{"type":"exec_command_end","call_id":"call_test_ended","process_id":"85178","status":"failed","exit_code":-1,"aggregated_output":"[smoke-2] tick 2\n","formatted_output":"[smoke-2] tick 2\n","duration":{"secs":53,"nanos":758018416}}}}
+{"method":"item/completed","payload":{"item":{"id":"call_test_ended","type":"commandExecution","status":"failed","exitCode":-1,"processId":"85178","durationMs":53758,"aggregatedOutput":"[smoke-2] tick 2\n"}}}

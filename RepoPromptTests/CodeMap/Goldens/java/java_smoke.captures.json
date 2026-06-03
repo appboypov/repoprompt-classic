@@ -1,0 +1,15 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 4,
+    "function.definition" : 27,
+    "function.param" : 23,
+    "type.class" : 4,
+    "type.class.decl" : 4,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.interface" : 1,
+    "type.interface.decl" : 1
+  },
+  "fixture" : "fixtures/java/smoke.java",
+  "totalCaptures" : 66
+}

@@ -1,0 +1,230 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "get value(): number",
+          "lineNumber" : 61,
+          "name" : "get value",
+          "parameters" : [
+
+          ],
+          "returnType" : "number"
+        },
+        {
+          "definitionLine" : "set name(n: string)",
+          "lineNumber" : 66,
+          "name" : "set name",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "get fullName(): string",
+          "lineNumber" : 71,
+          "name" : "get fullName",
+          "parameters" : [
+
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "set fullName(n: string)",
+          "lineNumber" : 75,
+          "name" : "set fullName",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "static get instance(): AccessorClass",
+          "lineNumber" : 82,
+          "name" : "get instance",
+          "parameters" : [
+
+          ],
+          "returnType" : "AccessorClass"
+        }
+      ],
+      "name" : "AccessorClass",
+      "properties" : [
+        {
+          "name" : "private _name: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "private _value: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "private static _instance: AccessorClass | null",
+          "typeName" : "AccessorClass | null"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor()",
+          "lineNumber" : 34,
+          "name" : "constructor",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "ModifierShowcase",
+      "properties" : [
+        {
+          "name" : "arrowMethod"
+        },
+        {
+          "name" : "declaredField: Date",
+          "typeName" : "Date"
+        },
+        {
+          "name" : "definiteField!: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "optionalField?: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "private privateArrow"
+        },
+        {
+          "name" : "private privateField: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "private readonly privateReadonlyField"
+        },
+        {
+          "name" : "private static privateStaticField"
+        },
+        {
+          "name" : "protected protectedField: boolean",
+          "typeName" : "boolean"
+        },
+        {
+          "name" : "public publicField: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "readonly readonlyField: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "static readonly CONSTANT"
+        },
+        {
+          "name" : "static staticField: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor(",
+          "lineNumber" : 42,
+          "name" : "constructor",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "getName(): string",
+          "lineNumber" : 50,
+          "name" : "getName",
+          "parameters" : [
+
+          ],
+          "returnType" : "string"
+        }
+      ],
+      "name" : "ParameterProperties",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "#privateMethod(): void",
+          "lineNumber" : 112,
+          "name" : "#privateMethod",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "getPrivate(): number",
+          "lineNumber" : 114,
+          "name" : "getPrivate",
+          "parameters" : [
+
+          ],
+          "returnType" : "number"
+        }
+      ],
+      "name" : "PrivateIdentifiers",
+      "properties" : [
+        {
+          "name" : "#truePrivate: number",
+          "typeName" : "number"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export abstract class AbstractBase {",
+    "export class AccessorClass {",
+    "export class ModifierShowcase {",
+    "export class ParameterProperties {",
+    "export class PrivateIdentifiers {"
+  ],
+  "filePath" : "fixtures/ts/class_fields_and_accessors.ts",
+  "functionSignatureTypes" : [
+    "AccessorClass"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "AccessorClass",
+    "Date"
+  ],
+  "referencedTypes" : [
+    "AccessorClass",
+    "Date"
+  ]
+}

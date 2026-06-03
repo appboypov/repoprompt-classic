@@ -1,0 +1,22 @@
+{
+  "captureCountsByName" : {
+    "_val" : 1,
+    "_val2" : 2,
+    "enum.entry" : 4,
+    "export" : 5,
+    "function.definition" : 2,
+    "import" : 2,
+    "interface" : 1,
+    "method" : 6,
+    "method_signature" : 3,
+    "ts.class.decl" : 1,
+    "ts.interface.decl" : 1,
+    "type.class" : 1,
+    "type.enum" : 1,
+    "typeAlias" : 4,
+    "variable.field" : 3,
+    "variable.global" : 3
+  },
+  "fixture" : "fixtures/ts/smoke.ts",
+  "totalCaptures" : 40
+}

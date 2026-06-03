@@ -1,0 +1,20 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 4,
+    "enum.entry" : 3,
+    "export" : 12,
+    "function.definition" : 3,
+    "interface" : 1,
+    "method" : 7,
+    "method_signature" : 2,
+    "ts.class.decl" : 3,
+    "ts.interface.decl" : 1,
+    "type.class" : 3,
+    "type.enum" : 1,
+    "typeAlias" : 1,
+    "variable.field" : 2,
+    "variable.global" : 4
+  },
+  "fixture" : "fixtures/ts/multi_class_mixed_globals.ts",
+  "totalCaptures" : 47
+}

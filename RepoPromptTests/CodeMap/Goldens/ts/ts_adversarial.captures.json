@@ -1,0 +1,21 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 7,
+    "call_signature" : 1,
+    "export" : 17,
+    "function.definition" : 5,
+    "import" : 2,
+    "interface" : 3,
+    "method" : 6,
+    "method_signature" : 2,
+    "property_signature" : 2,
+    "ts.class.decl" : 1,
+    "ts.interface.decl" : 3,
+    "type.class" : 1,
+    "typeAlias" : 1,
+    "variable.field" : 1,
+    "variable.global" : 7
+  },
+  "fixture" : "fixtures/ts/adversarial.ts",
+  "totalCaptures" : 59
+}

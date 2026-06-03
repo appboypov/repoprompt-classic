@@ -1,0 +1,239 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "export type RenderProp<T> = (value: T) => ReactNode",
+      "name" : "RenderProp"
+    }
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "overloaded(x: string): string",
+          "lineNumber" : 115,
+          "name" : "overloaded",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "overloaded(x: number): number",
+          "lineNumber" : 116,
+          "name" : "overloaded",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number"
+            }
+          ],
+          "returnType" : "number"
+        },
+        {
+          "definitionLine" : "overloaded(x: any): any",
+          "lineNumber" : 117,
+          "name" : "overloaded",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "any"
+            }
+          ],
+          "returnType" : "any"
+        },
+        {
+          "definitionLine" : "[\"computed-method\"](x: number)",
+          "lineNumber" : 122,
+          "name" : "[\"computed-method\"]",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "render()",
+          "lineNumber" : 126,
+          "name" : "render",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "ClassComponent",
+      "properties" : [
+        {
+          "name" : "decoratedField: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "state"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export class ClassComponent extends React.Component<{ title: string }> {",
+    "export const AnonymousDefault = () => (",
+    "export const Forwarded = forwardRef<HTMLDivElement, { id: string }>(function Forwarded(props, ref) {",
+    "export const GenericArrowComponent = <T,>(props: BoxProps<T>) => {",
+    "export const GenericUsage = () => {",
+    "export const Hooky = () => {",
+    "export const InlineHandlers = (props: { text: string; extra?: Record<string, unknown> }) => {",
+    "export const MemoWrapped = memo(function MemoWrapped(props: { n: number }) {",
+    "export const WithFragments = () => {",
+    "export default function App() {",
+    "export function ContainerNestingTSX() {",
+    "export function GenericFunctionComponent<T>(props: BoxProps<T>) {",
+    "export interface BoxProps<T> {",
+    "export type RenderProp<T> = (value: T) => ReactNode;"
+  ],
+  "filePath" : "fixtures/tsx/adversarial.tsx",
+  "functionSignatureTypes" : [
+    "BoxProps"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export const GenericArrowComponent = <T,>(props: BoxProps<T>) =>",
+      "lineNumber" : 20,
+      "name" : "GenericArrowComponent",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export function GenericFunctionComponent<T>(props: BoxProps<T>)",
+      "lineNumber" : 29,
+      "name" : "GenericFunctionComponent<T>",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "BoxProps<T>"
+        }
+      ]
+    },
+    {
+      "definitionLine" : "export const InlineHandlers = (props: { text: string; extra?: Record<string, unknown> }) =>",
+      "lineNumber" : 34,
+      "name" : "InlineHandlers",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const WithFragments = () =>",
+      "lineNumber" : 57,
+      "name" : "WithFragments",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const MemoWrapped = memo(function MemoWrapped(props: { n: number }) { return <div>{props.n}</div>",
+      "lineNumber" : 71,
+      "name" : "MemoWrapped",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const Forwarded = forwardRef<HTMLDivElement, { id: string }>(function Forwarded(props, ref) { return ( <div ref={ref} data-id={props.id}> forwarded </div> )",
+      "lineNumber" : 75,
+      "name" : "Forwarded",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const GenericUsage = () =>",
+      "lineNumber" : 84,
+      "name" : "GenericUsage",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const Hooky = () =>",
+      "lineNumber" : 99,
+      "name" : "Hooky",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export function ContainerNestingTSX()",
+      "lineNumber" : 142,
+      "name" : "ContainerNestingTSX",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export default function App()",
+      "lineNumber" : 178,
+      "name" : "App",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const AnonymousDefault = () =>",
+      "lineNumber" : 183,
+      "name" : "AnonymousDefault",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "import React, { forwardRef, memo, useCallback, useMemo } from \"react\";",
+    "import type { ReactNode } from \"react\";"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "BoxProps",
+      "properties" : [
+        {
+          "name" : "label?: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "onValue?: (v: T) => void",
+          "typeName" : "(v: T) => void"
+        },
+        {
+          "name" : "render?: RenderProp<T>",
+          "typeName" : "RenderProp<T>"
+        },
+        {
+          "name" : "value: T",
+          "typeName" : "T"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "RenderProp"
+  ],
+  "referencedTypes" : [
+    "BoxProps",
+    "ReactNode",
+    "RenderProp"
+  ]
+}

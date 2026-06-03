@@ -1,0 +1,24 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 6,
+    "import" : 1,
+    "swift.function.method" : 6,
+    "swift.function.name" : 7,
+    "swift.param.external" : 1,
+    "swift.param.local" : 2,
+    "swift.param.node" : 2,
+    "swift.param.type" : 2,
+    "swift.property.decl" : 3,
+    "swift.property.member" : 3,
+    "swift.protocol.decl" : 1,
+    "swift.protocol.method" : 1,
+    "swift.protocol.name" : 1,
+    "swift.protocol.property" : 1,
+    "swift.protocol.property.decl" : 1,
+    "swift.type.decl" : 5,
+    "swift.type.name" : 6,
+    "type.class" : 1
+  },
+  "fixture" : "fixtures/swift/extensions.swift",
+  "totalCaptures" : 50
+}

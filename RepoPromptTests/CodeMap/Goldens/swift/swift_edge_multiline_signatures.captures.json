@@ -1,0 +1,25 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 18,
+    "function.definition" : 15,
+    "import" : 1,
+    "swift.function.method" : 6,
+    "swift.function.name" : 18,
+    "swift.function.toplevel" : 8,
+    "swift.param.external" : 7,
+    "swift.param.local" : 26,
+    "swift.param.node" : 26,
+    "swift.param.type" : 29,
+    "swift.property.decl" : 42,
+    "swift.property.member" : 29,
+    "swift.protocol.decl" : 1,
+    "swift.protocol.method" : 3,
+    "swift.protocol.name" : 1,
+    "swift.type.decl" : 14,
+    "swift.type.name" : 14,
+    "type.class" : 13,
+    "type.enum" : 4
+  },
+  "fixture" : "fixtures/swift/edge_multiline_signatures.swift",
+  "totalCaptures" : 275
+}

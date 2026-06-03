@@ -1,0 +1,45 @@
+import Foundation
+
+@MainActor
+final class AgentRuntimeMetricsUIStore: ObservableObject {
+	let runtimeVM = AgentRuntimeSidebarViewModel()
+	@Published private(set) var revision: Int = 0
+	private var lastLiveSelectedFileCount: Int?
+
+	func update(
+		transcriptSnapshot: AgentTranscriptAnalyticsSnapshot,
+		codexUsage: AgentContextUsage?,
+		liveSelectedFileCount: Int?,
+		selectedAgent: DiscoverAgentKind,
+		selectedModelRaw: String
+	) {
+		if let liveSelectedFileCount {
+			lastLiveSelectedFileCount = liveSelectedFileCount
+		}
+		let previousSnapshot = runtimeVM.snapshot
+		runtimeVM.update(
+			snapshot: transcriptSnapshot,
+			codexUsage: codexUsage,
+			liveSelectedFileCount: lastLiveSelectedFileCount,
+			selectedAgent: selectedAgent,
+			selectedModelRaw: selectedModelRaw
+		)
+		let didPublish = runtimeVM.snapshot != previousSnapshot
+		if didPublish {
+			revision &+= 1
+		}
+		#if DEBUG
+		AgentModePerfDiagnostics.recordStoreUpdate(
+			"runtimeMetrics",
+			published: didPublish,
+			details: [
+				"revision": String(revision),
+				"usedTokens": runtimeVM.snapshot.usedTokens.map(String.init) ?? "nil",
+				"estimatedTranscriptTokens": runtimeVM.snapshot.estimatedTranscriptTokens.map(String.init) ?? "nil",
+				"selectionFileCount": runtimeVM.snapshot.selectionFileCount.map(String.init) ?? "nil",
+				"updatedAtChanged": String(runtimeVM.snapshot.updatedAt != previousSnapshot.updatedAt)
+			]
+		)
+		#endif
+	}
+}

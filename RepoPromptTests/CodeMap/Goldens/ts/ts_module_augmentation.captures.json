@@ -1,0 +1,21 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 1,
+    "enum.entry" : 4,
+    "export" : 4,
+    "function.definition" : 1,
+    "import" : 1,
+    "interface" : 1,
+    "method" : 2,
+    "property_signature" : 3,
+    "ts.class.decl" : 1,
+    "ts.interface.decl" : 1,
+    "type.class" : 1,
+    "type.enum" : 1,
+    "typeAlias" : 1,
+    "variable.field" : 1,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/ts/module_augmentation.ts",
+  "totalCaptures" : 24
+}

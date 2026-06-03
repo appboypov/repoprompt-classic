@@ -1,0 +1,402 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public int getMaxUsers()",
+          "lineNumber" : 100,
+          "name" : "getMaxUsers",
+          "parameters" : [
+
+          ],
+          "returnType" : "int"
+        },
+        {
+          "definitionLine" : "public int getTimeoutSeconds()",
+          "lineNumber" : 101,
+          "name" : "getTimeoutSeconds",
+          "parameters" : [
+
+          ],
+          "returnType" : "int"
+        }
+      ],
+      "name" : "Config",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public String getId()",
+          "lineNumber" : 56,
+          "name" : "getId",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "public String getName()",
+          "lineNumber" : 57,
+          "name" : "getName",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "public String getEmail()",
+          "lineNumber" : 58,
+          "name" : "getEmail",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "public UserRole getRole()",
+          "lineNumber" : 59,
+          "name" : "getRole",
+          "parameters" : [
+
+          ],
+          "returnType" : "UserRole"
+        },
+        {
+          "definitionLine" : "public Date getCreatedAt()",
+          "lineNumber" : 60,
+          "name" : "getCreatedAt",
+          "parameters" : [
+
+          ],
+          "returnType" : "Date"
+        },
+        {
+          "definitionLine" : "public void setName(String name)",
+          "lineNumber" : 63,
+          "name" : "setName",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "public void setEmail(String email)",
+          "lineNumber" : 64,
+          "name" : "setEmail",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "public void setRole(UserRole role)",
+          "lineNumber" : 65,
+          "name" : "setRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "public String getDisplayName()",
+          "lineNumber" : 67,
+          "name" : "getDisplayName",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "public boolean validate()",
+          "lineNumber" : 71,
+          "name" : "validate",
+          "parameters" : [
+
+          ],
+          "returnType" : "boolean"
+        },
+        {
+          "definitionLine" : "public String toString()",
+          "lineNumber" : 76,
+          "name" : "toString",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public static User create(String name, String email)",
+          "lineNumber" : 170,
+          "name" : "create",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "User"
+        },
+        {
+          "definitionLine" : "public static User create(String name, String email, UserRole role)",
+          "lineNumber" : 174,
+          "name" : "create",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "String"
+            },
+            {
+              "localName" : "param2",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "User"
+        },
+        {
+          "definitionLine" : "public static boolean validateEmail(String email)",
+          "lineNumber" : 180,
+          "name" : "validateEmail",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "boolean"
+        }
+      ],
+      "name" : "UserFactory",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public String getValue()",
+          "lineNumber" : 23,
+          "name" : "getValue",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        }
+      ],
+      "name" : "UserRole",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public static synchronized UserService getInstance(Config config)",
+          "lineNumber" : 118,
+          "name" : "getInstance",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Config"
+            }
+          ],
+          "returnType" : "UserService"
+        },
+        {
+          "definitionLine" : "public List<User> fetch()",
+          "lineNumber" : 126,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "List<User>"
+        },
+        {
+          "definitionLine" : "public void save(User user)",
+          "lineNumber" : 131,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "public boolean delete(String id)",
+          "lineNumber" : 145,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "boolean"
+        },
+        {
+          "definitionLine" : "public Optional<User> find(String id)",
+          "lineNumber" : 149,
+          "name" : "find",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Optional<User>"
+        },
+        {
+          "definitionLine" : "public List<User> getByRole(UserRole role)",
+          "lineNumber" : 153,
+          "name" : "getByRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "List<User>"
+        },
+        {
+          "definitionLine" : "public int count()",
+          "lineNumber" : 159,
+          "name" : "count",
+          "parameters" : [
+
+          ],
+          "returnType" : "int"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ADMIN",
+        "EDITOR",
+        "VIEWER",
+        "GUEST"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/java/smoke.java",
+  "functionSignatureTypes" : [
+    "Config",
+    "Date",
+    "Optional",
+    "T",
+    "User",
+    "UserRole",
+    "UserService"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "List<T> fetch();",
+          "lineNumber" : 32,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "List<T>"
+        },
+        {
+          "definitionLine" : "void save(T item);",
+          "lineNumber" : 33,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "boolean delete(String id);",
+          "lineNumber" : 34,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "boolean"
+        }
+      ],
+      "name" : "DataProvider",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "Date",
+    "Optional",
+    "T",
+    "User",
+    "UserRole",
+    "UserService"
+  ]
+}

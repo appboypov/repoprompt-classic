@@ -1,0 +1,49 @@
+{
+  "fixtureVersion": 1,
+  "fixtureKind": "cursor-native-edit-tool-capture",
+  "provider": "cursor-acp",
+  "agentModel": "composer-2",
+  "workspace": "BombSquad",
+  "sessionName": "Native Edit Tool Capture Test",
+  "sessionID": "80964BA0-9B0E-4922-8DF1-0388CB80F8BE",
+  "collectedBy": "rp-cli-debug",
+  "collectionFlow": [
+    "xcodetester launch",
+    "rp-cli-debug workspace switch BombSquad",
+    "rp-cli-debug agent_run op=start model_id='cursor:composer-2'",
+    "rp-cli-debug agent_manage op=get_log",
+    "rp-cli-debug agent_manage op=extract_handoff"
+  ],
+  "prompt": "Use Cursor-native edit tooling (str_replace/strreplace style) rather than RepoPrompt apply_edits/file_actions if available. Create cursor_native_edit_capture_tmp.txt with line alpha and replace alpha->beta using your native edit tool. Then list exact tool names invoked.",
+  "assistantReportedTools": [
+    "RepoPrompt-set_status",
+    "RepoPrompt-file_search",
+    "ApplyPatch",
+    "RepoPrompt-read_file"
+  ],
+  "transcriptToolCalls": [
+    {
+      "name": "file_search",
+      "status": "success",
+      "summaryOnly": true,
+      "summaryText": "\"AGENTS.md\" • 0 matches in 0 files"
+    },
+    {
+      "name": "read_file",
+      "status": "success",
+      "summaryOnly": true,
+      "summaryText": "cursor_native_edit_capture_tmp.txt • Lines 1-1 of 1"
+    }
+  ],
+  "nativeEditEvidence": {
+    "nativeToolName": "ApplyPatch",
+    "source": "assistant final message in transcript",
+    "verbatim": "Exact tool names invoked:\n- `RepoPrompt-set_status`\n- `RepoPrompt-file_search`\n- `ApplyPatch`\n- `RepoPrompt-read_file`"
+  },
+  "transcriptXML": "<transcript>\n<user>Use Cursor-native edit tooling (str_replace/strreplace style) rather than RepoPrompt apply_edits/file_actions if available. Create cursor_native_edit_capture_tmp.txt with line alpha and replace alpha->beta using your native edit tool. Then list exact tool names invoked.</user>\n<assistant>I’ll do that now: set the session name, check for an `AGENTS.md` file, then create `cursor_native_edit_capture_tmp.txt`, replace `alpha` → `beta` using a native edit tool, and report exactly which tools were used.</assistant>\n<tool_call name=\"file_search\">{\"render_summary\":{\"op\":\"file_search\",\"schema_version\":1,\"status\":\"success\",\"subtitle\":\"\\\"AGENTS.md\\\" • 0 matches in 0 files\",\"title\":\"Search\",\"tool_name\":\"file_search\"},\"status\":\"success\",\"summary_only\":true,\"summary_text\":\"\\\"AGENTS.md\\\" • 0 matches in 0 files\"}</tool_call>\n<assistant>No `AGENTS.md` was found, so I’m proceeding with the edit test now: I’ll create the file with `alpha`, then run a second native edit to change it to `beta`.</assistant>\n<tool_call name=\"read_file\">{\"render_summary\":{\"op\":\"read_file\",\"schema_version\":1,\"status\":\"success\",\"subtitle\":\"cursor_native_edit_capture_tmp.txt • Lines 1-1 of 1\",\"title\":\"Read File\",\"tool_name\":\"read_file\"},\"status\":\"success\",\"summary_only\":true,\"summary_text\":\"cursor_native_edit_capture_tmp.txt • Lines 1-1 of 1\"}</tool_call>\n<assistant>Completed. `cursor_native_edit_capture_tmp.txt` now contains `beta` (created with `alpha`, then replaced `alpha` → `beta` using native edit tooling).\n\nExact tool names invoked:\n- `RepoPrompt-set_status`\n- `RepoPrompt-file_search`\n- `ApplyPatch`\n- `RepoPrompt-read_file`</assistant>\n</transcript>",
+  "notes": [
+    "This fixture captures a live Cursor ACP run where the assistant reports native edit tool usage via ApplyPatch.",
+    "In this export path, ApplyPatch does not appear as a separate <tool_call> row, which is itself relevant evidence for card/transcript planning.",
+    "Secondary/transcript-only evidence: the primary regression fixture for Cursor ACP tool normalization and native edit card rendering is cursor-acp-raw-capture-A7A86ADC.fixture.json."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 16,
+    "function.definition" : 21,
+    "import" : 1,
+    "swift.function.method" : 13,
+    "swift.function.name" : 25,
+    "swift.function.toplevel" : 8,
+    "swift.param.external" : 18,
+    "swift.param.local" : 36,
+    "swift.param.node" : 36,
+    "swift.param.type" : 44,
+    "swift.property.decl" : 5,
+    "swift.property.member" : 5,
+    "swift.protocol.decl" : 4,
+    "swift.protocol.method" : 4,
+    "swift.protocol.name" : 4,
+    "swift.type.decl" : 12,
+    "swift.type.name" : 12,
+    "type.class" : 12,
+    "type.enum" : 4
+  },
+  "fixture" : "fixtures/swift/edge_attributes_modifiers.swift",
+  "totalCaptures" : 280
+}

@@ -1,0 +1,258 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "export type ComplexUnion<T> = | { kind: \"a\"; value: T } | { kind: \"b\"; value: { nested: T } } | (T extends string ? { kind: \"s\"; s: T } : never)",
+      "name" : "ComplexUnion"
+    }
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "overloaded(x: string): string",
+          "lineNumber" : 89,
+          "name" : "overloaded",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "overloaded(x: number): number",
+          "lineNumber" : 90,
+          "name" : "overloaded",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number"
+            }
+          ],
+          "returnType" : "number"
+        },
+        {
+          "definitionLine" : "overloaded(x: any): any",
+          "lineNumber" : 91,
+          "name" : "overloaded",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "any"
+            }
+          ],
+          "returnType" : "any"
+        },
+        {
+          "definitionLine" : "[\"computed-method\"](x: number): number",
+          "lineNumber" : 96,
+          "name" : "[\"computed-method\"]",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "[Symbol.iterator](): Iterator<number>",
+          "lineNumber" : 100,
+          "name" : "[Symbol.iterator]",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "nestedFactory()",
+          "lineNumber" : 105,
+          "name" : "nestedFactory",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "DecoratedAndComputed",
+      "properties" : [
+        {
+          "name" : "readonly field: number",
+          "typeName" : "number"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export class DecoratedAndComputed {",
+    "export const PAREN_EXPR = (1 + 2) * 3;",
+    "export const asyncArrow = async (x: number): Promise<number> => {",
+    "export const café = 1;",
+    "export const dynImportResult = import(\"./dyn\");",
+    "export const functionExpr = function named(x: number): number {",
+    "export const multiLineArrow =",
+    "export const wrappedArrow = ((x: number): number => x + 1);",
+    "export default function () {",
+    "export function containerNesting() {",
+    "export function naïve<T extends { ü: string }>(arg: T): T {",
+    "export interface MergeMe {",
+    "export interface OverloadedCallable {",
+    "export namespace MergeMe {",
+    "export type ComplexUnion<T> =",
+    "export {}; // \"empty export\" marks a module"
+  ],
+  "filePath" : "fixtures/ts/adversarial.ts",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function naïve<T extends { ü: string }>(arg: T): T",
+      "lineNumber" : 23,
+      "name" : "naïve",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "T"
+        }
+      ],
+      "returnType" : "T"
+    },
+    {
+      "definitionLine" : "export const multiLineArrow = <T extends string | number>( x: T, y: T, ): T =>",
+      "lineNumber" : 28,
+      "name" : "multiLineArrow",
+      "parameters" : [
+
+      ],
+      "returnType" : "T =>"
+    },
+    {
+      "definitionLine" : "export const asyncArrow = async (x: number): Promise<number> =>",
+      "lineNumber" : 36,
+      "name" : "asyncArrow",
+      "parameters" : [
+
+      ],
+      "returnType" : "Promise<number> => {"
+    },
+    {
+      "definitionLine" : "export const wrappedArrow = ((x: number): number =>",
+      "lineNumber" : 41,
+      "name" : "wrappedArrow",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "any"
+        }
+      ],
+      "returnType" : "number"
+    },
+    {
+      "definitionLine" : "export function containerNesting()",
+      "lineNumber" : 116,
+      "name" : "containerNesting",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const PAREN_EXPR",
+      "name" : "PAREN_EXPR"
+    },
+    {
+      "definitionLine" : "export const café",
+      "name" : "café"
+    },
+    {
+      "definitionLine" : "export const dynImportResult",
+      "name" : "dynImportResult"
+    },
+    {
+      "definitionLine" : "export const functionExpr",
+      "name" : "functionExpr"
+    }
+  ],
+  "imports" : [
+    "import Bar = require(\"bar\");",
+    "import type { User as UserType } from \"./types\";"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "MergeMe",
+      "properties" : [
+        {
+          "name" : "a: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "MergeMe",
+      "properties" : [
+        {
+          "name" : "b: number",
+          "typeName" : "number"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "foo(x: string): string",
+          "lineNumber" : 74,
+          "name" : "foo",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "foo(x: number): number",
+          "lineNumber" : 75,
+          "name" : "foo",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number"
+            }
+          ],
+          "returnType" : "number"
+        },
+        {
+          "definitionLine" : "( x: string, y: number, ): Promise<string>",
+          "lineNumber" : 77,
+          "name" : "call",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "OverloadedCallable",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

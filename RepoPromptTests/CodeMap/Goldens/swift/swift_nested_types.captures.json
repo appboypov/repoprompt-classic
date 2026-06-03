@@ -1,0 +1,18 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 2,
+    "swift.function.method" : 2,
+    "swift.function.name" : 4,
+    "swift.param.local" : 2,
+    "swift.param.node" : 2,
+    "swift.param.type" : 2,
+    "swift.protocol.decl" : 2,
+    "swift.protocol.method" : 2,
+    "swift.protocol.name" : 2,
+    "swift.type.decl" : 2,
+    "swift.type.name" : 2,
+    "type.class" : 2
+  },
+  "fixture" : "fixtures/swift/nested_types.swift",
+  "totalCaptures" : 26
+}

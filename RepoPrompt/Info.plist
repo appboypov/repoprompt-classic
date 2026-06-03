@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>REPOPROMPT_LAUNCH_SOURCE</key>
+		<string>launchservices</string>
+	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.pvncher.repoprompt</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>repoprompt</string>
+			</array>
+			<key>CFBundleURLIconFile</key>
+			<string>AppIcon</string>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>RepoPrompt Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.pvncher.repoprompt.document</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.pvncher.repoprompt.document</string>
+			<key>UTTypeDescription</key>
+			<string>RepoPrompt Document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>RepoPrompt needs local network access to enable MCP server functionality, allowing external tools to connect and interact with your workspace.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_preflight_check._tcp</string>
+		<string>_mcp._tcp</string>
+	</array>
+</dict>
+</plist>

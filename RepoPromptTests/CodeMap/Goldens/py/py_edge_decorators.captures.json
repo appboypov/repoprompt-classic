@@ -1,0 +1,12 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 3,
+    "function.param" : 2,
+    "import" : 1,
+    "type.class" : 2,
+    "type.class.decl" : 2,
+    "variable.global" : 3
+  },
+  "fixture" : "fixtures/py/edge_decorators.py",
+  "totalCaptures" : 13
+}

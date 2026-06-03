@@ -1,0 +1,14 @@
+{
+  "captureCountsByName" : {
+    "class" : 1,
+    "export" : 6,
+    "function.definition" : 2,
+    "function.param" : 8,
+    "import" : 2,
+    "method" : 5,
+    "variable.field" : 3,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/js/smoke.js",
+  "totalCaptures" : 28
+}

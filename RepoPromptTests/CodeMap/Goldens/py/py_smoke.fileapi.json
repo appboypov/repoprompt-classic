@@ -1,0 +1,344 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "async def fetch(self) -> List[T]:",
+          "lineNumber" : 55,
+          "name" : "fetch",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ],
+          "returnType" : "List[T]"
+        },
+        {
+          "definitionLine" : "async def save(self, item: T) -> None:",
+          "lineNumber" : 60,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "None"
+        },
+        {
+          "definitionLine" : "async def delete(self, item_id: str) -> bool:",
+          "lineNumber" : 65,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "str"
+            }
+          ],
+          "returnType" : "bool"
+        }
+      ],
+      "name" : "DataProvider",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "def __post_init__(self):",
+          "lineNumber" : 32,
+          "name" : "__post_init__",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "def display_name(self) -> str:",
+          "lineNumber" : 37,
+          "name" : "display_name",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ],
+          "returnType" : "str"
+        },
+        {
+          "definitionLine" : "def to_dict(self) -> Dict[str, any]:",
+          "lineNumber" : 41,
+          "name" : "to_dict",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ],
+          "returnType" : "Dict[str, any]"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "email",
+          "typeName" : ""
+        },
+        {
+          "name" : "id",
+          "typeName" : ""
+        },
+        {
+          "name" : "metadata",
+          "typeName" : ""
+        },
+        {
+          "name" : "name",
+          "typeName" : ""
+        },
+        {
+          "name" : "role",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "def __init__(self, config: Optional[Dict] = None):",
+          "lineNumber" : 75,
+          "name" : "__init__",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "Optional[Dict]"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "def get_instance(cls, config: Optional[Dict] = None) -> UserService:",
+          "lineNumber" : 81,
+          "name" : "get_instance",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "Optional[Dict]"
+            }
+          ],
+          "returnType" : "UserService"
+        },
+        {
+          "definitionLine" : "async def fetch(self) -> List[User]:",
+          "lineNumber" : 87,
+          "name" : "fetch",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ],
+          "returnType" : "List[User]"
+        },
+        {
+          "definitionLine" : "async def save(self, user: User) -> None:",
+          "lineNumber" : 91,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "None"
+        },
+        {
+          "definitionLine" : "async def delete(self, user_id: str) -> bool:",
+          "lineNumber" : 95,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "str"
+            }
+          ],
+          "returnType" : "bool"
+        },
+        {
+          "definitionLine" : "def get_by_role(self, role: UserRole) -> List[User]:",
+          "lineNumber" : 102,
+          "name" : "get_by_role",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "List[User]"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "_instance",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ADMIN",
+        "EDITOR",
+        "VIEWER",
+        "GUEST"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/py/smoke.py",
+  "functionSignatureTypes" : [
+    "T",
+    "User",
+    "UserRole",
+    "UserService",
+    "str, any"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "def create_user(name: str, email: str, role: UserRole = UserRole.GUEST) -> User:",
+      "lineNumber" : 107,
+      "name" : "create_user",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "str"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "str"
+        },
+        {
+          "localName" : "param2",
+          "typeName" : "UserRole"
+        }
+      ],
+      "returnType" : "User"
+    },
+    {
+      "definitionLine" : "async def batch_save_users(service: UserService, users: List[User]) -> int:",
+      "lineNumber" : 118,
+      "name" : "batch_save_users",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "UserService"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "List[User]"
+        }
+      ],
+      "returnType" : "int"
+    },
+    {
+      "definitionLine" : "def _validate_email(email: str) -> bool:",
+      "lineNumber" : 132,
+      "name" : "_validate_email",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "str"
+        }
+      ],
+      "returnType" : "bool"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "DEFAULT_TIMEOUT:",
+      "name" : "DEFAULT_TIMEOUT",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "MAX_USERS:",
+      "name" : "MAX_USERS",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "T = TypeVar('T')",
+      "name" : "T",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "VERSION:",
+      "name" : "VERSION",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "from abc import ABC, abstractmethod",
+    "from dataclasses import dataclass, field",
+    "from enum import Enum, auto",
+    "from typing import Optional, List, Dict, TypeVar, Generic",
+    "import asyncio",
+    "import uuid"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "T",
+    "User",
+    "UserRole",
+    "UserService",
+    "str, any"
+  ]
+}

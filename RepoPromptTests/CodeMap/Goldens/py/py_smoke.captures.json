@@ -1,0 +1,12 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 15,
+    "function.param" : 12,
+    "import" : 6,
+    "type.class" : 4,
+    "type.class.decl" : 4,
+    "variable.global" : 14
+  },
+  "fixture" : "fixtures/py/smoke.py",
+  "totalCaptures" : 55
+}

@@ -1,0 +1,504 @@
+// MARK: - DEBUG Transport and Routing Diagnostics
+import Foundation
+import MCP
+
+#if DEBUG
+private actor MCPDebugDiagnosticsProbeStore {
+	struct CancellationRecord: Sendable {
+		let marker: String
+		let count: Int
+		let lastCancelledAt: Date?
+	}
+
+	static let shared = MCPDebugDiagnosticsProbeStore()
+
+	private var countsByMarker: [String: Int] = [:]
+	private var lastCancelledAtByMarker: [String: Date] = [:]
+
+	func recordCancel(marker: String) {
+		countsByMarker[marker, default: 0] += 1
+		lastCancelledAtByMarker[marker] = Date()
+	}
+
+	func snapshot(markers: [String]?) -> [CancellationRecord] {
+		let keys: [String]
+		if let markers, !markers.isEmpty {
+			keys = markers
+		} else {
+			keys = Array(Set(countsByMarker.keys).union(lastCancelledAtByMarker.keys)).sorted()
+		}
+		return keys.map { marker in
+			CancellationRecord(
+				marker: marker,
+				count: countsByMarker[marker] ?? 0,
+				lastCancelledAt: lastCancelledAtByMarker[marker]
+			)
+		}
+	}
+
+	func clear(markers: [String]?) {
+		if let markers, !markers.isEmpty {
+			for marker in markers {
+				countsByMarker.removeValue(forKey: marker)
+				lastCancelledAtByMarker.removeValue(forKey: marker)
+			}
+		} else {
+			countsByMarker.removeAll()
+			lastCancelledAtByMarker.removeAll()
+		}
+	}
+}
+
+extension ServerNetworkManager {
+	func debugPingPayload(
+		connectionID: UUID,
+		op: String,
+		arguments: [String: Value]
+	) async -> [String: Any] {
+		let identity = identityContext(for: connectionID)
+		let clientName = identity?.clientName ?? clientIdentifier(forConnection: connectionID)
+		let sessionToken = sessionToken(for: connectionID)
+		let windowID = selectedWindow(for: connectionID)
+		let bindingKind = await debugBindingKind(for: connectionID)
+		var payload: [String: Any] = [
+			"ok": true,
+			"op": op,
+			"connection_id": connectionID.uuidString,
+			"session_token_present": sessionToken != nil,
+			"session_key_present": sessionToken != nil,
+			"session_fingerprint": debugSessionFingerprint(forToken: sessionToken) ?? NSNull(),
+			"client_name": clientName ?? NSNull(),
+			"normalized_client_id": debugNormalizedClientID(for: clientName) ?? NSNull(),
+			"window_id": windowID ?? NSNull(),
+			"binding_kind": bindingKind
+		]
+		if let tag = debugString(arguments, "tag") {
+			payload["tag"] = tag
+		}
+		return payload
+	}
+
+	func debugConnectionSnapshotToolPayload(
+		op: String,
+		connectionID: UUID,
+		arguments: [String: Value]
+	) async -> CallTool.Result {
+		guard let requestedID = debugOptionalUUID(arguments, "connection_id", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "connection_id must be a UUID string when provided.")
+		}
+		let historyLimit: Int
+		switch debugBoundedInt(arguments, "history_limit", defaultValue: 20, range: 1...200) {
+		case .value(let value), .defaulted(let value): historyLimit = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "history_limit must be an integer in 1...200.")
+		}
+		let includeHistory = debugBool(arguments, "include_history") ?? false
+		return debugDiagnosticsResult(await debugConnectionSnapshotPayload(
+			currentConnectionID: connectionID,
+			requestedConnectionID: requestedID,
+			includeHistory: includeHistory,
+			historyLimit: historyLimit
+		))
+	}
+
+	func debugRoutingSnapshotToolPayload(
+		op: String,
+		connectionID: UUID,
+		arguments: [String: Value]
+	) async -> CallTool.Result {
+		guard let requestedID = debugOptionalUUID(arguments, "connection_id", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "connection_id must be a UUID string when provided.")
+		}
+		let payload = await debugRoutingSnapshotPayload(
+			currentConnectionID: connectionID,
+			requestedConnectionID: requestedID,
+			clientNameFilter: debugString(arguments, "client_name"),
+			includeRecords: debugBool(arguments, "include_records") ?? true,
+			includeWindows: debugBool(arguments, "include_windows") ?? true
+		)
+		return debugDiagnosticsResult(payload)
+	}
+
+	func debugConnectionHistoryToolPayload(op: String, arguments: [String: Value]) -> CallTool.Result {
+		let limit: Int
+		switch debugBoundedInt(arguments, "limit", defaultValue: 100, range: 1...500) {
+		case .value(let value), .defaulted(let value): limit = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "limit must be an integer in 1...500.")
+		}
+		guard let connectionID = debugOptionalUUID(arguments, "connection_id", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "connection_id must be a UUID string when provided.")
+		}
+		return debugDiagnosticsResult(debugConnectionHistoryPayload(
+			limit: limit,
+			clientName: debugString(arguments, "client_name"),
+			sessionFingerprint: debugString(arguments, "session_fingerprint"),
+			connectionID: connectionID
+		))
+	}
+
+	func debugClearConnectionHistoryToolPayload(op: String, arguments: [String: Value]) -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "clear_connection_history requires allow_destructive=true.")
+		}
+		return debugDiagnosticsResult(debugClearConnectionHistoryPayload())
+	}
+
+	func debugWaitForReconnectToolPayload(
+		op: String,
+		connectionID: UUID,
+		arguments: [String: Value]
+	) async -> CallTool.Result {
+		let timeoutMS: Int
+		switch debugBoundedInt(arguments, "timeout_ms", defaultValue: 10_000, range: 100...60_000) {
+		case .value(let value), .defaulted(let value): timeoutMS = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "timeout_ms must be an integer in 100...60000.")
+		}
+		let pollMS: Int
+		switch debugBoundedInt(arguments, "poll_ms", defaultValue: 100, range: 25...1_000) {
+		case .value(let value), .defaulted(let value): pollMS = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "poll_ms must be an integer in 25...1000.")
+		}
+		guard let excludeIDs = debugUUIDSet(arguments, "exclude_connection_ids", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "exclude_connection_ids must be a UUID string or array of UUID strings.")
+		}
+		let payload = await debugWaitForReconnectPayload(
+			currentConnectionID: connectionID,
+			clientName: debugString(arguments, "client_name"),
+			sessionFingerprint: debugString(arguments, "session_fingerprint"),
+			excludeConnectionIDs: excludeIDs,
+			timeoutMS: timeoutMS,
+			pollMS: pollMS,
+			requireReady: debugBool(arguments, "require_ready") ?? true
+		)
+		return debugDiagnosticsResult(payload, isError: (payload["ok"] as? Bool) == false)
+	}
+
+	func debugClearRoutingStateToolPayload(op: String, connectionID: UUID, arguments: [String: Value]) -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "clear_routing_state requires allow_destructive=true.")
+		}
+		let payload = debugClearRoutingStatePayload(
+			currentConnectionID: connectionID,
+			clientName: debugString(arguments, "client_name"),
+			allClients: debugBool(arguments, "all_clients") ?? false
+		)
+		return debugDiagnosticsResult(payload, isError: (payload["ok"] as? Bool) == false)
+	}
+
+	func debugSeedRoutingAffinityToolPayload(op: String, connectionID: UUID, arguments: [String: Value]) async -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "seed_routing_affinity requires allow_destructive=true.")
+		}
+		let targetID: UUID
+		if let rawTarget = debugString(arguments, "connection_id") {
+			guard let parsed = UUID(uuidString: rawTarget) else {
+				return debugDiagnosticsError(op: op, code: "invalid_params", message: "connection_id must be a UUID string.")
+			}
+			targetID = parsed
+		} else {
+			targetID = connectionID
+		}
+		let windowID: Int
+		switch debugBoundedInt(arguments, "window_id", defaultValue: 1, range: 1...10_000) {
+		case .value(let value), .defaulted(let value): windowID = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "window_id must be an integer in 1...10000.")
+		}
+		let payload = await debugSeedRoutingAffinityPayload(connectionID: targetID, windowID: windowID)
+		return debugDiagnosticsResult(payload, isError: (payload["ok"] as? Bool) == false)
+	}
+
+	func debugShutdownAndRestartToolPayload(op: String, arguments: [String: Value]) -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "shutdown_and_restart requires allow_destructive=true.")
+		}
+		let mode = debugString(arguments, "mode") ?? "network_manager"
+		guard mode == "network_manager" else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "mode must be network_manager.")
+		}
+		let delayMS: Int
+		switch debugBoundedInt(arguments, "delay_ms", defaultValue: 250, range: 100...10_000) {
+		case .value(let value), .defaulted(let value): delayMS = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "delay_ms must be an integer in 100...10000.")
+		}
+		let downMS: Int
+		switch debugBoundedInt(arguments, "down_ms", defaultValue: 1_000, range: 0...60_000) {
+		case .value(let value), .defaulted(let value): downMS = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "down_ms must be an integer in 0...60000.")
+		}
+		let restartID: UUID
+		if let rawRestartID = debugString(arguments, "restart_id") {
+			guard let parsed = UUID(uuidString: rawRestartID) else {
+				return debugDiagnosticsError(op: op, code: "invalid_params", message: "restart_id must be a UUID string.")
+			}
+			restartID = parsed
+		} else {
+			restartID = UUID()
+		}
+		return debugDiagnosticsResult(debugScheduleShutdownAndRestartPayload(
+			restartID: restartID,
+			delayMS: delayMS,
+			downMS: downMS,
+			mode: mode
+		))
+	}
+
+	func debugRestartStatusToolPayload(op: String, arguments: [String: Value]) -> CallTool.Result {
+		guard let restartID = debugOptionalUUID(arguments, "restart_id", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "restart_id must be a UUID string when provided.")
+		}
+		return debugDiagnosticsResult(debugRestartStatusPayload(restartID: restartID))
+	}
+
+	func debugConnectionsPayload(
+		op: String,
+		arguments: [String: Value]
+	) async -> CallTool.Result {
+		let includeIdentity = debugBool(arguments, "include_identity") ?? false
+		let snapshot = await dashboardSnapshot()
+		var payload: [String: Any] = [
+			"ok": true,
+			"op": op,
+			"connections": snapshot.connections.map { entry in
+				[
+					"id": entry.id.uuidString,
+					"client_name": entry.clientName.isEmpty ? NSNull() : entry.clientName,
+					"normalized_client_id": debugNormalizedClientID(for: entry.clientName) ?? NSNull(),
+					"window_id": entry.windowID.map { $0 as Any } ?? NSNull(),
+					"state": entry.state.rawValue,
+					"transport": entry.transport.rawValue,
+					"has_in_flight_calls": entry.hasInFlightCalls,
+					"active_tool_name": entry.activeToolName ?? NSNull(),
+					"session_key_present": entry.sessionKey != nil,
+					"session_fingerprint": debugSessionFingerprint(forToken: entry.sessionKey) ?? NSNull()
+				] as [String: Any]
+			}
+		]
+		if includeIdentity {
+			payload["identities"] = identityContextSnapshots().map { identity in
+				[
+					"connection_id": identity.connectionID.uuidString,
+					"client_name": identity.clientName ?? NSNull(),
+					"has_handshake": identity.hasHandshake,
+					"source": identity.source.rawValue,
+					"session_key_present": identity.capabilityToken != nil
+				] as [String: Any]
+			}
+		}
+		return debugDiagnosticsResult(payload)
+	}
+
+	func debugSleepPayload(op: String, arguments: [String: Value]) async -> CallTool.Result {
+		let milliseconds: Int
+		switch debugBoundedInt(arguments, "milliseconds", defaultValue: 0, range: 0...5_000) {
+		case .value(let value), .defaulted(let value):
+			milliseconds = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "milliseconds must be an integer in 0...5000.")
+		}
+		if milliseconds > 0 {
+			try? await Task.sleep(for: .milliseconds(milliseconds))
+		}
+		var payload: [String: Any] = [
+			"ok": true,
+			"op": op,
+			"slept_milliseconds": milliseconds
+		]
+		if let tag = debugString(arguments, "tag") {
+			payload["tag"] = tag
+		}
+		return debugDiagnosticsResult(payload)
+	}
+
+	func debugLargeResponsePayload(op: String, arguments: [String: Value]) -> CallTool.Result {
+		guard let payload = debugLargeResponseObject(op: op, arguments: arguments) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "bytes must be in 0...33554432 and character must be a single ASCII byte.")
+		}
+		return debugDiagnosticsResult(payload)
+	}
+
+	func debugSleepThenLargeResponsePayload(op: String, arguments: [String: Value]) async -> CallTool.Result {
+		let milliseconds: Int
+		switch debugBoundedInt(arguments, "milliseconds", defaultValue: 500, range: 0...5_000) {
+		case .value(let value), .defaulted(let value):
+			milliseconds = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "milliseconds must be an integer in 0...5000.")
+		}
+		if milliseconds > 0 {
+			try? await Task.sleep(for: .milliseconds(milliseconds))
+		}
+		guard let payload = debugLargeResponseObject(op: "large_response", arguments: arguments) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "bytes must be in 0...33554432 and character must be a single ASCII byte.")
+		}
+		var adjusted = payload
+		adjusted["op"] = op
+		adjusted["slept_milliseconds"] = milliseconds
+		return debugDiagnosticsResult(adjusted)
+	}
+
+	func debugForceRemoveConnectionPayload(
+		op: String,
+		connectionID: UUID,
+		arguments: [String: Value]
+	) async -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "force_remove_connection requires allow_destructive=true.")
+		}
+		guard let targetString = debugString(arguments, "connection_id"),
+			let targetID = UUID(uuidString: targetString) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "connection_id must be a UUID string.")
+		}
+		guard targetID != connectionID else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "Refusing to remove the calling connection.")
+		}
+		let snapshot = await dashboardSnapshot()
+		let existed = snapshot.connections.contains { $0.id == targetID }
+		if existed {
+			await removeConnection(targetID)
+		}
+		return debugDiagnosticsResult([
+			"ok": true,
+			"op": op,
+			"connection_id": targetID.uuidString,
+			"removed": existed
+		])
+	}
+
+	func debugSeedActiveToolProbePayload(op: String, arguments: [String: Value]) async -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "seed_active_tool_probe requires allow_destructive=true.")
+		}
+		let windowID: Int
+		switch debugBoundedInt(arguments, "window_id", defaultValue: 1, range: 1...10_000) {
+		case .value(let value), .defaulted(let value):
+			windowID = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "window_id must be an integer in 1...10000.")
+		}
+		guard let targetString = debugString(arguments, "connection_id"),
+			let targetID = UUID(uuidString: targetString) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "connection_id must be a UUID string.")
+		}
+		let toolName = debugString(arguments, "tool_name") ?? "context_builder"
+		guard let marker = debugString(arguments, "marker"), !marker.isEmpty, marker.count <= 128 else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "marker is required and must be <= 128 characters.")
+		}
+
+		let didSeed = await MainActor.run { () -> Bool in
+			guard let window = WindowStatesManager.shared.allWindows.first(where: { $0.windowID == windowID }) else {
+				return false
+			}
+			window.mcpServer.test_setActiveToolSlot(
+				toolName: toolName,
+				connectionID: targetID,
+				cancel: {
+					Task {
+						await MCPDebugDiagnosticsProbeStore.shared.recordCancel(marker: marker)
+					}
+				}
+			)
+			return true
+		}
+		guard didSeed else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "No window found for window_id \(windowID).")
+		}
+		debugMarkActiveToolOwner(windowID: windowID, connectionID: targetID, toolName: toolName)
+		return debugDiagnosticsResult([
+			"ok": true,
+			"op": op,
+			"window_id": windowID,
+			"connection_id": targetID.uuidString,
+			"tool_name": toolName,
+			"marker": marker
+		])
+	}
+
+	func debugActiveToolProbeStatusPayload(op: String, arguments: [String: Value]) async -> CallTool.Result {
+		guard let markers = debugStringArray(arguments, "markers", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "markers must be a string or an array of strings.")
+		}
+		let records = await MCPDebugDiagnosticsProbeStore.shared.snapshot(markers: markers)
+		return debugDiagnosticsResult([
+			"ok": true,
+			"op": op,
+			"cancellations": records.map { record in
+				var entry: [String: Any] = [
+					"marker": record.marker,
+					"count": record.count
+				]
+				if let lastCancelledAt = record.lastCancelledAt {
+					entry["last_cancelled_at"] = lastCancelledAt.timeIntervalSince1970
+				}
+				return entry
+			}
+		])
+	}
+
+	func debugClearActiveToolProbePayload(op: String, arguments: [String: Value]) async -> CallTool.Result {
+		guard debugBool(arguments, "allow_destructive") == true else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "clear_active_tool_probe requires allow_destructive=true.")
+		}
+		let windowID: Int
+		switch debugBoundedInt(arguments, "window_id", defaultValue: 1, range: 1...10_000) {
+		case .value(let value), .defaulted(let value):
+			windowID = value
+		case .invalid:
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "window_id must be an integer in 1...10000.")
+		}
+		guard let markers = debugStringArray(arguments, "markers", op: op) else {
+			return debugDiagnosticsError(op: op, code: "invalid_params", message: "markers must be a string or an array of strings.")
+		}
+		let didFindWindow = await MainActor.run { () -> Bool in
+			guard let window = WindowStatesManager.shared.allWindows.first(where: { $0.windowID == windowID }) else {
+				return false
+			}
+			window.mcpServer.test_clearActiveToolSlot()
+			return true
+		}
+		debugClearActiveToolOwner(windowID: windowID)
+		await MCPDebugDiagnosticsProbeStore.shared.clear(markers: markers)
+		return debugDiagnosticsResult([
+			"ok": true,
+			"op": op,
+			"window_id": windowID,
+			"window_found": didFindWindow
+		])
+	}
+
+	func debugBootstrapDiagnosticsPayload(op: String) async -> CallTool.Result {
+		let snapshot = await dashboardSnapshot()
+		return debugDiagnosticsResult([
+			"ok": true,
+			"op": op,
+			"socket_path": MCPFilesystemConstants.bootstrapSocketURL().path,
+			"manager_running": snapshot.isRunning,
+			"manager_enabled": NSNull(),
+			"listener": NSNull()
+		])
+	}
+
+	private func debugLargeResponseObject(op: String, arguments: [String: Value]) -> [String: Any]? {
+		let bytes: Int
+		switch debugBoundedInt(arguments, "bytes", defaultValue: 1_048_576, range: 0...33_554_432) {
+		case .value(let value), .defaulted(let value):
+			bytes = value
+		case .invalid:
+			return nil
+		}
+		let character = debugString(arguments, "character") ?? "A"
+		guard character.utf8.count == 1 else { return nil }
+		return [
+			"ok": true,
+			"op": op,
+			"bytes": bytes,
+			"payload": String(repeating: character, count: bytes)
+		]
+	}
+}
+#endif

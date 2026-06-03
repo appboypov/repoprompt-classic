@@ -1,0 +1,14 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 4,
+    "function.definition" : 17,
+    "function.param" : 7,
+    "import" : 6,
+    "type.class" : 4,
+    "type.class.decl" : 4,
+    "type.enum" : 1,
+    "type.enum.decl" : 1
+  },
+  "fixture" : "fixtures/cpp/smoke.cpp",
+  "totalCaptures" : 44
+}

@@ -1,0 +1,108 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "ID",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func (s *UserStore) Save(ctx context.Context, user *User) error",
+          "lineNumber" : 13,
+          "name" : "Save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "context.Context"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "*User"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "func (s UserStore) Name() string",
+          "lineNumber" : 17,
+          "name" : "Name",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserStore",
+      "properties" : [
+        {
+          "name" : "prefix",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/go/edge_methods.go",
+  "functionSignatureTypes" : [
+    "User",
+    "context.Context"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "func NewStore(prefix string) *UserStore",
+      "lineNumber" : 21,
+      "name" : "NewStore",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ]
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "var DefaultTimeout = 30",
+      "name" : "DefaultTimeout",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "const MaxUsers = 100",
+      "name" : "MaxUsers",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "import \"context\""
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "User",
+    "context.Context"
+  ]
+}

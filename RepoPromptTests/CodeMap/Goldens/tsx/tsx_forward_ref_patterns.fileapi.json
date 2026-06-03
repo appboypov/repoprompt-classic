@@ -1,0 +1,242 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "export type InputRef = ElementRef<typeof Input>",
+      "name" : "InputRef"
+    },
+    {
+      "definitionLine" : "export type ModalRef = ModalHandle",
+      "name" : "ModalRef"
+    },
+    {
+      "definitionLine" : "type PolymorphicBoxProps<E extends React.ElementType> = BoxProps<E> & Omit<React.ComponentPropsWithoutRef<E>, keyof BoxProps<E>>",
+      "name" : "PolymorphicBoxProps"
+    },
+    {
+      "definitionLine" : "type PolymorphicRef<E extends React.ElementType> = React.ComponentPropsWithRef<E>[\"ref\"]",
+      "name" : "PolymorphicRef"
+    }
+  ],
+  "classes" : [
+
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export const Box = forwardRef(function Box<E extends React.ElementType = \"div\">(",
+    "export const Button = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef<\"button\">>(",
+    "export const Card = memo(",
+    "export const Input = forwardRef<HTMLInputElement, InputProps>(",
+    "export const List = forwardRef(function List<T>(",
+    "export const Modal = forwardRef<ModalHandle, ModalProps>(",
+    "export const TextArea = TextAreaBase;",
+    "export function createInputRef(): React.RefObject<HTMLInputElement> {",
+    "export type InputRef = ElementRef<typeof Input>;",
+    "export type ModalRef = ModalHandle;"
+  ],
+  "filePath" : "fixtures/tsx/forward_ref_patterns.tsx",
+  "functionSignatureTypes" : [
+    "HTMLInputElement",
+    "React.RefObject"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export const Input = forwardRef<HTMLInputElement, InputProps>( function Input({ label, error, ...props }, ref) { return ( <div className=\"input-wrapper\"> {label && <label>{label}</label>} <input ref={ref} {...props} /> {error && <span className=\"error\">{error}</span>} </div> )",
+      "lineNumber" : 21,
+      "name" : "Input",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const Button = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef<\"button\">>( (props, ref) =>",
+      "lineNumber" : 34,
+      "name" : "Button",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const Card = memo( forwardRef<HTMLDivElement, CardProps>(function Card({ title, children }, ref) { return ( <div ref={ref} className=\"card\"> <h2>{title}</h2> {children} </div> )",
+      "lineNumber" : 44,
+      "name" : "Card",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const Modal = forwardRef<ModalHandle, ModalProps>( function Modal({ title, children }, ref) { const [isOpen, setIsOpen] = React.useState(false)",
+      "lineNumber" : 67,
+      "name" : "Modal",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const List",
+      "lineNumber" : 95,
+      "name" : "List",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export const Box",
+      "lineNumber" : 119,
+      "name" : "Box",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "const TextAreaBase = forwardRef<HTMLTextAreaElement, ComponentPropsWithoutRef<\"textarea\">>( function TextArea(props, ref) { return <textarea ref={ref} {...props} />",
+      "lineNumber" : 134,
+      "name" : "TextAreaBase",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export function createInputRef(): React.RefObject<HTMLInputElement>",
+      "lineNumber" : 143,
+      "name" : "createInputRef",
+      "parameters" : [
+
+      ],
+      "returnType" : "React.RefObject<HTMLInputElement>"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const TextArea",
+      "name" : "TextArea"
+    }
+  ],
+  "imports" : [
+    "import React, {\n    forwardRef,\n    memo,\n    useImperativeHandle,\n    useRef,\n    ForwardedRef,\n    ComponentPropsWithoutRef,\n    ElementRef,\n    ReactNode,\n} from \"react\";"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "BoxProps",
+      "properties" : [
+        {
+          "name" : "as?: E",
+          "typeName" : "E"
+        },
+        {
+          "name" : "children?: ReactNode",
+          "typeName" : "ReactNode"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "CardProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "title: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "InputProps",
+      "properties" : [
+        {
+          "name" : "error?: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "label?: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "ListProps",
+      "properties" : [
+        {
+          "name" : "items: T[]",
+          "typeName" : "T[]"
+        },
+        {
+          "name" : "renderItem: (item: T) => ReactNode",
+          "typeName" : "(item: T) => ReactNode"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "ModalHandle",
+      "properties" : [
+        {
+          "name" : "close: () => void",
+          "typeName" : "() => void"
+        },
+        {
+          "name" : "open: () => void",
+          "typeName" : "() => void"
+        },
+        {
+          "name" : "toggle: () => void",
+          "typeName" : "() => void"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "ModalProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "title: string",
+          "typeName" : "string"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "ReactNode"
+  ],
+  "referencedTypes" : [
+    "BoxProps",
+    "ComponentPropsWithoutRef",
+    "ElementRef",
+    "HTMLInputElement",
+    "Input",
+    "ModalHandle",
+    "Omit",
+    "React.ComponentPropsWithoutRef",
+    "React.RefObject",
+    "ReactNode"
+  ]
+}

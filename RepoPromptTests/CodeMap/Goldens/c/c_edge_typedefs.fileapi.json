@@ -1,0 +1,95 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "id",
+          "typeName" : ""
+        },
+        {
+          "name" : "name",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ROLE_ADMIN",
+        "ROLE_EDITOR"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/c/edge_typedefs.c",
+  "functionSignatureTypes" : [
+    "User"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "static int add(int a, int b)",
+      "lineNumber" : 17,
+      "name" : "add",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "int"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "int"
+        }
+      ],
+      "returnType" : "int"
+    },
+    {
+      "definitionLine" : "int create_user(const User *user)",
+      "lineNumber" : 19,
+      "name" : "create_user",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "User"
+        }
+      ],
+      "returnType" : "int"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "extern int max_users;",
+      "name" : "max_users",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "#include <stdint.h>"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+    "DEFAULT_TIMEOUT"
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "User",
+    "const"
+  ]
+}

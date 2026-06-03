@@ -1,0 +1,146 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public String code()",
+          "lineNumber" : 7,
+          "name" : "code",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        }
+      ],
+      "name" : "Status",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public int getId()",
+          "lineNumber" : 24,
+          "name" : "getId",
+          "parameters" : [
+
+          ],
+          "returnType" : "int"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public User getById(int id)",
+          "lineNumber" : 31,
+          "name" : "getById",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "int"
+            }
+          ],
+          "returnType" : "User"
+        },
+        {
+          "definitionLine" : "public void save(User item)",
+          "lineNumber" : 36,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "UserStore",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ACTIVE",
+        "DISABLED"
+      ],
+      "name" : "Status"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/java/edge_interfaces.java",
+  "functionSignatureTypes" : [
+    "T",
+    "User"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "T getById(int id);",
+          "lineNumber" : 13,
+          "name" : "getById",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "int"
+            }
+          ],
+          "returnType" : "T"
+        },
+        {
+          "definitionLine" : "void save(T item);",
+          "lineNumber" : 14,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "Store",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "T",
+    "User"
+  ]
+}

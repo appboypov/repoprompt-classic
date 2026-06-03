@@ -1,0 +1,13 @@
+{
+  "captureCountsByName" : {
+    "constant.global" : 2,
+    "function.definition" : 8,
+    "import" : 3,
+    "type.class" : 2,
+    "type.class.decl" : 2,
+    "variable.field" : 2,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/rb/smoke.rb",
+  "totalCaptures" : 20
+}

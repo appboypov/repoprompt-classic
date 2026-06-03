@@ -1,0 +1,96 @@
+import Foundation
+
+struct AgentTranscriptUISnapshot: Equatable {
+	var currentTabID: UUID?
+	var presentation: AgentTranscriptPresentationSnapshot
+	var isHydrated: Bool
+	var presentationRevision: Int
+	var followBindingState: AgentModeViewModel.ActiveTranscriptFollowBindingState
+	var activeSessionLoadInProgressTabID: UUID?
+	var activeBashLiveExecutionByItemID: [UUID: AgentModeViewModel.BashLiveExecutionState]
+	var runtimeFooterByItemID: [UUID: AgentMessageRuntimeFooter]
+	var fallbackFollowArmingState: AgentModeViewModel.AgentTranscriptAutoFollowArmingState
+	var archivedBlocks: [AgentTranscriptRenderBlock]
+
+	static let empty = AgentTranscriptUISnapshot(
+		currentTabID: nil,
+		presentation: .empty,
+		isHydrated: false,
+		presentationRevision: 0,
+		followBindingState: .init(),
+		activeSessionLoadInProgressTabID: nil,
+		activeBashLiveExecutionByItemID: [:],
+		runtimeFooterByItemID: [:],
+		fallbackFollowArmingState: .armed,
+		archivedBlocks: []
+	)
+
+	/// Custom equality uses `presentationRevision` as a cheap fingerprint for
+	/// the full `AgentTranscriptPresentationSnapshot`. The revision is bumped
+	/// by `AgentModeViewModel` whenever the presentation content changes, so
+	/// matching revisions (and matching tab scope) imply identical rows /
+	/// blocks / anchors without walking the large arrays. Other fields remain
+	/// compared directly because they can change independently of the
+	/// transcript presentation (follow state, live bash, runtime footers,
+	/// archived blocks, etc.).
+	static func == (lhs: AgentTranscriptUISnapshot, rhs: AgentTranscriptUISnapshot) -> Bool {
+		lhs.currentTabID == rhs.currentTabID
+			&& lhs.presentationRevision == rhs.presentationRevision
+			&& lhs.presentation.tabID == rhs.presentation.tabID
+			&& lhs.isHydrated == rhs.isHydrated
+			&& lhs.followBindingState == rhs.followBindingState
+			&& lhs.activeSessionLoadInProgressTabID == rhs.activeSessionLoadInProgressTabID
+			&& lhs.fallbackFollowArmingState == rhs.fallbackFollowArmingState
+			&& lhs.activeBashLiveExecutionByItemID == rhs.activeBashLiveExecutionByItemID
+			&& lhs.runtimeFooterByItemID == rhs.runtimeFooterByItemID
+			&& lhs.archivedBlocks == rhs.archivedBlocks
+	}
+}
+
+@MainActor
+final class AgentTranscriptUIStore: ObservableObject {
+	@Published private(set) var snapshot: AgentTranscriptUISnapshot = .empty
+
+	func update(_ snapshot: AgentTranscriptUISnapshot) {
+		let previousSnapshot = self.snapshot
+		guard previousSnapshot != snapshot else {
+			#if DEBUG
+			AgentModePerfDiagnostics.recordStoreUpdate("transcript", published: false)
+			AgentModeLayoutHotspotDiagnostics.increment("store.transcript.suppressed", tabID: snapshot.currentTabID)
+			#endif
+			return
+		}
+		#if DEBUG
+		AgentModeLayoutHotspotDiagnostics.increment("store.transcript.publish", tabID: snapshot.currentTabID)
+		if previousSnapshot.presentationRevision != snapshot.presentationRevision
+			|| previousSnapshot.presentation.tabID != snapshot.presentation.tabID {
+			AgentModeLayoutHotspotDiagnostics.increment("store.transcript.change.presentation", tabID: snapshot.currentTabID)
+		}
+		if previousSnapshot.activeBashLiveExecutionByItemID != snapshot.activeBashLiveExecutionByItemID
+			|| previousSnapshot.runtimeFooterByItemID != snapshot.runtimeFooterByItemID {
+			AgentModeLayoutHotspotDiagnostics.increment("store.transcript.change.runtime", tabID: snapshot.currentTabID)
+		}
+		if previousSnapshot.archivedBlocks != snapshot.archivedBlocks {
+			AgentModeLayoutHotspotDiagnostics.increment("store.transcript.change.archive", tabID: snapshot.currentTabID)
+		}
+		if previousSnapshot.followBindingState != snapshot.followBindingState
+			|| previousSnapshot.fallbackFollowArmingState != snapshot.fallbackFollowArmingState {
+			AgentModeLayoutHotspotDiagnostics.increment("store.transcript.change.follow", tabID: snapshot.currentTabID)
+		}
+		AgentModePerfDiagnostics.recordStoreUpdate(
+			"transcript",
+			published: true,
+			details: [
+				"tabID": AgentModePerfDiagnostics.shortID(snapshot.currentTabID),
+				"presentationRevision": String(snapshot.presentationRevision),
+				"visibleRows": String(snapshot.presentation.visibleRows.count),
+				"workingRows": String(snapshot.presentation.workingRows.count),
+				"runtimeFooters": String(snapshot.runtimeFooterByItemID.count),
+				"liveBash": String(snapshot.activeBashLiveExecutionByItemID.count),
+				"archivedBlocks": String(snapshot.archivedBlocks.count)
+			]
+		)
+		#endif
+		self.snapshot = snapshot
+	}
+}

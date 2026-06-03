@@ -1,0 +1,21 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 3,
+    "enum.entry" : 3,
+    "export" : 16,
+    "export.source" : 4,
+    "function.definition" : 3,
+    "interface" : 1,
+    "method" : 2,
+    "method_signature" : 2,
+    "ts.class.decl" : 2,
+    "ts.interface.decl" : 1,
+    "type.class" : 2,
+    "type.enum" : 1,
+    "typeAlias" : 1,
+    "variable.field" : 2,
+    "variable.global" : 3
+  },
+  "fixture" : "fixtures/ts/exports.ts",
+  "totalCaptures" : 46
+}

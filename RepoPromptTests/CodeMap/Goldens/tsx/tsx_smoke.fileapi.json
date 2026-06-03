@@ -1,0 +1,209 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "render()",
+          "lineNumber" : 58,
+          "name" : "render",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserCard",
+      "properties" : [
+        {
+          "name" : "handleClick"
+        },
+        {
+          "name" : "static defaultProps"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export class UserCard extends React.Component<UserCardProps> {",
+    "export const Button: FC<ButtonProps> = ({",
+    "export const DEFAULT_AVATAR = '/images/default-avatar.png';",
+    "export const THEME_KEY = 'app-theme';",
+    "export function useUser(userId: string): { user: User | null; loading: boolean } {",
+    "export function withTheme<P extends object>("
+  ],
+  "filePath" : "fixtures/tsx/smoke.tsx",
+  "functionSignatureTypes" : [
+    "ButtonProps",
+    "FC",
+    "React.ComponentType",
+    "Theme",
+    "User"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export const Button: FC<ButtonProps> = ({ variant = 'primary', disabled = false, onClick, children }) =>",
+      "lineNumber" : 31,
+      "name" : "Button",
+      "parameters" : [
+
+      ],
+      "returnType" : "FC<ButtonProps>"
+    },
+    {
+      "definitionLine" : "export function useUser(userId: string): { user: User | null; loading: boolean }",
+      "lineNumber" : 70,
+      "name" : "useUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "{ user: User | null; loading: boolean }"
+    },
+    {
+      "definitionLine" : "async function fetchUser(id: string): Promise<User>",
+      "lineNumber" : 82,
+      "name" : "fetchUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "Promise<User>"
+    },
+    {
+      "definitionLine" : "export function withTheme<P extends object>( Component: React.ComponentType<P & { theme: Theme }> ): FC<P>",
+      "lineNumber" : 88,
+      "name" : "withTheme<P extends object>",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "React.ComponentType<P & { theme: Theme }>"
+        }
+      ],
+      "returnType" : "FC<P>"
+    },
+    {
+      "definitionLine" : "function useTheme(): Theme",
+      "lineNumber" : 98,
+      "name" : "useTheme",
+      "parameters" : [
+
+      ],
+      "returnType" : "Theme"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const DEFAULT_AVATAR",
+      "name" : "DEFAULT_AVATAR"
+    },
+    {
+      "definitionLine" : "export const THEME_KEY",
+      "name" : "THEME_KEY"
+    }
+  ],
+  "imports" : [
+    "import React, { useState, useEffect, useCallback } from 'react';",
+    "import type { FC, ReactNode } from 'react';"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "ButtonProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "disabled?: boolean",
+          "typeName" : "boolean"
+        },
+        {
+          "name" : "onClick?: () => void",
+          "typeName" : "() => void"
+        },
+        {
+          "name" : "variant?: ButtonVariant",
+          "typeName" : "ButtonVariant"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "avatar?: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "email: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "id: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "name: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "UserCardProps",
+      "properties" : [
+        {
+          "name" : "onSelect?: (user: User) => void",
+          "typeName" : "(user: User) => void"
+        },
+        {
+          "name" : "showEmail?: boolean",
+          "typeName" : "boolean"
+        },
+        {
+          "name" : "user: User",
+          "typeName" : "User"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+    "type ButtonVariant = 'primary' | 'secondary' | 'danger'",
+    "type Theme = 'light' | 'dark' | 'system'"
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "ButtonVariant",
+    "ReactNode",
+    "User"
+  ],
+  "referencedTypes" : [
+    "ButtonProps",
+    "ButtonVariant",
+    "FC",
+    "React.ComponentType",
+    "ReactNode",
+    "Theme",
+    "User",
+    "UserCardProps"
+  ]
+}

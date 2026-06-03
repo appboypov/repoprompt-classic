@@ -1,0 +1,284 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "User(std::string id, std::string name, std::string email)",
+          "lineNumber" : 41,
+          "name" : "User",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "std::string"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "std::string"
+            },
+            {
+              "localName" : "param2",
+              "typeName" : "std::string"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "UserRole role() const",
+          "lineNumber" : 51,
+          "name" : "role",
+          "parameters" : [
+
+          ],
+          "returnType" : "UserRole"
+        },
+        {
+          "definitionLine" : "void setRole(UserRole role)",
+          "lineNumber" : 54,
+          "name" : "setRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "void setName(const std::string& name)",
+          "lineNumber" : 55,
+          "name" : "setName",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "std::string&"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "std::string displayName() const",
+          "lineNumber" : 58,
+          "name" : "displayName",
+          "parameters" : [
+
+          ],
+          "returnType" : "std::string"
+        },
+        {
+          "definitionLine" : "bool validate() const",
+          "lineNumber" : 62,
+          "name" : "validate",
+          "parameters" : [
+
+          ],
+          "returnType" : "bool"
+        },
+        {
+          "definitionLine" : "static std::string roleToString(UserRole role)",
+          "lineNumber" : 66,
+          "name" : "roleToString",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "std::string"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "explicit UserService(Config config = {})",
+          "lineNumber" : 96,
+          "name" : "UserService",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Config"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "std::vector<UserPtr> fetch() override",
+          "lineNumber" : 100,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "std::vector<UserPtr>"
+        },
+        {
+          "definitionLine" : "bool save(const UserPtr& user) override",
+          "lineNumber" : 109,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserPtr&"
+            }
+          ],
+          "returnType" : "bool"
+        },
+        {
+          "definitionLine" : "bool remove(const std::string& id) override",
+          "lineNumber" : 120,
+          "name" : "remove",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "std::string&"
+            }
+          ],
+          "returnType" : "bool"
+        },
+        {
+          "definitionLine" : "std::optional<UserPtr> find(const std::string& id) const",
+          "lineNumber" : 125,
+          "name" : "find",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "std::string&"
+            }
+          ],
+          "returnType" : "std::optional<UserPtr>"
+        },
+        {
+          "definitionLine" : "std::vector<UserPtr> getByRole(UserRole role) const",
+          "lineNumber" : 133,
+          "name" : "getByRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "std::vector<UserPtr>"
+        },
+        {
+          "definitionLine" : "size_t count() const",
+          "lineNumber" : 143,
+          "name" : "count",
+          "parameters" : [
+
+          ],
+          "returnType" : "size_t"
+        },
+        {
+          "definitionLine" : "void forEach(UserCallback callback) const",
+          "lineNumber" : 145,
+          "name" : "forEach",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserCallback"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Admin",
+        "Editor",
+        "Viewer",
+        "Guest"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/cpp/smoke.cpp",
+  "functionSignatureTypes" : [
+    "Config",
+    "UserCallback",
+    "UserPtr",
+    "UserRole",
+    "std::optional",
+    "std::string",
+    "std::vector"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "inline UserPtr createUser(const std::string& name, const std::string& email, UserRole role = UserRole::Guest)",
+      "lineNumber" : 157,
+      "name" : "createUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "std::string&"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "std::string&"
+        },
+        {
+          "localName" : "param2",
+          "typeName" : "UserRole"
+        }
+      ],
+      "returnType" : "UserPtr"
+    },
+    {
+      "definitionLine" : "inline bool validateEmail(const std::string& email)",
+      "lineNumber" : 169,
+      "name" : "validateEmail",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "std::string&"
+        }
+      ],
+      "returnType" : "bool"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "#include <functional>",
+    "#include <map>",
+    "#include <memory>",
+    "#include <optional>",
+    "#include <string>",
+    "#include <vector>"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "UserCallback",
+    "UserPtr",
+    "UserRole",
+    "std::optional",
+    "std::string",
+    "std::vector"
+  ]
+}

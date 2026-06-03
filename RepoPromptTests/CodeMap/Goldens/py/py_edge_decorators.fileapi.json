@@ -1,0 +1,102 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "def __init__(self, user_id: int, name: str) -> None:",
+          "lineNumber" : 11,
+          "name" : "__init__",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "int"
+            },
+            {
+              "localName" : "param2",
+              "typeName" : "str"
+            }
+          ],
+          "returnType" : "None"
+        },
+        {
+          "definitionLine" : "def display_name(self) -> str:",
+          "lineNumber" : 16,
+          "name" : "display_name",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ],
+          "returnType" : "str"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "ACTIVE",
+        "DISABLED"
+      ],
+      "name" : "Status"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/py/edge_decorators.py",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "def slugify(text: str) -> str:",
+      "lineNumber" : 3,
+      "name" : "slugify",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "str"
+        }
+      ],
+      "returnType" : "str"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "DEFAULT_ROLE = \"user\"",
+      "name" : "DEFAULT_ROLE",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "from enum import Enum"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

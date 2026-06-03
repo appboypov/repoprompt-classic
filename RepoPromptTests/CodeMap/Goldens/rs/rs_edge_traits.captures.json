@@ -1,0 +1,19 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 2,
+    "function.definition" : 3,
+    "import" : 1,
+    "rust.impl.decl" : 1,
+    "rust.impl.type" : 1,
+    "type.class.decl" : 1,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.interface" : 1,
+    "type.interface.decl" : 1,
+    "type.struct" : 1,
+    "variable.field" : 2,
+    "variable.global" : 2
+  },
+  "fixture" : "fixtures/rs/edge_traits.rs",
+  "totalCaptures" : 18
+}

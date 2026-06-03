@@ -1,0 +1,317 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public bool Validate()",
+          "lineNumber" : 41,
+          "name" : "Validate",
+          "parameters" : [
+
+          ],
+          "returnType" : "bool"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "CreatedAt",
+          "typeName" : ""
+        },
+        {
+          "name" : "DisplayName",
+          "typeName" : ""
+        },
+        {
+          "name" : "Email",
+          "typeName" : ""
+        },
+        {
+          "name" : "Id",
+          "typeName" : ""
+        },
+        {
+          "name" : "Name",
+          "typeName" : ""
+        },
+        {
+          "name" : "Role",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public static bool IsAdmin(this User user)",
+          "lineNumber" : 154,
+          "name" : "IsAdmin",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "this User"
+            }
+          ],
+          "returnType" : "bool"
+        },
+        {
+          "definitionLine" : "public static string ToJson(this User user)",
+          "lineNumber" : 159,
+          "name" : "ToJson",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "this User"
+            }
+          ],
+          "returnType" : "string"
+        }
+      ],
+      "name" : "UserExtensions",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public static User Create(string name, string email, UserRole role = UserRole.Guest)",
+          "lineNumber" : 134,
+          "name" : "Create",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "string"
+            },
+            {
+              "localName" : "param2",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "User"
+        },
+        {
+          "definitionLine" : "public static bool ValidateEmail(string email)",
+          "lineNumber" : 143,
+          "name" : "ValidateEmail",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "bool"
+        }
+      ],
+      "name" : "UserFactory",
+      "properties" : [
+        {
+          "name" : "_counter",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public async Task<IEnumerable<User>> FetchAsync()",
+          "lineNumber" : 81,
+          "name" : "FetchAsync",
+          "parameters" : [
+
+          ],
+          "returnType" : "Task<IEnumerable<User>>"
+        },
+        {
+          "definitionLine" : "public async Task SaveAsync(User user)",
+          "lineNumber" : 87,
+          "name" : "SaveAsync",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "Task"
+        },
+        {
+          "definitionLine" : "public async Task<bool> DeleteAsync(string id)",
+          "lineNumber" : 102,
+          "name" : "DeleteAsync",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "Task<bool>"
+        },
+        {
+          "definitionLine" : "public User? Find(string id)",
+          "lineNumber" : 108,
+          "name" : "Find",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "User?"
+        },
+        {
+          "definitionLine" : "public IEnumerable<User> GetByRole(UserRole role)",
+          "lineNumber" : 113,
+          "name" : "GetByRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "IEnumerable<User>"
+        },
+        {
+          "definitionLine" : "public void Dispose()",
+          "lineNumber" : 118,
+          "name" : "Dispose",
+          "parameters" : [
+
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "Count",
+          "typeName" : ""
+        },
+        {
+          "name" : "DefaultTimeout",
+          "typeName" : ""
+        },
+        {
+          "name" : "MaxUsers",
+          "typeName" : ""
+        },
+        {
+          "name" : "_config",
+          "typeName" : ""
+        },
+        {
+          "name" : "_disposed",
+          "typeName" : ""
+        },
+        {
+          "name" : "_users",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Admin",
+        "Editor",
+        "Viewer",
+        "Guest"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/cs/smoke.cs",
+  "functionSignatureTypes" : [
+    "IEnumerable",
+    "T",
+    "Task",
+    "User",
+    "UserRole",
+    "this User"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "using System.Collections.Generic;",
+    "using System.Linq;",
+    "using System.Threading.Tasks;",
+    "using System;"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "Task<IEnumerable<T>> FetchAsync();",
+          "lineNumber" : 52,
+          "name" : "FetchAsync",
+          "parameters" : [
+
+          ],
+          "returnType" : "Task<IEnumerable<T>>"
+        },
+        {
+          "definitionLine" : "Task SaveAsync(T item);",
+          "lineNumber" : 53,
+          "name" : "SaveAsync",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "Task"
+        },
+        {
+          "definitionLine" : "Task<bool> DeleteAsync(string id);",
+          "lineNumber" : 54,
+          "name" : "DeleteAsync",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "Task<bool>"
+        }
+      ],
+      "name" : "IDataProvider",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "DateTime",
+    "IEnumerable",
+    "T",
+    "Task",
+    "TimeSpan",
+    "User",
+    "UserRole",
+    "this User"
+  ]
+}

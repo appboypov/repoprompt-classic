@@ -1,0 +1,14 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 3,
+    "import" : 1,
+    "import.path" : 1,
+    "package" : 1,
+    "type.class.decl" : 2,
+    "type.struct" : 2,
+    "variable.field" : 2,
+    "variable.global" : 2
+  },
+  "fixture" : "fixtures/go/edge_methods.go",
+  "totalCaptures" : 14
+}

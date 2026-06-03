@@ -1,0 +1,14 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 9,
+    "import" : 1,
+    "import.path" : 4,
+    "package" : 1,
+    "type.class.decl" : 3,
+    "type.struct" : 3,
+    "variable.field" : 10,
+    "variable.global" : 6
+  },
+  "fixture" : "fixtures/go/smoke.go",
+  "totalCaptures" : 37
+}

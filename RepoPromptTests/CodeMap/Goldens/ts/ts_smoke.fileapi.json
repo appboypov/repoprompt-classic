@@ -1,0 +1,233 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "type UserID = string | number",
+      "name" : "UserID"
+    },
+    {
+      "definitionLine" : "type UserMap = Map<UserID, User>",
+      "name" : "UserMap"
+    }
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor(private config: Config)",
+          "lineNumber" : 30,
+          "name" : "constructor",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Config"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "static getInstance(config: Config): UserService",
+          "lineNumber" : 34,
+          "name" : "getInstance",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Config"
+            }
+          ],
+          "returnType" : "UserService"
+        },
+        {
+          "definitionLine" : "async fetch(): Promise<User[]>",
+          "lineNumber" : 41,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<User[]>"
+        },
+        {
+          "definitionLine" : "async save(user: User): Promise<void>",
+          "lineNumber" : 45,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "Promise<void>"
+        },
+        {
+          "definitionLine" : "async delete(id: string): Promise<boolean>",
+          "lineNumber" : 50,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "Promise<boolean>"
+        },
+        {
+          "definitionLine" : "private validateUser(user: User): boolean",
+          "lineNumber" : 54,
+          "name" : "validateUser",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "boolean"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "private users: UserMap",
+          "typeName" : "UserMap"
+        },
+        {
+          "name" : "readonly serviceName"
+        },
+        {
+          "name" : "static instance: UserService | null",
+          "typeName" : "UserService | null"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Admin",
+        "Editor",
+        "Viewer",
+        "Guest"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+    "export class UserService extends EventEmitter implements DataProvider<User> {",
+    "export const MAX_USERS = 1000;",
+    "export const formatUserName = (user: User): string => {",
+    "export enum UserRole {",
+    "export function createUser(name: string, role: UserRole = UserRole.Guest): User {"
+  ],
+  "filePath" : "fixtures/ts/smoke.ts",
+  "functionSignatureTypes" : [
+    "Config",
+    "User",
+    "UserRole",
+    "UserService"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function createUser(name: string, role: UserRole = UserRole.Guest): User",
+      "lineNumber" : 68,
+      "name" : "createUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "UserRole"
+        }
+      ],
+      "returnType" : "User"
+    },
+    {
+      "definitionLine" : "export const formatUserName = (user: User): string =>",
+      "lineNumber" : 78,
+      "name" : "formatUserName",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "User"
+        }
+      ],
+      "returnType" : "string"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "const DEFAULT_TIMEOUT",
+      "name" : "DEFAULT_TIMEOUT"
+    },
+    {
+      "definitionLine" : "export const MAX_USERS",
+      "name" : "MAX_USERS"
+    }
+  ],
+  "imports" : [
+    "import type { User, Config } from './types';",
+    "import { EventEmitter } from 'events';"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "fetch(): Promise<T[]>",
+          "lineNumber" : 15,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<T[]>"
+        },
+        {
+          "definitionLine" : "save(item: T): Promise<void>",
+          "lineNumber" : 16,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "Promise<void>"
+        },
+        {
+          "definitionLine" : "delete(id: string): Promise<boolean>",
+          "lineNumber" : 17,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "Promise<boolean>"
+        }
+      ],
+      "name" : "DataProvider",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+    "type LogLevel = 'debug' | 'info' | 'warn' | 'error'",
+    "type Status = 'pending' | 'active' | 'completed' | 'failed'"
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "UserMap",
+    "UserService"
+  ],
+  "referencedTypes" : [
+    "Config",
+    "DataProvider",
+    "EventEmitter",
+    "User",
+    "UserID",
+    "UserMap",
+    "UserRole",
+    "UserService"
+  ]
+}

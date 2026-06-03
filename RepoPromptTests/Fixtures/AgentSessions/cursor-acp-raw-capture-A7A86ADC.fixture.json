@@ -1,0 +1,422 @@
+{
+  "fixtureVersion": 2,
+  "fixtureKind": "cursor-acp-raw-vs-rp-transcript",
+  "purpose": "Raw ACP event capture vs RP persisted session data, showing tool status/content deviations",
+  "provider": "cursor-acp",
+  "agentModel": "composer-2",
+  "workspace": "BombSquad",
+  "sessionID": "A7A86ADC-B192-44FA-A18A-7D435BBB0CD1",
+  "providerSessionID": "ef603369-ce5a-4b06-bd9f-8e4e4fb365bb",
+  "captureMethod": {
+    "hook": "ACPAgentSessionController.captureRawCursorEvent (DEBUG-only, env-gated)",
+    "enabledBy": [
+      "RP_CURSOR_RAW_CAPTURE_PATH=/path/to/capture.jsonl"
+    ],
+    "captureFile": "developer-provided via RP_CURSOR_RAW_CAPTURE_PATH",
+    "capturePoints": [
+      "handleJSONLine → kind=jsonrpc.inbound (every inbound JSON-RPC line)",
+      "handleNotification → kind=session.update.params (session/update params)",
+      "handleNotification → kind=session.update.raw (parsed update object)"
+    ],
+    "rpPersistedPath": "~/Library/Application Support/repoprompt/Workspaces/Workspace-BombSquad-.../AgentSessions/AgentSession-A7A86ADC-....json"
+  },
+  "regressionTests": [
+    "RepoPromptTests/CursorIntegrationConfigurationTests/testCursorACPRawCaptureFixtureDocumentsGatedCaptureAndRegressionUse",
+    "RepoPromptTests/CursorIntegrationConfigurationTests/testCursorACPRawCaptureCompletedUpdatesNormalizeAsSuccessAndRetainPayloads",
+    "RepoPromptTests/CursorIntegrationConfigurationTests/testCursorACPRawCaptureReplayPersistsCompletedToolsAsSuccessAndKeepsEditDiffData",
+    "RepoPromptTests/CursorIntegrationConfigurationTests/testCursorACPPersistedEditRoutesToDiffCapableCardPresentation"
+  ],
+  "rawACPToolEvents": [
+    {
+      "capturedAt": "2026-04-15T17:35:58Z",
+      "jsonlLine": 172,
+      "update": {
+        "kind": "other",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "MCP: tool",
+        "toolCallId": "call_3SPwBzWpf1diXCfHxqa7W3Pz\nfc_019a757a2d0fbc7a5889045c576a114f55bd149a4248f36af585ca78f9246"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:35:58Z",
+      "jsonlLine": 175,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_3SPwBzWpf1diXCfHxqa7W3Pz\nfc_019a757a2d0fbc7a5889045c576a114f55bd149a4248f36af585ca78f9246"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:35:58Z",
+      "jsonlLine": 178,
+      "update": {
+        "kind": "search",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "Find",
+        "toolCallId": "call_z2ilvHFc1zRr3O5Sv0eyIYue\nfc_019a757a2de552b8b2d67daeca668d4d1e6b6ade5f71349b81d9c6ad2db3d"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:35:58Z",
+      "jsonlLine": 181,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_z2ilvHFc1zRr3O5Sv0eyIYue\nfc_019a757a2de552b8b2d67daeca668d4d1e6b6ade5f71349b81d9c6ad2db3d"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:35:58Z",
+      "jsonlLine": 184,
+      "update": {
+        "rawOutput": {
+          "totalFiles": 0,
+          "truncated": false
+        },
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_z2ilvHFc1zRr3O5Sv0eyIYue\nfc_019a757a2de552b8b2d67daeca668d4d1e6b6ade5f71349b81d9c6ad2db3d"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:35:59Z",
+      "jsonlLine": 187,
+      "update": {
+        "rawOutput": {
+          "success": true
+        },
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_3SPwBzWpf1diXCfHxqa7W3Pz\nfc_019a757a2d0fbc7a5889045c576a114f55bd149a4248f36af585ca78f9246"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:02Z",
+      "jsonlLine": 334,
+      "update": {
+        "kind": "execute",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "Terminal",
+        "toolCallId": "call_CxDuOPod59YgrZCUYRLaHd8W\nfc_01ff498d2c34abd55b6e5afb247cf763cef941d1f390fc0e97c9c7bc57b00"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:02Z",
+      "jsonlLine": 337,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_CxDuOPod59YgrZCUYRLaHd8W\nfc_01ff498d2c34abd55b6e5afb247cf763cef941d1f390fc0e97c9c7bc57b00"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:02Z",
+      "jsonlLine": 340,
+      "update": {
+        "rawOutput": {
+          "exitCode": 0,
+          "stderr": "",
+          "stdout": "sample-output\n",
+          "stdoutSanitized": true
+        },
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_CxDuOPod59YgrZCUYRLaHd8W\nfc_01ff498d2c34abd55b6e5afb247cf763cef941d1f390fc0e97c9c7bc57b00"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:05Z",
+      "jsonlLine": 343,
+      "update": {
+        "kind": "edit",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "Edit File",
+        "toolCallId": "call_WITIMpchTSy30vcHZEa5fan1\nctc_04e8a4e6a940039e0169dfcc84471481a18230a9e0a95defdd"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:05Z",
+      "jsonlLine": 346,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_WITIMpchTSy30vcHZEa5fan1\nctc_04e8a4e6a940039e0169dfcc84471481a18230a9e0a95defdd"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:05Z",
+      "jsonlLine": 349,
+      "update": {
+        "content": [
+          {
+            "newText": "++ b//tmp/rp_cursor_capture_test.txt\nline1: alpha\nline2: bravo\nline3: charlie",
+            "oldText": "-- /dev/null\n",
+            "path": "/tmp/rp_cursor_capture_test.txt",
+            "type": "diff"
+          }
+        ],
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_WITIMpchTSy30vcHZEa5fan1\nctc_04e8a4e6a940039e0169dfcc84471481a18230a9e0a95defdd"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:06Z",
+      "jsonlLine": 352,
+      "update": {
+        "kind": "edit",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "Edit File",
+        "toolCallId": "call_wjm23zqOfBX9DuaMFN2yPFId\nctc_04e8a4e6a940039e0169dfcc868e5881a18ba9e6409bd00451"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:06Z",
+      "jsonlLine": 355,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_wjm23zqOfBX9DuaMFN2yPFId\nctc_04e8a4e6a940039e0169dfcc868e5881a18ba9e6409bd00451"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:07Z",
+      "jsonlLine": 358,
+      "update": {
+        "content": [
+          {
+            "newText": "line1: alpha\nline2: DELTA\nline3: charlie\n",
+            "oldText": "line1: alpha\nline2: bravo\nline3: charlie\n",
+            "path": "/tmp/rp_cursor_capture_test.txt",
+            "type": "diff"
+          }
+        ],
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_wjm23zqOfBX9DuaMFN2yPFId\nctc_04e8a4e6a940039e0169dfcc868e5881a18ba9e6409bd00451"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:08Z",
+      "jsonlLine": 361,
+      "update": {
+        "kind": "other",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "MCP: tool",
+        "toolCallId": "call_nMcY58odlilZWJuabVDchRti\nfc_0185ed0d8a206db31598ebb5da9ab4014975213ce2e08cc2e10cee7b2f4f1"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:09Z",
+      "jsonlLine": 364,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_nMcY58odlilZWJuabVDchRti\nfc_0185ed0d8a206db31598ebb5da9ab4014975213ce2e08cc2e10cee7b2f4f1"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:09Z",
+      "jsonlLine": 367,
+      "update": {
+        "rawOutput": {
+          "success": true
+        },
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_nMcY58odlilZWJuabVDchRti\nfc_0185ed0d8a206db31598ebb5da9ab4014975213ce2e08cc2e10cee7b2f4f1"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:11Z",
+      "jsonlLine": 451,
+      "update": {
+        "kind": "read",
+        "rawInput": {},
+        "sessionUpdate": "tool_call",
+        "status": "pending",
+        "title": "Read File",
+        "toolCallId": "call_lEDozNYepk4HH69QT64CZSjS\nfc_01732a837d0cd1ee233093f7f88ce6264b2a34bfd1cf207dba2455bf9f2ae"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:11Z",
+      "jsonlLine": 454,
+      "update": {
+        "sessionUpdate": "tool_call_update",
+        "status": "in_progress",
+        "toolCallId": "call_lEDozNYepk4HH69QT64CZSjS\nfc_01732a837d0cd1ee233093f7f88ce6264b2a34bfd1cf207dba2455bf9f2ae"
+      }
+    },
+    {
+      "capturedAt": "2026-04-15T17:36:11Z",
+      "jsonlLine": 457,
+      "update": {
+        "rawOutput": {
+          "content": "line1: alpha\nline2: DELTA\nline3: charlie\n"
+        },
+        "sessionUpdate": "tool_call_update",
+        "status": "completed",
+        "toolCallId": "call_lEDozNYepk4HH69QT64CZSjS\nfc_01732a837d0cd1ee233093f7f88ce6264b2a34bfd1cf207dba2455bf9f2ae"
+      }
+    }
+  ],
+  "rpPersistedActivities": [
+    {
+      "sequenceIndex": 1,
+      "role": "assistant",
+      "itemKind": "assistant",
+      "textPreview": "I’ll run this as a quick tool-verification flow: set the session title, check for any `AGENTS.md` guidance, then create/edit `/tmp/rp_cursor_capture_test.txt` strictly with the native edit tool and co"
+    },
+    {
+      "sequenceIndex": 2,
+      "toolExecution": {
+        "toolName": "find",
+        "invocationID": "97DF45FA-F232-6582-CCB9-0BF9AC257B20",
+        "summaryOnly": true,
+        "stableExecutionID": "97df45fa-f232-6582-ccb9-0bf9ac257b20",
+        "resultJSON": "{\"status\":\"failed\",\"summary_only\":true,\"summary_text\":\"find • failed\"}",
+        "summaryText": "find • failed",
+        "keyPaths": [],
+        "status": "failed",
+        "toolIsError": true
+      }
+    },
+    {
+      "sequenceIndex": 3,
+      "role": "assistant",
+      "itemKind": "assistant",
+      "textPreview": "I found no `AGENTS.md`, so I’m proceeding directly with your 4 steps now: create the `/tmp` file via native patch tool, patch `bravo` to `DELTA`, then read it back for confirmation."
+    },
+    {
+      "sequenceIndex": 4,
+      "toolExecution": {
+        "summaryText": "terminal • failed",
+        "invocationID": "D768E1D9-E9E1-43CE-856D-A18376CB90D4",
+        "resultJSON": "{\"status\":\"failed\",\"summary_only\":true,\"summary_text\":\"terminal • failed\"}",
+        "toolName": "terminal",
+        "summaryOnly": true,
+        "keyPaths": [],
+        "status": "failed",
+        "stableExecutionID": "d768e1d9-e9e1-43ce-856d-a18376cb90d4",
+        "toolIsError": true
+      }
+    },
+    {
+      "sequenceIndex": 5,
+      "toolExecution": {
+        "toolName": "edit",
+        "invocationID": "6A0BD48C-F9B7-81A0-1336-3877CC6892B8",
+        "summaryOnly": true,
+        "stableExecutionID": "6a0bd48c-f9b7-81a0-1336-3877cc6892b8",
+        "resultJSON": "{\"status\":\"failed\",\"summary_only\":true,\"summary_text\":\"edit • failed\"}",
+        "summaryText": "edit • failed",
+        "keyPaths": [],
+        "status": "failed",
+        "toolIsError": true
+      }
+    },
+    {
+      "sequenceIndex": 6,
+      "toolExecution": {
+        "summaryText": "edit • failed",
+        "invocationID": "A1BB14B5-9D9E-5DDA-2610-D1693545048B",
+        "resultJSON": "{\"status\":\"failed\",\"summary_only\":true,\"summary_text\":\"edit • failed\"}",
+        "toolName": "edit",
+        "summaryOnly": true,
+        "keyPaths": [],
+        "status": "failed",
+        "stableExecutionID": "a1bb14b5-9d9e-5dda-2610-d1693545048b",
+        "toolIsError": true
+      }
+    },
+    {
+      "sequenceIndex": 7,
+      "toolExecution": {
+        "toolName": "read_file",
+        "invocationID": "1CB017D3-1D7B-4A6F-9749-71D09FD2BBD0",
+        "summaryOnly": true,
+        "stableExecutionID": "1cb017d3-1d7b-4a6f-9749-71d09fd2bbd0",
+        "resultJSON": "{\"render_summary\":{\"op\":\"read_file\",\"schema_version\":1,\"status\":\"failure\",\"subtitle\":\"rp_cursor_capture_test.txt\",\"title\":\"Read File\",\"tool_name\":\"read_file\"},\"status\":\"failed\",\"summary_only\":true,\"summary_text\":\"rp_cursor_capture_test.txt\"}",
+        "summaryText": "rp_cursor_capture_test.txt",
+        "keyPaths": [],
+        "status": "failed",
+        "toolIsError": true
+      }
+    },
+    {
+      "sequenceIndex": 8,
+      "role": "assistant",
+      "itemKind": "assistant",
+      "textPreview": "The RepoPrompt reader can only access workspace files, so I’m confirming with the native file reader instead (still step 3 complete)."
+    },
+    {
+      "sequenceIndex": 9,
+      "toolExecution": {
+        "summaryText": "read • failed",
+        "invocationID": "599AE037-2DB3-2D79-1AFF-4B180A2A26A0",
+        "resultJSON": "{\"status\":\"failed\",\"summary_only\":true,\"summary_text\":\"read • failed\"}",
+        "toolName": "read",
+        "summaryOnly": true,
+        "keyPaths": [],
+        "status": "failed",
+        "stableExecutionID": "599ae037-2db3-2d79-1aff-4b180a2a26a0",
+        "toolIsError": true
+      }
+    },
+    {
+      "sequenceIndex": 10,
+      "role": "assistant",
+      "itemKind": "assistant",
+      "textPreview": "Completed all 4 steps successfully.\n\n- **Step 1 (create file):** used `ApplyPatch`  \n  - Created `/tmp/rp_cursor_capture_test.txt` with:\n    - `line1: alpha`\n    - `line2: bravo`\n    - `line3: charlie"
+    }
+  ],
+  "deviationSummary": {
+    "toolStatusBug": "All 7 tool results stored as status=failed/isError=true in RP, but all completed successfully in raw ACP",
+    "missingEditContent": "Raw ACP edit events include content[].{oldText, newText, path, type:diff} with full before/after text. RP stores only \"edit • failed\" with no diff content.",
+    "missingRawOutput": "Raw ACP tool_call_update events include rawOutput (e.g., exitCode, stdout, file content). RP stores none of this.",
+    "toolNameMapping": {
+      "raw_kind=other,title=MCP:tool": "RP toolName=? (MCP proxied tools)",
+      "raw_kind=search,title=Find": "RP toolName=find",
+      "raw_kind=execute,title=Terminal": "RP toolName=terminal",
+      "raw_kind=edit,title=Edit File": "RP toolName=edit",
+      "raw_kind=read,title=Read File": "RP toolName=read"
+    },
+    "nativeToolNames": {
+      "note": "Cursor displays these as ApplyPatch/Glob/Shell/ReadFile in assistant messages, but raw ACP uses kind+title instead of explicit tool function names",
+      "acpKinds": [
+        "other",
+        "search",
+        "execute",
+        "edit",
+        "read"
+      ],
+      "acpTitles": [
+        "MCP: tool",
+        "Find",
+        "Terminal",
+        "Edit File",
+        "Read File"
+      ],
+      "cursorNativeNames": [
+        "set_status (MCP)",
+        "Glob",
+        "Shell",
+        "ApplyPatch",
+        "ReadFile"
+      ]
+    }
+  }
+}

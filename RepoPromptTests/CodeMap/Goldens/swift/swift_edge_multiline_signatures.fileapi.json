@@ -1,0 +1,522 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "@MainActor func startBackgroundUpdates()",
+          "lineNumber" : 53,
+          "name" : "startBackgroundUpdates",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "func stopUpdates()",
+          "lineNumber" : 70,
+          "name" : "stopUpdates",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "BackgroundUpdater",
+      "properties" : [
+        {
+          "name" : "private var latestUpdate: String",
+          "typeName" : "String"
+        },
+        {
+          "name" : "private var updateStream: AsyncStream<String>",
+          "typeName" : "AsyncStream<String>"
+        },
+        {
+          "name" : "private var updateTask: Task<Void, Never>?",
+          "typeName" : "Task<Void, Never>?"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "ContextProvider",
+      "properties" : [
+        {
+          "name" : "private var isConnected"
+        },
+        {
+          "name" : "private var recentEvent: (name: String, code: EventCodeEdge, severity: SeverityEdge, description: String)?",
+          "typeName" : "(name: String, code: EventCodeEdge, severity: SeverityEdge, description: String)?"
+        },
+        {
+          "name" : "var contextualDescription: String?",
+          "typeName" : "String?"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func fetchAll() async throws -> [ItemEdge]",
+          "lineNumber" : 287,
+          "name" : "fetchAll",
+          "parameters" : [
+
+          ],
+          "returnType" : "[ItemEdge]"
+        },
+        {
+          "definitionLine" : "func saveAll(_ items: [ItemEdge]) async throws",
+          "lineNumber" : 292,
+          "name" : "saveAll",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "items",
+              "typeName" : "[ItemEdge]"
+            }
+          ]
+        }
+      ],
+      "name" : "DataProviderEdge",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "FolderNodeEdge",
+      "properties" : [
+        {
+          "name" : "let id: UUID",
+          "typeName" : "UUID"
+        },
+        {
+          "name" : "let name: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "private func apply(_ snapshot: ServiceSnapshotEdge) async",
+          "lineNumber" : 241,
+          "name" : "apply",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "snapshot",
+              "typeName" : "ServiceSnapshotEdge"
+            }
+          ]
+        }
+      ],
+      "name" : "ServiceApplier",
+      "properties" : [
+        {
+          "name" : "private var dashboard: Any?",
+          "typeName" : "Any?"
+        },
+        {
+          "name" : "private var isActive"
+        },
+        {
+          "name" : "private var isRunning"
+        },
+        {
+          "name" : "private var lastError: String?",
+          "typeName" : "String?"
+        },
+        {
+          "name" : "private var pendingID: String?",
+          "typeName" : "String?"
+        },
+        {
+          "name" : "private var showOverlay"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "ServiceSnapshotEdge",
+      "properties" : [
+        {
+          "name" : "let isRunning: Bool",
+          "typeName" : "Bool"
+        },
+        {
+          "name" : "let issue: ServerIssueEdge",
+          "typeName" : "ServerIssueEdge"
+        },
+        {
+          "name" : "let pendingID: String?",
+          "typeName" : "String?"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func append(_ s: String)",
+          "lineNumber" : 190,
+          "name" : "append",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "s",
+              "typeName" : "String"
+            }
+          ]
+        }
+      ],
+      "name" : "StringBuilderEdge",
+      "properties" : [
+        {
+          "name" : "private var buffer"
+        },
+        {
+          "name" : "var count: Int",
+          "typeName" : "Int"
+        },
+        {
+          "name" : "var result: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TreeEntryEdge",
+      "properties" : [
+        {
+          "name" : "let count: Int",
+          "typeName" : "Int"
+        },
+        {
+          "name" : "let name: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TreeNodeEdge",
+      "properties" : [
+        {
+          "name" : "let entries: [TreeEntryEdge]",
+          "typeName" : "[TreeEntryEdge]"
+        },
+        {
+          "name" : "let name: String",
+          "typeName" : "String"
+        },
+        {
+          "name" : "let path: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "ValidatedEdge",
+      "properties" : [
+        {
+          "name" : "private let validator: (Value) -> Bool",
+          "typeName" : "(Value) -> Bool"
+        },
+        {
+          "name" : "private var value: Value",
+          "typeName" : "Value"
+        },
+        {
+          "name" : "var projectedValue: Bool",
+          "typeName" : "Bool"
+        },
+        {
+          "name" : "var wrappedValue: Value",
+          "typeName" : "Value"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "networkError",
+        "timeout",
+        "authFailed",
+        "other"
+      ],
+      "name" : "EventCodeEdge"
+    },
+    {
+      "cases" : [
+        "none",
+        "permissionDenied",
+        "registrationFailed",
+        "restarting",
+        "portConflict",
+        "degraded",
+        "clientDenied",
+        "timeout",
+        "unexpectedDisconnect"
+      ],
+      "name" : "ServerIssueEdge"
+    },
+    {
+      "cases" : [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "name" : "SeverityEdge"
+    },
+    {
+      "cases" : [
+        "success",
+        "exceededBudget"
+      ],
+      "name" : "TreeResultEdge"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/swift/edge_multiline_signatures.swift",
+  "functionSignatureTypes" : [
+    "FolderNodeEdge",
+    "ItemEdge",
+    "ServerIssueEdge",
+    "ServiceSnapshotEdge",
+    "TreeEntryEdge",
+    "TreeNodeEdge",
+    "TreeResultEdge",
+    "UUID"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "func runToolEdge<T>( _ name: String, flushFS flush: Bool = true, timeoutSeconds: Int = 10000, body: @escaping @Sendable () async throws -> T ) async throws -> T",
+      "lineNumber" : 13,
+      "name" : "runToolEdge",
+      "parameters" : [
+        {
+          "externalName" : "_",
+          "localName" : "name",
+          "typeName" : "String"
+        },
+        {
+          "externalName" : "flushFS",
+          "localName" : "flush",
+          "typeName" : "Bool"
+        },
+        {
+          "localName" : "timeoutSeconds",
+          "typeName" : "Int"
+        },
+        {
+          "localName" : "body",
+          "typeName" : "@escaping"
+        }
+      ],
+      "returnType" : "T"
+    },
+    {
+      "definitionLine" : "func processEdge<T, U>( items: [T], transform: (T) -> U, filter: (U) -> Bool ) -> [U] where T: Hashable, U: Equatable, T: Sendable",
+      "lineNumber" : 35,
+      "name" : "processEdge",
+      "parameters" : [
+        {
+          "localName" : "items",
+          "typeName" : "[T]"
+        },
+        {
+          "localName" : "transform",
+          "typeName" : "(T) -> U"
+        },
+        {
+          "localName" : "filter",
+          "typeName" : "(U) -> Bool"
+        }
+      ],
+      "returnType" : "[U]"
+    },
+    {
+      "definitionLine" : "func renderTreeEdge( nodes: [TreeNodeEdge], basePath: String, folderSuffix: (String) -> String?, fileLine: (TreeEntryEdge, String) -> String, fileChildren: (TreeEntryEdge, String) -> [String] ) -> [String]",
+      "lineNumber" : 106,
+      "name" : "renderTreeEdge",
+      "parameters" : [
+        {
+          "localName" : "nodes",
+          "typeName" : "[TreeNodeEdge]"
+        },
+        {
+          "localName" : "basePath",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "folderSuffix",
+          "typeName" : "(String) -> String?"
+        },
+        {
+          "localName" : "fileLine",
+          "typeName" : "(TreeEntryEdge, String) -> String"
+        },
+        {
+          "localName" : "fileChildren",
+          "typeName" : "(TreeEntryEdge, String) -> [String]"
+        }
+      ],
+      "returnType" : "[String]"
+    },
+    {
+      "definitionLine" : "func buildTreeEdge( roots: [FolderNodeEdge], selectedIDs: Set<UUID>, tokenBudget: Int? ) -> TreeResultEdge",
+      "lineNumber" : 145,
+      "name" : "buildTreeEdge",
+      "parameters" : [
+        {
+          "localName" : "roots",
+          "typeName" : "[FolderNodeEdge]"
+        },
+        {
+          "localName" : "selectedIDs",
+          "typeName" : "Set<UUID>"
+        },
+        {
+          "localName" : "tokenBudget",
+          "typeName" : "Int?"
+        }
+      ],
+      "returnType" : "TreeResultEdge"
+    },
+    {
+      "definitionLine" : "func humanReadableErrorEdge(from issue: ServerIssueEdge) -> String?",
+      "lineNumber" : 195,
+      "name" : "humanReadableErrorEdge",
+      "parameters" : [
+        {
+          "externalName" : "from",
+          "localName" : "issue",
+          "typeName" : "ServerIssueEdge"
+        }
+      ],
+      "returnType" : "String?"
+    },
+    {
+      "definitionLine" : "func bringToFrontEdge()",
+      "lineNumber" : 270,
+      "name" : "bringToFrontEdge",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "func requestAttentionEdge()",
+      "lineNumber" : 271,
+      "name" : "requestAttentionEdge",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "func fetchDashboardEdge() async -> Any",
+      "lineNumber" : 272,
+      "name" : "fetchDashboardEdge",
+      "parameters" : [
+
+      ],
+      "returnType" : "Any"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "import Foundation"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func fetch() async throws -> [ItemEdge]",
+          "lineNumber" : 280,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "[ItemEdge]"
+        },
+        {
+          "definitionLine" : "func save(_ item: ItemEdge) async throws",
+          "lineNumber" : 281,
+          "name" : "save",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "item",
+              "typeName" : "ItemEdge"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "func delete(id: String) async throws -> Bool",
+          "lineNumber" : 282,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "id",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Bool"
+        }
+      ],
+      "name" : "DataProviderEdge",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "AsyncStream",
+    "EventCodeEdge",
+    "ServerIssueEdge",
+    "SeverityEdge",
+    "TreeEntryEdge",
+    "UUID",
+    "Value"
+  ],
+  "referencedTypes" : [
+    "AsyncStream",
+    "EventCodeEdge",
+    "FolderNodeEdge",
+    "ItemEdge",
+    "ServerIssueEdge",
+    "ServiceSnapshotEdge",
+    "SeverityEdge",
+    "TreeEntryEdge",
+    "TreeNodeEdge",
+    "TreeResultEdge",
+    "UUID",
+    "Value"
+  ]
+}

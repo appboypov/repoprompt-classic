@@ -1,0 +1,110 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "pub fn new(id: i32, name: String) -> Self",
+          "lineNumber" : 22,
+          "name" : "new",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "i32"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Self"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "id",
+          "typeName" : ""
+        },
+        {
+          "name" : "name",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Active",
+        "Disabled"
+      ],
+      "name" : "Status"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/rs/edge_traits.rs",
+  "functionSignatureTypes" : [
+    "Self",
+    "String",
+    "User"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "pub fn format_user(user: &User) -> String",
+      "lineNumber" : 27,
+      "name" : "format_user",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "&User"
+        }
+      ],
+      "returnType" : "String"
+    },
+    {
+      "definitionLine" : "pub fn id_as_string<T: Display>(value: T) -> String",
+      "lineNumber" : 31,
+      "name" : "id_as_string",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "pub static DEFAULT_TIMEOUT: i32 = 30;",
+      "name" : "DEFAULT_TIMEOUT",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "pub const MAX_USERS: usize = 100;",
+      "name" : "MAX_USERS",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "use std::fmt::Display;"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Self",
+    "String",
+    "User"
+  ]
+}

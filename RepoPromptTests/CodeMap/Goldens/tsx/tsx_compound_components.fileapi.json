@@ -1,0 +1,283 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "render()",
+          "lineNumber" : 127,
+          "name" : "render",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "Menu",
+      "properties" : [
+        {
+          "name" : "static Item: FC<{ label: string; onClick: () => void }>",
+          "typeName" : "FC<{ label: string; onClick: () => void }>"
+        },
+        {
+          "name" : "static Separator: FC",
+          "typeName" : "FC"
+        },
+        {
+          "name" : "static SubMenu: FC<{ label: string; children: ReactNode }>",
+          "typeName" : "FC<{ label: string; children: ReactNode }>"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export const Accordion = Object.assign(AccordionBase, {",
+    "export function useTabsContext(): TabsContextValue {",
+    "export { Tabs, Menu };"
+  ],
+  "filePath" : "fixtures/tsx/compound_components.tsx",
+  "functionSignatureTypes" : [
+    "AccordionItemProps",
+    "AccordionProps",
+    "FC",
+    "ReactNode",
+    "TabsContentProps",
+    "TabsContextValue",
+    "TabsListProps",
+    "TabsProps",
+    "TabsTriggerProps"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "const TabsContext = createContext<TabsContextValue | null>(null)",
+      "lineNumber" : 14,
+      "name" : "TabsContext",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "const Tabs: FC<TabsProps> & { List: FC<TabsListProps>; Trigger: FC<TabsTriggerProps>; Content: FC<TabsContentProps>; } = ({ defaultValue, children }) =>",
+      "lineNumber" : 38,
+      "name" : "Tabs",
+      "parameters" : [
+
+      ],
+      "returnType" : "FC<TabsProps> & {\n\nList: FC<TabsListProps>;\nTrigger: FC<TabsTriggerProps>;\nContent: FC<TabsContentProps>;\n}"
+    },
+    {
+      "definitionLine" : "Tabs.List = ({ children }) =>",
+      "lineNumber" : 53,
+      "name" : "Tabs.List",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "Tabs.Trigger = ({ value, children }) =>",
+      "lineNumber" : 57,
+      "name" : "Tabs.Trigger",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "Tabs.Content = ({ value, children }) =>",
+      "lineNumber" : 72,
+      "name" : "Tabs.Content",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "const AccordionBase: FC<AccordionProps> = ({ children }) =>",
+      "lineNumber" : 90,
+      "name" : "AccordionBase",
+      "parameters" : [
+
+      ],
+      "returnType" : "FC<AccordionProps>"
+    },
+    {
+      "definitionLine" : "const AccordionItem: FC<AccordionItemProps> = ({ value, children }) =>",
+      "lineNumber" : 94,
+      "name" : "AccordionItem",
+      "parameters" : [
+
+      ],
+      "returnType" : "FC<AccordionItemProps>"
+    },
+    {
+      "definitionLine" : "const AccordionHeader: FC<{ children: ReactNode }> = ({ children }) =>",
+      "lineNumber" : 98,
+      "name" : "AccordionHeader",
+      "parameters" : [
+
+      ],
+      "returnType" : "FC<{ children: ReactNode }>"
+    },
+    {
+      "definitionLine" : "const AccordionContent: FC<{ children: ReactNode }> = ({ children }) =>",
+      "lineNumber" : 102,
+      "name" : "AccordionContent",
+      "parameters" : [
+
+      ],
+      "returnType" : "FC<{ children: ReactNode }>"
+    },
+    {
+      "definitionLine" : "export const Accordion = Object.assign(AccordionBase, { Item: AccordionItem, Header: AccordionHeader, Content: AccordionContent, })",
+      "lineNumber" : 106,
+      "name" : "Accordion",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export function useTabsContext(): TabsContextValue",
+      "lineNumber" : 136,
+      "name" : "useTabsContext",
+      "parameters" : [
+
+      ],
+      "returnType" : "TabsContextValue"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "import React, { FC, ReactNode, createContext, useContext, useState } from \"react\";"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "AccordionItemProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "value: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "AccordionProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TabsContentProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "value: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TabsContextValue",
+      "properties" : [
+        {
+          "name" : "activeTab: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "setActiveTab: (value: string) => void",
+          "typeName" : "(value: string) => void"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TabsListProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TabsProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "defaultValue: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "TabsTriggerProps",
+      "properties" : [
+        {
+          "name" : "children: ReactNode",
+          "typeName" : "ReactNode"
+        },
+        {
+          "name" : "value: string",
+          "typeName" : "string"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "FC",
+    "ReactNode"
+  ],
+  "referencedTypes" : [
+    "AccordionItemProps",
+    "AccordionProps",
+    "FC",
+    "ReactNode",
+    "TabsContentProps",
+    "TabsContextValue",
+    "TabsListProps",
+    "TabsProps",
+    "TabsTriggerProps"
+  ]
+}

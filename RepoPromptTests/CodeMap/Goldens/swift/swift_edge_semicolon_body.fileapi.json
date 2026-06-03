@@ -1,0 +1,163 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func process(key: String, value: String) -> Bool",
+          "lineNumber" : 49,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "key",
+              "typeName" : "String"
+            },
+            {
+              "localName" : "value",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Bool"
+        },
+        {
+          "definitionLine" : "func clear()",
+          "lineNumber" : 53,
+          "name" : "clear",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "DataProcessor",
+      "properties" : [
+        {
+          "name" : "private var cache: [String: Any]",
+          "typeName" : "[String: Any]"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/swift/edge_semicolon_body.swift",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "func executeSQLQuery(database: String, table: String) -> [String]",
+      "lineNumber" : 8,
+      "name" : "executeSQLQuery",
+      "parameters" : [
+        {
+          "localName" : "database",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "table",
+          "typeName" : "String"
+        }
+      ],
+      "returnType" : "[String]"
+    },
+    {
+      "definitionLine" : "func legacyCodeWithSemicolons(value: Int) -> Int",
+      "lineNumber" : 14,
+      "name" : "legacyCodeWithSemicolons",
+      "parameters" : [
+        {
+          "localName" : "value",
+          "typeName" : "Int"
+        }
+      ],
+      "returnType" : "Int"
+    },
+    {
+      "definitionLine" : "func buildConfigString() -> String",
+      "lineNumber" : 20,
+      "name" : "buildConfigString",
+      "parameters" : [
+
+      ],
+      "returnType" : "String"
+    },
+    {
+      "definitionLine" : "func processDataAsync(items: [String]) async throws -> Int",
+      "lineNumber" : 31,
+      "name" : "processDataAsync",
+      "parameters" : [
+        {
+          "localName" : "items",
+          "typeName" : "[String]"
+        }
+      ],
+      "returnType" : "Int"
+    },
+    {
+      "definitionLine" : "func transform<T: Hashable>( input: [T], using closure: (T) -> String ) -> [String]",
+      "lineNumber" : 37,
+      "name" : "transform",
+      "parameters" : [
+        {
+          "localName" : "input",
+          "typeName" : "[T]"
+        },
+        {
+          "externalName" : "using",
+          "localName" : "closure",
+          "typeName" : "(T) -> String"
+        }
+      ],
+      "returnType" : "[String]"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "import Foundation"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func execute(query: String) async throws -> [String]",
+          "lineNumber" : 60,
+          "name" : "execute",
+          "parameters" : [
+            {
+              "localName" : "query",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "[String]"
+        }
+      ],
+      "name" : "SQLExecutor",
+      "properties" : [
+        {
+          "name" : "var connectionString: String",
+          "typeName" : "String"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

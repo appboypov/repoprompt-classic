@@ -1,0 +1,19 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 4,
+    "function.definition" : 9,
+    "import" : 4,
+    "rust.impl.decl" : 5,
+    "rust.impl.type" : 5,
+    "type.class.decl" : 3,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.interface" : 1,
+    "type.interface.decl" : 1,
+    "type.struct" : 3,
+    "variable.field" : 8,
+    "variable.global" : 2
+  },
+  "fixture" : "fixtures/rs/smoke.rs",
+  "totalCaptures" : 47
+}

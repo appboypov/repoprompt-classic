@@ -1,0 +1,1355 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 70;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1F2BC512B22D0638E6FC559A /* TreeSitterJavaScript in Frameworks */ = {isa = PBXBuildFile; productRef = 5038EB871EFC21C7EE0C0DFB /* TreeSitterJavaScript */; };
+		45D11777DCBA33DCADDFD42D /* TreeSitterC in Frameworks */ = {isa = PBXBuildFile; productRef = FDDCD27C7D9676E321AC8279 /* TreeSitterC */; };
+		8068FB3C3BB248F4767F4A0D /* TreeSitterJava in Frameworks */ = {isa = PBXBuildFile; productRef = 59909EF64629CB8C659D5EEF /* TreeSitterJava */; };
+		8AECA3E78CFC7552C3B55186 /* TreeSitterPython in Frameworks */ = {isa = PBXBuildFile; productRef = A25F8F3EB4E510FB24862811 /* TreeSitterPython */; };
+		A4073D3C2C4824F000FD4E61 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = A4073D3B2C4824F000FD4E61 /* Highlightr */; };
+		A407F6AF2D557B5500A51FDD /* TreeSitterSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A407F6AE2D557B5500A51FDD /* TreeSitterSwift */; };
+		A407F6B22D557C9600A51FDD /* TreeSitterCPP in Frameworks */ = {isa = PBXBuildFile; productRef = A407F6B12D557C9600A51FDD /* TreeSitterCPP */; };
+		A407F6B72D5692E000A51FDD /* TreeSitterCSharp in Frameworks */ = {isa = PBXBuildFile; productRef = A407F6B62D5692E000A51FDD /* TreeSitterCSharp */; };
+		A407F6CC2D5A6D5A00A51FDD /* TreeSitterTypeScript in Frameworks */ = {isa = PBXBuildFile; productRef = A407F6CB2D5A6D5A00A51FDD /* TreeSitterTypeScript */; };
+		A40BD8632F2D2A4C00516B1F /* TreeSitterRuby in Frameworks */ = {isa = PBXBuildFile; productRef = A40BD8622F2D2A4C00516B1F /* TreeSitterRuby */; };
+		A4520B1D2D6FE74500C0C2B9 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = A4520B1C2D6FE74500C0C2B9 /* SwiftAnthropic */; };
+		A4750D5A2CCE970F00AC7D68 /* Neon in Frameworks */ = {isa = PBXBuildFile; productRef = A4750D592CCE970F00AC7D68 /* Neon */; };
+		A4750D5D2CCE9A0B00AC7D68 /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = A4750D5C2CCE9A0B00AC7D68 /* SwiftTreeSitter */; };
+		A47856B42EF0C19A009133A1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = A47856B32EF0C19A009133A1 /* Atomics */; };
+		A483CA332CEFDD8300206C46 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = A483CA322CEFDD8300206C46 /* MarkdownUI */; };
+		A489F8D92C2B850E00C0E1EA /* RepoPromptUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A489F8D82C2B850E00C0E1EA /* RepoPromptUITests.swift */; };
+		A489F8DB2C2B850E00C0E1EA /* RepoPromptUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A489F8DA2C2B850E00C0E1EA /* RepoPromptUITestsLaunchTests.swift */; };
+		A49D52162D86244200E71EAA /* TPObfuscation in Frameworks */ = {isa = PBXBuildFile; productRef = A49D52152D86244200E71EAA /* TPObfuscation */; };
+		A49D52212D872CBD00E71EAA /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		A49D52222D872CBD00E71EAA /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		A4AD59AE2DE76B9400B22ABF /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = A4AD59AD2DE76B9400B22ABF /* Markdown */; };
+		A4B6A2D42C518A7A00F22C80 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = A4B6A2D32C518A7A00F22C80 /* SwiftyJSON */; };
+		A4C3C04C2DB6C966007D9EF8 /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = A4C3C04B2DB6C966007D9EF8 /* MCP */; };
+		A4C3C05F2DBBDD22007D9EF8 /* UniversalCharsetDetection in Frameworks */ = {isa = PBXBuildFile; productRef = A4C3C05E2DBBDD22007D9EF8 /* UniversalCharsetDetection */; };
+		A4CBFF642E70BDDA0028FE42 /* TreeSitterPHP in Frameworks */ = {isa = PBXBuildFile; productRef = A4CBFF632E70BDDA0028FE42 /* TreeSitterPHP */; };
+		A4CBFF6A2E70D23A0028FE42 /* SwiftOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = A4CBFF692E70D23A0028FE42 /* SwiftOpenAI */; };
+		A4E4F3932E0598580007D199 /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = A4E4F3922E0598580007D199 /* MCP */; };
+		A4E4F6502E05AE030007D199 /* repoprompt-mcp in Copy Files */ = {isa = PBXBuildFile; fileRef = A4E4F3852E0496CA0007D199 /* repoprompt-mcp */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		A4E4F6522E05AE1F0007D199 /* ServiceLifecycle in Frameworks */ = {isa = PBXBuildFile; productRef = A4E4F6512E05AE1F0007D199 /* ServiceLifecycle */; };
+		A4E4F6542E05AE290007D199 /* ServiceLifecycle in Frameworks */ = {isa = PBXBuildFile; productRef = A4E4F6532E05AE290007D199 /* ServiceLifecycle */; };
+		A4E4F6622E05B53E0007D199 /* JSONSchema in Frameworks */ = {isa = PBXBuildFile; productRef = A4E4F6612E05B53E0007D199 /* JSONSchema */; };
+		A4E4F6652E05B5760007D199 /* Ontology in Frameworks */ = {isa = PBXBuildFile; productRef = A4E4F6642E05B5760007D199 /* Ontology */; };
+		A4EC63722D7E5EEA00EBEAFF /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = A4EC63712D7E5EEA00EBEAFF /* KeyboardShortcuts */; };
+		E26BAD066C27C63B180AC1DC /* TreeSitterDart in Frameworks */ = {isa = PBXBuildFile; productRef = 2F7A57337FB597439C0310EC /* TreeSitterDart */; };
+		E72259A48E6A14D709F9FF9C /* TreeSitterGo in Frameworks */ = {isa = PBXBuildFile; productRef = A1D9276C54CA88A552E769FE /* TreeSitterGo */; };
+		EC4D554D6ACCF6C064A98012 /* TreeSitterRust in Frameworks */ = {isa = PBXBuildFile; productRef = 8495FFA30B9136BD5F01911B /* TreeSitterRust */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A489F8CB2C2B850E00C0E1EA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A489F8AF2C2B850D00C0E1EA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A489F8B62C2B850D00C0E1EA;
+			remoteInfo = RepoPrompt;
+		};
+		A489F8D52C2B850E00C0E1EA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A489F8AF2C2B850D00C0E1EA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A489F8B62C2B850D00C0E1EA;
+			remoteInfo = RepoPrompt;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A4E4F3832E0496CA0007D199 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A4E4F64F2E05ADF40007D199 /* Copy Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				A4E4F6502E05AE030007D199 /* repoprompt-mcp in Copy Files */,
+			);
+			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A4073D322C48241F00FD4E61 /* RepoPrompt.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = RepoPrompt.xctestplan; sourceTree = "<group>"; };
+		A489F8B72C2B850D00C0E1EA /* Repo Prompt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Repo Prompt.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A489F8CA2C2B850E00C0E1EA /* RepoPromptTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RepoPromptTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A489F8D42C2B850E00C0E1EA /* RepoPromptUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RepoPromptUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A489F8D82C2B850E00C0E1EA /* RepoPromptUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPromptUITests.swift; sourceTree = "<group>"; };
+		A489F8DA2C2B850E00C0E1EA /* RepoPromptUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPromptUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		A4E4F3852E0496CA0007D199 /* repoprompt-mcp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "repoprompt-mcp"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4F5A0042F8A000100000001 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		A4F5A0052F8A000100000001 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A4F1C05E2EDE4D0A00000001 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/allocator_src/sljitExecAllocatorApple.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/allocator_src/sljitExecAllocatorCore.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/allocator_src/sljitExecAllocatorPosix.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/allocator_src/sljitProtExecAllocatorPosix.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/allocator_src/sljitWXExecAllocatorPosix.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitLir.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitNativeARM_64.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitNativeX86_32.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitNativeX86_64.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitNativeX86_common.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitSerialize.c,
+				Infrastructure/Regex/CSwiftPCRE2/deps/sljit/sljit_src/sljitUtils.c,
+			);
+			target = A489F8B62C2B850D00C0E1EA /* RepoPrompt */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A489F8B92C2B850D00C0E1EA /* RepoPrompt */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A4F1C05E2EDE4D0A00000001 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = RepoPrompt; sourceTree = "<group>"; };
+		A4E4EE872E01D8380007D199 /* RepoPromptTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = RepoPromptTests; sourceTree = "<group>"; };
+		A4E4F3862E0496CA0007D199 /* repoprompt-mcp */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "repoprompt-mcp"; sourceTree = "<group>"; };
+		A4E4F38C2E04984B0007D199 /* RepoPrompt/Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = RepoPrompt/Shared; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A489F8B42C2B850D00C0E1EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4750D5D2CCE9A0B00AC7D68 /* SwiftTreeSitter in Frameworks */,
+				45D11777DCBA33DCADDFD42D /* TreeSitterC in Frameworks */,
+				E26BAD066C27C63B180AC1DC /* TreeSitterDart in Frameworks */,
+				E72259A48E6A14D709F9FF9C /* TreeSitterGo in Frameworks */,
+				8068FB3C3BB248F4767F4A0D /* TreeSitterJava in Frameworks */,
+				1F2BC512B22D0638E6FC559A /* TreeSitterJavaScript in Frameworks */,
+				8AECA3E78CFC7552C3B55186 /* TreeSitterPython in Frameworks */,
+				EC4D554D6ACCF6C064A98012 /* TreeSitterRust in Frameworks */,
+				A4CBFF6A2E70D23A0028FE42 /* SwiftOpenAI in Frameworks */,
+				A407F6CC2D5A6D5A00A51FDD /* TreeSitterTypeScript in Frameworks */,
+				A4EC63722D7E5EEA00EBEAFF /* KeyboardShortcuts in Frameworks */,
+				A4AD59AE2DE76B9400B22ABF /* Markdown in Frameworks */,
+				A483CA332CEFDD8300206C46 /* MarkdownUI in Frameworks */,
+				A407F6B22D557C9600A51FDD /* TreeSitterCPP in Frameworks */,
+				A407F6B72D5692E000A51FDD /* TreeSitterCSharp in Frameworks */,
+				A4750D5A2CCE970F00AC7D68 /* Neon in Frameworks */,
+				A4E4F6522E05AE1F0007D199 /* ServiceLifecycle in Frameworks */,
+				A4B6A2D42C518A7A00F22C80 /* SwiftyJSON in Frameworks */,
+				A47856B42EF0C19A009133A1 /* Atomics in Frameworks */,
+				A4C3C04C2DB6C966007D9EF8 /* MCP in Frameworks */,
+				A407F6AF2D557B5500A51FDD /* TreeSitterSwift in Frameworks */,
+				A4E4F6652E05B5760007D199 /* Ontology in Frameworks */,
+				A4073D3C2C4824F000FD4E61 /* Highlightr in Frameworks */,
+				A4E4F6622E05B53E0007D199 /* JSONSchema in Frameworks */,
+				A4CBFF642E70BDDA0028FE42 /* TreeSitterPHP in Frameworks */,
+				A49D52162D86244200E71EAA /* TPObfuscation in Frameworks */,
+				A4520B1D2D6FE74500C0C2B9 /* SwiftAnthropic in Frameworks */,
+				A4C3C05F2DBBDD22007D9EF8 /* UniversalCharsetDetection in Frameworks */,
+				A40BD8632F2D2A4C00516B1F /* TreeSitterRuby in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A489F8C72C2B850E00C0E1EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A49D52212D872CBD00E71EAA /* (null) in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A489F8D12C2B850E00C0E1EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A49D52222D872CBD00E71EAA /* (null) in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4E4F3822E0496CA0007D199 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4E4F3932E0598580007D199 /* MCP in Frameworks */,
+				A4E4F6542E05AE290007D199 /* ServiceLifecycle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A477EBA42C2E22C600AFC854 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A489F8AE2C2B850D00C0E1EA = {
+			isa = PBXGroup;
+			children = (
+				A4073D322C48241F00FD4E61 /* RepoPrompt.xctestplan */,
+				A4F5A0042F8A000100000001 /* LICENSE */,
+				A4F5A0052F8A000100000001 /* THIRD_PARTY_NOTICES.md */,
+				A489F8B92C2B850D00C0E1EA /* RepoPrompt */,
+				A4E4EE872E01D8380007D199 /* RepoPromptTests */,
+				A489F8D72C2B850E00C0E1EA /* RepoPromptUITests */,
+				A4E4F3862E0496CA0007D199 /* repoprompt-mcp */,
+				A4E4F38C2E04984B0007D199 /* RepoPrompt/Shared */,
+				A489F8B82C2B850D00C0E1EA /* Products */,
+				A477EBA42C2E22C600AFC854 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		A489F8B82C2B850D00C0E1EA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A489F8B72C2B850D00C0E1EA /* Repo Prompt.app */,
+				A489F8CA2C2B850E00C0E1EA /* RepoPromptTests.xctest */,
+				A489F8D42C2B850E00C0E1EA /* RepoPromptUITests.xctest */,
+				A4E4F3852E0496CA0007D199 /* repoprompt-mcp */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A489F8D72C2B850E00C0E1EA /* RepoPromptUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A489F8D82C2B850E00C0E1EA /* RepoPromptUITests.swift */,
+				A489F8DA2C2B850E00C0E1EA /* RepoPromptUITestsLaunchTests.swift */,
+			);
+			path = RepoPromptUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A489F8B62C2B850D00C0E1EA /* RepoPrompt */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A489F8DE2C2B850E00C0E1EA /* Build configuration list for PBXNativeTarget "RepoPrompt" */;
+			buildPhases = (
+				A489F8B32C2B850D00C0E1EA /* Sources */,
+				A489F8B42C2B850D00C0E1EA /* Frameworks */,
+				A489F8B52C2B850D00C0E1EA /* Resources */,
+				A4F5A0032F8A000100000001 /* Copy Legal Notices */,
+				A4E4F64F2E05ADF40007D199 /* Copy Files */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A489F8B92C2B850D00C0E1EA /* RepoPrompt */,
+			);
+			name = RepoPrompt;
+			packageProductDependencies = (
+				A4073D3B2C4824F000FD4E61 /* Highlightr */,
+				A4B6A2D32C518A7A00F22C80 /* SwiftyJSON */,
+				A4750D592CCE970F00AC7D68 /* Neon */,
+				A4750D5C2CCE9A0B00AC7D68 /* SwiftTreeSitter */,
+				FDDCD27C7D9676E321AC8279 /* TreeSitterC */,
+				2F7A57337FB597439C0310EC /* TreeSitterDart */,
+				A1D9276C54CA88A552E769FE /* TreeSitterGo */,
+				59909EF64629CB8C659D5EEF /* TreeSitterJava */,
+				5038EB871EFC21C7EE0C0DFB /* TreeSitterJavaScript */,
+				A25F8F3EB4E510FB24862811 /* TreeSitterPython */,
+				8495FFA30B9136BD5F01911B /* TreeSitterRust */,
+				A483CA322CEFDD8300206C46 /* MarkdownUI */,
+				A407F6AE2D557B5500A51FDD /* TreeSitterSwift */,
+				A407F6B12D557C9600A51FDD /* TreeSitterCPP */,
+				A407F6B62D5692E000A51FDD /* TreeSitterCSharp */,
+				A407F6CB2D5A6D5A00A51FDD /* TreeSitterTypeScript */,
+				A4520B1C2D6FE74500C0C2B9 /* SwiftAnthropic */,
+				A4EC63712D7E5EEA00EBEAFF /* KeyboardShortcuts */,
+				A49D52152D86244200E71EAA /* TPObfuscation */,
+				A4C3C04B2DB6C966007D9EF8 /* MCP */,
+				A4C3C05E2DBBDD22007D9EF8 /* UniversalCharsetDetection */,
+				A4AD59AD2DE76B9400B22ABF /* Markdown */,
+				A4E4F6512E05AE1F0007D199 /* ServiceLifecycle */,
+				A4E4F6612E05B53E0007D199 /* JSONSchema */,
+				A4E4F6642E05B5760007D199 /* Ontology */,
+				A4CBFF632E70BDDA0028FE42 /* TreeSitterPHP */,
+				A4CBFF692E70D23A0028FE42 /* SwiftOpenAI */,
+				A47856B32EF0C19A009133A1 /* Atomics */,
+				A40BD8622F2D2A4C00516B1F /* TreeSitterRuby */,
+			);
+			productName = RepoPrompt;
+			productReference = A489F8B72C2B850D00C0E1EA /* Repo Prompt.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A489F8C92C2B850E00C0E1EA /* RepoPromptTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A489F8E12C2B850E00C0E1EA /* Build configuration list for PBXNativeTarget "RepoPromptTests" */;
+			buildPhases = (
+				A489F8C62C2B850E00C0E1EA /* Sources */,
+				A489F8C72C2B850E00C0E1EA /* Frameworks */,
+				A489F8C82C2B850E00C0E1EA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A489F8CC2C2B850E00C0E1EA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A4E4EE872E01D8380007D199 /* RepoPromptTests */,
+			);
+			name = RepoPromptTests;
+			packageProductDependencies = (
+			);
+			productName = RepoPromptTests;
+			productReference = A489F8CA2C2B850E00C0E1EA /* RepoPromptTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A489F8D32C2B850E00C0E1EA /* RepoPromptUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A489F8E42C2B850E00C0E1EA /* Build configuration list for PBXNativeTarget "RepoPromptUITests" */;
+			buildPhases = (
+				A489F8D02C2B850E00C0E1EA /* Sources */,
+				A489F8D12C2B850E00C0E1EA /* Frameworks */,
+				A489F8D22C2B850E00C0E1EA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A489F8D62C2B850E00C0E1EA /* PBXTargetDependency */,
+			);
+			name = RepoPromptUITests;
+			productName = RepoPromptUITests;
+			productReference = A489F8D42C2B850E00C0E1EA /* RepoPromptUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		A4E4F3842E0496CA0007D199 /* repoprompt-mcp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A4E4F3892E0496CA0007D199 /* Build configuration list for PBXNativeTarget "repoprompt-mcp" */;
+			buildPhases = (
+				A4E4F3812E0496CA0007D199 /* Sources */,
+				A4E4F3822E0496CA0007D199 /* Frameworks */,
+				A4E4F3832E0496CA0007D199 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A4E4F3862E0496CA0007D199 /* repoprompt-mcp */,
+				A4E4F38C2E04984B0007D199 /* RepoPrompt/Shared */,
+			);
+			name = "repoprompt-mcp";
+			packageProductDependencies = (
+				A4E4F3922E0598580007D199 /* MCP */,
+				A4E4F6532E05AE290007D199 /* ServiceLifecycle */,
+			);
+			productName = "repoprompt-mcp";
+			productReference = A4E4F3852E0496CA0007D199 /* repoprompt-mcp */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A489F8AF2C2B850D00C0E1EA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1610;
+				LastUpgradeCheck = 1610;
+				TargetAttributes = {
+					A489F8B62C2B850D00C0E1EA = {
+						CreatedOnToolsVersion = 15.4;
+						LastSwiftMigration = 1610;
+					};
+					A489F8C92C2B850E00C0E1EA = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = A489F8B62C2B850D00C0E1EA;
+					};
+					A489F8D32C2B850E00C0E1EA = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = A489F8B62C2B850D00C0E1EA;
+					};
+					A4E4F3842E0496CA0007D199 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+				};
+			};
+			buildConfigurationList = A489F8B22C2B850D00C0E1EA /* Build configuration list for PBXProject "RepoPrompt" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A489F8AE2C2B850D00C0E1EA;
+			packageReferences = (
+				A477EBA32C2E21C300AFC854 /* XCRemoteSwiftPackageReference "Highlightr" */,
+				A4B6A2D22C518A7300F22C80 /* XCRemoteSwiftPackageReference "SwiftyJSON" */,
+				A4750D582CCE970B00AC7D68 /* XCRemoteSwiftPackageReference "Neon" */,
+				A4750D5B2CCE99FE00AC7D68 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */,
+				CA3BBAB9F7D76C2F14CCF973 /* XCRemoteSwiftPackageReference "tree-sitter-c" */,
+				E373DA2ECB69AA1848D0F528 /* XCRemoteSwiftPackageReference "tree-sitter-dart" */,
+				B65AEF03F57A1001662E655F /* XCRemoteSwiftPackageReference "tree-sitter-go" */,
+				676EB9B5DF77407356189E0E /* XCRemoteSwiftPackageReference "tree-sitter-java" */,
+				BA758CBBEE42A70D0A6CBB60 /* XCRemoteSwiftPackageReference "tree-sitter-javascript" */,
+				2608FA7D0BAB5DBE2905DB9B /* XCRemoteSwiftPackageReference "tree-sitter-python" */,
+				7C26712FE40940753AE33E62 /* XCRemoteSwiftPackageReference "tree-sitter-rust" */,
+				A483CA312CEFDD3500206C46 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				A407F6AB2D557B4100A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-swift" */,
+				A407F6B02D557C9100A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */,
+				A407F6B52D5692D700A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-c-sharp" */,
+				A407F6CA2D5A6D2A00A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-typescript" */,
+				A4520B1B2D6FE73C00C0C2B9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
+				A4EC63702D7E5EE200EBEAFF /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				A49D52142D86243B00E71EAA /* XCRemoteSwiftPackageReference "TPObfuscation" */,
+				A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */,
+				A4C3C05D2DBBDD16007D9EF8 /* XCRemoteSwiftPackageReference "UniversalCharsetDetection" */,
+				A4AD59AC2DE76B8800B22ABF /* XCRemoteSwiftPackageReference "swift-markdown" */,
+				A4E4F3802E0480ED0007D199 /* XCRemoteSwiftPackageReference "swift-service-lifecycle" */,
+				A4E4F6602E05B5300007D199 /* XCRemoteSwiftPackageReference "JSONSchema" */,
+				A4E4F6632E05B5710007D199 /* XCRemoteSwiftPackageReference "ontology" */,
+				A4CBFF622E70BDB50028FE42 /* XCRemoteSwiftPackageReference "tree-sitter-php" */,
+				A4CBFF682E70D2340028FE42 /* XCRemoteSwiftPackageReference "SwiftOpenAI" */,
+				A47856B22EF0C182009133A1 /* XCRemoteSwiftPackageReference "swift-atomics" */,
+				A40BD8612F2D2A4300516B1F /* XCRemoteSwiftPackageReference "tree-sitter-ruby" */,
+			);
+			productRefGroup = A489F8B82C2B850D00C0E1EA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A489F8B62C2B850D00C0E1EA /* RepoPrompt */,
+				A489F8C92C2B850E00C0E1EA /* RepoPromptTests */,
+				A489F8D32C2B850E00C0E1EA /* RepoPromptUITests */,
+				A4E4F3842E0496CA0007D199 /* repoprompt-mcp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A489F8B52C2B850D00C0E1EA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A489F8C82C2B850E00C0E1EA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A489F8D22C2B850E00C0E1EA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A4F5A0032F8A000100000001 /* Copy Legal Notices */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${SRCROOT}/LICENSE",
+				"${SRCROOT}/THIRD_PARTY_NOTICES.md",
+				"${SRCROOT}/ThirdPartyLicenses",
+			);
+			name = "Copy Legal Notices";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Legal/LICENSE",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Legal/THIRD_PARTY_NOTICES.md",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Legal/ThirdPartyLicenses",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nlegal_dir=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Legal\"\nmkdir -p \"$legal_dir\"\ncp \"${SRCROOT}/LICENSE\" \"$legal_dir/LICENSE\"\ncp \"${SRCROOT}/THIRD_PARTY_NOTICES.md\" \"$legal_dir/THIRD_PARTY_NOTICES.md\"\nrm -rf \"$legal_dir/ThirdPartyLicenses\"\ncp -R \"${SRCROOT}/ThirdPartyLicenses\" \"$legal_dir/ThirdPartyLicenses\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A489F8B32C2B850D00C0E1EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A489F8C62C2B850E00C0E1EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A489F8D02C2B850E00C0E1EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A489F8DB2C2B850E00C0E1EA /* RepoPromptUITestsLaunchTests.swift in Sources */,
+				A489F8D92C2B850E00C0E1EA /* RepoPromptUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4E4F3812E0496CA0007D199 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A489F8CC2C2B850E00C0E1EA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A489F8B62C2B850D00C0E1EA /* RepoPrompt */;
+			targetProxy = A489F8CB2C2B850E00C0E1EA /* PBXContainerItemProxy */;
+		};
+		A489F8D62C2B850E00C0E1EA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A489F8B62C2B850D00C0E1EA /* RepoPrompt */;
+			targetProxy = A489F8D52C2B850E00C0E1EA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A489F8DC2C2B850E00C0E1EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A489F8DD2C2B850E00C0E1EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_DEBUG_INFORMATION_LEVEL = "line-tables-only";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"-Xlinker",
+					"-x",
+				);
+				SDKROOT = macosx;
+				SEPARATE_STRIP = YES;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = all;
+				STRIP_SWIFT_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A489F8DF2C2B850E00C0E1EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = RepoPrompt/RepoPrompt.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 334;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"RepoPrompt/Resources/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					".claude/**",
+					"Docs/**",
+					"_mcp_test/**",
+					"prompt-exports/**",
+					"reports/**",
+					"**/*.symbols",
+					"**/*.md",
+					"**/*.markdown",
+					"**/*.txt",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"PCRE2_CODE_UNIT_WIDTH=8",
+					"HAVE_CONFIG_H=1",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/RepoPrompt/Infrastructure/Regex/CSwiftPCRE2/include",
+					"$(SRCROOT)/RepoPrompt/Infrastructure/Regex/CSwiftPCRE2/src",
+					"$(SRCROOT)/RepoPrompt/Support/C/TreeSitterScannerSupport/include",
+				);
+				INFOPLIST_FILE = RepoPrompt/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Repo Prompt";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 2.1.32;
+				PRODUCT_BUNDLE_IDENTIFIER = debug.pvncher.repoprompt;
+				PRODUCT_MODULE_NAME = RepoPrompt;
+				PRODUCT_NAME = "Repo Prompt";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "RepoPrompt/RepoPrompt-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A489F8E02C2B850E00C0E1EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = RepoPrompt/RepoPrompt.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 334;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"RepoPrompt/Resources/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					".claude/**",
+					"Docs/**",
+					"_mcp_test/**",
+					"prompt-exports/**",
+					"reports/**",
+					"**/*.symbols",
+					"**/*.md",
+					"**/*.markdown",
+					"**/*.txt",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"PCRE2_CODE_UNIT_WIDTH=8",
+					"HAVE_CONFIG_H=1",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/RepoPrompt/Infrastructure/Regex/CSwiftPCRE2/include",
+					"$(SRCROOT)/RepoPrompt/Infrastructure/Regex/CSwiftPCRE2/src",
+					"$(SRCROOT)/RepoPrompt/Support/C/TreeSitterScannerSupport/include",
+				);
+				INFOPLIST_FILE = RepoPrompt/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Repo Prompt";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 2.1.32;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fvisibility=hidden",
+					"-fdata-sections",
+					"-ffunction-sections",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pvncher.repoprompt;
+				PRODUCT_MODULE_NAME = RepoPrompt;
+				PRODUCT_NAME = "Repo Prompt";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "RepoPrompt/RepoPrompt-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A489F8E22C2B850E00C0E1EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 334;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pvncher.RepoPromptTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Repo Prompt.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Repo Prompt";
+			};
+			name = Debug;
+		};
+		A489F8E32C2B850E00C0E1EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 334;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pvncher.RepoPromptTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Repo Prompt.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Repo Prompt";
+			};
+			name = Release;
+		};
+		A489F8E52C2B850E00C0E1EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 334;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pvncher.RepoPromptUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = RepoPrompt;
+			};
+			name = Debug;
+		};
+		A489F8E62C2B850E00C0E1EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 334;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pvncher.RepoPromptUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = RepoPrompt;
+			};
+			name = Release;
+		};
+		A4E4F38A2E0496CA0007D199 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A4E4F38B2E0496CA0007D199 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A489F8B22C2B850D00C0E1EA /* Build configuration list for PBXProject "RepoPrompt" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A489F8DC2C2B850E00C0E1EA /* Debug */,
+				A489F8DD2C2B850E00C0E1EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A489F8DE2C2B850E00C0E1EA /* Build configuration list for PBXNativeTarget "RepoPrompt" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A489F8DF2C2B850E00C0E1EA /* Debug */,
+				A489F8E02C2B850E00C0E1EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A489F8E12C2B850E00C0E1EA /* Build configuration list for PBXNativeTarget "RepoPromptTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A489F8E22C2B850E00C0E1EA /* Debug */,
+				A489F8E32C2B850E00C0E1EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A489F8E42C2B850E00C0E1EA /* Build configuration list for PBXNativeTarget "RepoPromptUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A489F8E52C2B850E00C0E1EA /* Debug */,
+				A489F8E62C2B850E00C0E1EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A4E4F3892E0496CA0007D199 /* Build configuration list for PBXNativeTarget "repoprompt-mcp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A4E4F38A2E0496CA0007D199 /* Debug */,
+				A4E4F38B2E0496CA0007D199 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2608FA7D0BAB5DBE2905DB9B /* XCRemoteSwiftPackageReference "tree-sitter-python" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-python";
+			requirement = {
+				kind = revision;
+				revision = c5fca1a186e8e528115196178c28eefa8d86b0b0;
+			};
+		};
+		676EB9B5DF77407356189E0E /* XCRemoteSwiftPackageReference "tree-sitter-java" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-java";
+			requirement = {
+				kind = revision;
+				revision = e10607b45ff745f5f876bfa3e94fbcc6b44bdc11;
+			};
+		};
+		7C26712FE40940753AE33E62 /* XCRemoteSwiftPackageReference "tree-sitter-rust" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-rust";
+			requirement = {
+				kind = revision;
+				revision = 2eaf126458a4d6a69401089b6ba78c5e5d6c1ced;
+			};
+		};
+		A407F6AB2D557B4100A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/alex-pinkus/tree-sitter-swift";
+			requirement = {
+				kind = revision;
+				revision = 9253825dd2570430b53fa128cbb40cb62498e75d;
+			};
+		};
+		A407F6B02D557C9100A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-cpp";
+			requirement = {
+				kind = revision;
+				revision = e5cea0ec884c5c3d2d1e41a741a66ce13da4d945;
+			};
+		};
+		A407F6B52D5692D700A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-c-sharp" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-c-sharp.git";
+			requirement = {
+				kind = revision;
+				revision = b27b091bfdc5f16d0ef76421ea5609c82a57dff0;
+			};
+		};
+		A407F6CA2D5A6D2A00A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-typescript" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-typescript";
+			requirement = {
+				kind = revision;
+				revision = 75b3874edb2dc714fb1fd77a32013d0f8699989f;
+			};
+		};
+		A40BD8612F2D2A4300516B1F /* XCRemoteSwiftPackageReference "tree-sitter-ruby" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-ruby";
+			requirement = {
+				kind = revision;
+				revision = 7a010836b74351855148818d5cb8170dc4df8e6a;
+			};
+		};
+		A4520B1B2D6FE73C00C0C2B9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jamesrochabrun/SwiftAnthropic";
+			requirement = {
+				kind = revision;
+				revision = c069979c681de4434b6611c091c0cab01f141213;
+			};
+		};
+		A4750D582CCE970B00AC7D68 /* XCRemoteSwiftPackageReference "Neon" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ChimeHQ/Neon.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.6.0;
+			};
+		};
+		A4750D5B2CCE99FE00AC7D68 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ChimeHQ/SwiftTreeSitter.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.8.0;
+			};
+		};
+		A477EBA32C2E21C300AFC854 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/raspu/Highlightr.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.0;
+			};
+		};
+		A47856B22EF0C182009133A1 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-atomics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+		A483CA312CEFDD3500206C46 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+		A49D52142D86243B00E71EAA /* XCRemoteSwiftPackageReference "TPObfuscation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/techprimate/TPObfuscation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.1;
+			};
+		};
+		A4AD59AC2DE76B8800B22ABF /* XCRemoteSwiftPackageReference "swift-markdown" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftlang/swift-markdown";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.6.0;
+			};
+		};
+		A4B6A2D22C518A7300F22C80 /* XCRemoteSwiftPackageReference "SwiftyJSON" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SwiftyJSON/SwiftyJSON";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.2;
+			};
+		};
+		A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/provencher/swift-sdk.git";
+			requirement = {
+				kind = revision;
+				revision = cb6a62f7c266ed535792b3e9e6e05dc3f0dac8e4;
+			};
+		};
+		A4C3C05D2DBBDD16007D9EF8 /* XCRemoteSwiftPackageReference "UniversalCharsetDetection" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/fumoboy007/UniversalCharsetDetection.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		A4CBFF622E70BDB50028FE42 /* XCRemoteSwiftPackageReference "tree-sitter-php" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/provencher/tree-sitter-php";
+			requirement = {
+				kind = revision;
+				revision = 0a99deca13c4af1fb9adcb03c958bfc9f4c740a9;
+			};
+		};
+		A4CBFF682E70D2340028FE42 /* XCRemoteSwiftPackageReference "SwiftOpenAI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/provencher/SwiftOpenAI";
+			requirement = {
+				kind = revision;
+				revision = 1211782eb337e7968124448a20d9260df1952012;
+			};
+		};
+		A4E4F3802E0480ED0007D199 /* XCRemoteSwiftPackageReference "swift-service-lifecycle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swift-server/swift-service-lifecycle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.0;
+			};
+		};
+		A4E4F6602E05B5300007D199 /* XCRemoteSwiftPackageReference "JSONSchema" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/loopwork-ai/JSONSchema.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+		A4E4F6632E05B5710007D199 /* XCRemoteSwiftPackageReference "ontology" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/loopwork-ai/ontology.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.6.0;
+			};
+		};
+		A4EC63702D7E5EE200EBEAFF /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.3.0;
+			};
+		};
+		B65AEF03F57A1001662E655F /* XCRemoteSwiftPackageReference "tree-sitter-go" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-go";
+			requirement = {
+				kind = revision;
+				revision = c350fa54d38af725c40d061a602ee3205ef1e072;
+			};
+		};
+		BA758CBBEE42A70D0A6CBB60 /* XCRemoteSwiftPackageReference "tree-sitter-javascript" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-javascript";
+			requirement = {
+				kind = revision;
+				revision = 39798e26b6d4dbcee8e522b8db83f8b2df33a5ea;
+			};
+		};
+		CA3BBAB9F7D76C2F14CCF973 /* XCRemoteSwiftPackageReference "tree-sitter-c" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tree-sitter/tree-sitter-c";
+			requirement = {
+				kind = revision;
+				revision = 3efee11f784605d44623d7dadd6cd12a0f73ea92;
+			};
+		};
+		E373DA2ECB69AA1848D0F528 /* XCRemoteSwiftPackageReference "tree-sitter-dart" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/UserNobody14/tree-sitter-dart";
+			requirement = {
+				kind = revision;
+				revision = 80e23c07b64494f7e21090bb3450223ef0b192f4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2F7A57337FB597439C0310EC /* TreeSitterDart */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E373DA2ECB69AA1848D0F528 /* XCRemoteSwiftPackageReference "tree-sitter-dart" */;
+			productName = TreeSitterDart;
+		};
+		5038EB871EFC21C7EE0C0DFB /* TreeSitterJavaScript */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA758CBBEE42A70D0A6CBB60 /* XCRemoteSwiftPackageReference "tree-sitter-javascript" */;
+			productName = TreeSitterJavaScript;
+		};
+		59909EF64629CB8C659D5EEF /* TreeSitterJava */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 676EB9B5DF77407356189E0E /* XCRemoteSwiftPackageReference "tree-sitter-java" */;
+			productName = TreeSitterJava;
+		};
+		8495FFA30B9136BD5F01911B /* TreeSitterRust */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C26712FE40940753AE33E62 /* XCRemoteSwiftPackageReference "tree-sitter-rust" */;
+			productName = TreeSitterRust;
+		};
+		A1D9276C54CA88A552E769FE /* TreeSitterGo */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B65AEF03F57A1001662E655F /* XCRemoteSwiftPackageReference "tree-sitter-go" */;
+			productName = TreeSitterGo;
+		};
+		A25F8F3EB4E510FB24862811 /* TreeSitterPython */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2608FA7D0BAB5DBE2905DB9B /* XCRemoteSwiftPackageReference "tree-sitter-python" */;
+			productName = TreeSitterPython;
+		};
+		A4073D3B2C4824F000FD4E61 /* Highlightr */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A477EBA32C2E21C300AFC854 /* XCRemoteSwiftPackageReference "Highlightr" */;
+			productName = Highlightr;
+		};
+		A407F6AE2D557B5500A51FDD /* TreeSitterSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A407F6AB2D557B4100A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-swift" */;
+			productName = TreeSitterSwift;
+		};
+		A407F6B12D557C9600A51FDD /* TreeSitterCPP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A407F6B02D557C9100A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-cpp" */;
+			productName = TreeSitterCPP;
+		};
+		A407F6B62D5692E000A51FDD /* TreeSitterCSharp */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A407F6B52D5692D700A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-c-sharp" */;
+			productName = TreeSitterCSharp;
+		};
+		A407F6CB2D5A6D5A00A51FDD /* TreeSitterTypeScript */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A407F6CA2D5A6D2A00A51FDD /* XCRemoteSwiftPackageReference "tree-sitter-typescript" */;
+			productName = TreeSitterTypeScript;
+		};
+		A40BD8622F2D2A4C00516B1F /* TreeSitterRuby */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A40BD8612F2D2A4300516B1F /* XCRemoteSwiftPackageReference "tree-sitter-ruby" */;
+			productName = TreeSitterRuby;
+		};
+		A4520B1C2D6FE74500C0C2B9 /* SwiftAnthropic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4520B1B2D6FE73C00C0C2B9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
+			productName = SwiftAnthropic;
+		};
+		A4750D592CCE970F00AC7D68 /* Neon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4750D582CCE970B00AC7D68 /* XCRemoteSwiftPackageReference "Neon" */;
+			productName = Neon;
+		};
+		A4750D5C2CCE9A0B00AC7D68 /* SwiftTreeSitter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4750D5B2CCE99FE00AC7D68 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */;
+			productName = SwiftTreeSitter;
+		};
+		A47856B32EF0C19A009133A1 /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A47856B22EF0C182009133A1 /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+		A483CA322CEFDD8300206C46 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A483CA312CEFDD3500206C46 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+		A49D52152D86244200E71EAA /* TPObfuscation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A49D52142D86243B00E71EAA /* XCRemoteSwiftPackageReference "TPObfuscation" */;
+			productName = TPObfuscation;
+		};
+		A4AD59AD2DE76B9400B22ABF /* Markdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4AD59AC2DE76B8800B22ABF /* XCRemoteSwiftPackageReference "swift-markdown" */;
+			productName = Markdown;
+		};
+		A4B6A2D32C518A7A00F22C80 /* SwiftyJSON */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4B6A2D22C518A7300F22C80 /* XCRemoteSwiftPackageReference "SwiftyJSON" */;
+			productName = SwiftyJSON;
+		};
+		A4C3C04B2DB6C966007D9EF8 /* MCP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			productName = MCP;
+		};
+		A4C3C05E2DBBDD22007D9EF8 /* UniversalCharsetDetection */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4C3C05D2DBBDD16007D9EF8 /* XCRemoteSwiftPackageReference "UniversalCharsetDetection" */;
+			productName = UniversalCharsetDetection;
+		};
+		A4CBFF632E70BDDA0028FE42 /* TreeSitterPHP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4CBFF622E70BDB50028FE42 /* XCRemoteSwiftPackageReference "tree-sitter-php" */;
+			productName = TreeSitterPHP;
+		};
+		A4CBFF692E70D23A0028FE42 /* SwiftOpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4CBFF682E70D2340028FE42 /* XCRemoteSwiftPackageReference "SwiftOpenAI" */;
+			productName = SwiftOpenAI;
+		};
+		A4E4F3922E0598580007D199 /* MCP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			productName = MCP;
+		};
+		A4E4F6512E05AE1F0007D199 /* ServiceLifecycle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4E4F3802E0480ED0007D199 /* XCRemoteSwiftPackageReference "swift-service-lifecycle" */;
+			productName = ServiceLifecycle;
+		};
+		A4E4F6532E05AE290007D199 /* ServiceLifecycle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4E4F3802E0480ED0007D199 /* XCRemoteSwiftPackageReference "swift-service-lifecycle" */;
+			productName = ServiceLifecycle;
+		};
+		A4E4F6612E05B53E0007D199 /* JSONSchema */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4E4F6602E05B5300007D199 /* XCRemoteSwiftPackageReference "JSONSchema" */;
+			productName = JSONSchema;
+		};
+		A4E4F6642E05B5760007D199 /* Ontology */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4E4F6632E05B5710007D199 /* XCRemoteSwiftPackageReference "ontology" */;
+			productName = Ontology;
+		};
+		A4EC63712D7E5EEA00EBEAFF /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4EC63702D7E5EE200EBEAFF /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+		FDDCD27C7D9676E321AC8279 /* TreeSitterC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CA3BBAB9F7D76C2F14CCF973 /* XCRemoteSwiftPackageReference "tree-sitter-c" */;
+			productName = TreeSitterC;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A489F8AF2C2B850D00C0E1EA /* Project object */;
+}

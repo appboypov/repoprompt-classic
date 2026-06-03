@@ -1,0 +1,6 @@
+{"method":"codex/event/exec_command_begin","payload":{"msg":{"type":"exec_command_begin","call_id":"call_live_exec_1","process_id":"59757"}}}
+{"method":"item/started","payload":{"item":{"type":"commandExecution","id":"call_live_exec_1","status":"inProgress","processId":"59757"}}}
+{"method":"codex/event/exec_command_output_delta","payload":{"msg":{"call_id":"call_live_exec_1","chunk":"YmV0YQo="}}}
+{"method":"item/commandExecution/outputDelta","payload":{"itemId":"call_live_exec_1","delta":"beta\n"}}
+{"method":"codex/event/exec_command_output_delta","payload":{"msg":{"call_id":"call_live_exec_1","chunk":"Z2FtbWEK"}}}
+{"method":"item/commandExecution/outputDelta","payload":{"itemId":"call_live_exec_1","delta":"gamma\n"}}

@@ -1,0 +1,123 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "Id",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "public User GetById(int id)",
+          "lineNumber" : 22,
+          "name" : "GetById",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "int"
+            }
+          ],
+          "returnType" : "User"
+        },
+        {
+          "definitionLine" : "public void Save(User item)",
+          "lineNumber" : 26,
+          "name" : "Save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "UserRepository",
+      "properties" : [
+        {
+          "name" : "_count",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Active",
+        "Disabled"
+      ],
+      "name" : "Status"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/cs/edge_generics.cs",
+  "functionSignatureTypes" : [
+    "T",
+    "User"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "using System;"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "T GetById(int id);",
+          "lineNumber" : 10,
+          "name" : "GetById",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "void Save(T item);",
+          "lineNumber" : 11,
+          "name" : "Save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "IRepository",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "T",
+    "User"
+  ]
+}

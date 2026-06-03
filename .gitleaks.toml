@@ -1,0 +1,18 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated local Xcode build output"
+paths = [
+	'''^DerivedData/''',
+]
+
+[[allowlists]]
+description = "Known non-secret Repo Prompt Classic identifiers and test placeholders"
+regexTarget = "secret"
+regexes = [
+	'''^globalDefaultsV1$''',
+	'''^sk-test-12345-abcdef$''',
+	'''^bombsquad-130e4dc6$''',
+	'''^EAAA1A5C-42F0-5E6C-ADA2-1AA5FFBFCE6B$''',
+]

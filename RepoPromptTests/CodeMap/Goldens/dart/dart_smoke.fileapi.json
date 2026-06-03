@@ -1,0 +1,282 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "User({\n required this.id, required this.name, required this.email, this.role = UserRole.guest,",
+          "lineNumber" : 40,
+          "name" : "User",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "untyped"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "String get displayName => '$name (${role.displayName})';",
+          "lineNumber" : 47,
+          "name" : "displayName",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "bool validate()",
+          "lineNumber" : 49,
+          "name" : "validate",
+          "parameters" : [
+
+          ],
+          "returnType" : "bool"
+        },
+        {
+          "definitionLine" : "Map<String, dynamic> toJson()",
+          "lineNumber" : 53,
+          "name" : "toJson",
+          "parameters" : [
+
+          ],
+          "returnType" : "Map<String, dynamic>"
+        },
+        {
+          "definitionLine" : "factory User.fromJson(Map<String, dynamic> json)",
+          "lineNumber" : 62,
+          "name" : "fromJson",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Map<String"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "dynamic>"
+            }
+          ]
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "UserService({Config? config}) : config = config ?? const Config();",
+          "lineNumber" : 100,
+          "name" : "UserService",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Config?"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "static UserService get instance",
+          "lineNumber" : 102,
+          "name" : "instance",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "int get count => _users.length;",
+          "lineNumber" : 106,
+          "name" : "count",
+          "parameters" : [
+
+          ],
+          "returnType" : "int"
+        },
+        {
+          "definitionLine" : "Future<List<User>> fetch() async",
+          "lineNumber" : 109,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "Future<List<User>>"
+        },
+        {
+          "definitionLine" : "Future<void> save(User user) async",
+          "lineNumber" : 114,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "Future<void>"
+        },
+        {
+          "definitionLine" : "Future<bool> delete(String id) async",
+          "lineNumber" : 125,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Future<bool>"
+        },
+        {
+          "definitionLine" : "User? find(String id)",
+          "lineNumber" : 129,
+          "name" : "find",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "User?"
+        },
+        {
+          "definitionLine" : "List<User> getByRole(UserRole role)",
+          "lineNumber" : 133,
+          "name" : "getByRole",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "UserRole"
+            }
+          ],
+          "returnType" : "List<User>"
+        },
+        {
+          "definitionLine" : "void clear()",
+          "lineNumber" : 137,
+          "name" : "clear",
+          "parameters" : [
+
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/dart/smoke.dart",
+  "functionSignatureTypes" : [
+    "Config",
+    "Future",
+    "User",
+    "UserRole",
+    "void"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "String get displayName",
+      "lineNumber" : 18,
+      "name" : "displayName",
+      "parameters" : [
+
+      ],
+      "returnType" : "String"
+    },
+    {
+      "definitionLine" : "void log(String message)",
+      "lineNumber" : 144,
+      "name" : "log",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "String"
+        }
+      ],
+      "returnType" : "void"
+    },
+    {
+      "definitionLine" : "bool get isAdmin => role == UserRole.admin;",
+      "lineNumber" : 151,
+      "name" : "isAdmin",
+      "parameters" : [
+
+      ],
+      "returnType" : "bool"
+    },
+    {
+      "definitionLine" : "String toDisplayString()",
+      "lineNumber" : 153,
+      "name" : "toDisplayString",
+      "parameters" : [
+
+      ],
+      "returnType" : "String"
+    },
+    {
+      "definitionLine" : "User createUser(String name, String email, {UserRole role = UserRole.guest})",
+      "lineNumber" : 159,
+      "name" : "createUser",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "param2",
+          "typeName" : "UserRole"
+        }
+      ],
+      "returnType" : "User"
+    },
+    {
+      "definitionLine" : "bool validateEmail(String email)",
+      "lineNumber" : 169,
+      "name" : "validateEmail",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "String"
+        }
+      ],
+      "returnType" : "bool"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "Future",
+    "User",
+    "UserRole",
+    "void"
+  ]
+}

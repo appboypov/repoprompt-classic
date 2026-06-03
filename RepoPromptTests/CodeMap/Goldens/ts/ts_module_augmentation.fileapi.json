@@ -1,0 +1,115 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "export type TopLevelType = User.CreateInput",
+      "name" : "TopLevelType"
+    }
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor(baseUrl: string)",
+          "lineNumber" : 99,
+          "name" : "constructor",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "async get<T>(path: string): Promise<T>",
+          "lineNumber" : 103,
+          "name" : "get",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "APIClient",
+      "properties" : [
+        {
+          "name" : "private baseUrl: string",
+          "typeName" : "string"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Debug",
+        "Info",
+        "Warn",
+        "Error"
+      ],
+      "name" : "LogLevel"
+    }
+  ],
+  "exports" : [
+    "export const topLevelConst = APIClient.DEFAULT_TIMEOUT;",
+    "export function topLevelFunction(): void {",
+    "export type TopLevelType = User.CreateInput;",
+    "export { APIClient, LogLevel, User };"
+  ],
+  "filePath" : "fixtures/ts/module_augmentation.ts",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function topLevelFunction(): void",
+      "lineNumber" : 186,
+      "name" : "topLevelFunction",
+      "parameters" : [
+
+      ],
+      "returnType" : "void"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const topLevelConst",
+      "name" : "topLevelConst"
+    }
+  ],
+  "imports" : [
+    "import { EventEmitter } from \"events\";"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "email: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "id: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "name: string",
+          "typeName" : "string"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "User.CreateInput"
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor(config)",
+          "lineNumber" : 23,
+          "name" : "constructor",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "static getInstance(config)",
+          "lineNumber" : 34,
+          "name" : "getInstance",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "async fetchAll()",
+          "lineNumber" : 45,
+          "name" : "fetchAll",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "async save(user)",
+          "lineNumber" : 53,
+          "name" : "save",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "delete(id)",
+          "lineNumber" : 63,
+          "name" : "delete",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "#users = new Map()"
+        },
+        {
+          "name" : "serviceName"
+        },
+        {
+          "name" : "static #instance = null"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export class UserService extends EventEmitter {",
+    "export const DEFAULT_ROLE = 'guest';",
+    "export const MAX_USERS = 1000;",
+    "export const UserRole = Object.freeze({",
+    "export const formatUserName = (user) => {",
+    "export function createUser(name, email) {"
+  ],
+  "filePath" : "fixtures/js/smoke.js",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function createUser(name, email)",
+      "lineNumber" : 74,
+      "name" : "createUser",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "const validateUser = (user) =>",
+      "lineNumber" : 95,
+      "name" : "validateUser",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "const INTERNAL_VERSION",
+      "name" : "INTERNAL_VERSION"
+    }
+  ],
+  "imports" : [
+    "import fs from 'fs/promises';",
+    "import { EventEmitter } from 'events';"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

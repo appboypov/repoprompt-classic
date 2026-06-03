@@ -1,0 +1,24 @@
+{
+  "captureCountsByName" : {
+    "_hoc" : 1,
+    "_obj" : 1,
+    "_obj2" : 1,
+    "_prop" : 1,
+    "_prop2" : 1,
+    "_val" : 6,
+    "_val2" : 1,
+    "export" : 3,
+    "function.definition" : 12,
+    "import" : 1,
+    "interface" : 7,
+    "method" : 1,
+    "property_signature" : 12,
+    "ts.class.decl" : 1,
+    "ts.interface.decl" : 7,
+    "type.class" : 1,
+    "variable.field" : 3,
+    "variable.global" : 7
+  },
+  "fixture" : "fixtures/tsx/compound_components.tsx",
+  "totalCaptures" : 67
+}

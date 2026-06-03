@@ -1,0 +1,17 @@
+{
+  "captureCountsByName" : {
+    "_hoc" : 5,
+    "_val" : 1,
+    "_val2" : 7,
+    "export" : 10,
+    "function.definition" : 6,
+    "import" : 1,
+    "interface" : 6,
+    "property_signature" : 13,
+    "ts.interface.decl" : 6,
+    "typeAlias" : 4,
+    "variable.global" : 8
+  },
+  "fixture" : "fixtures/tsx/forward_ref_patterns.tsx",
+  "totalCaptures" : 67
+}

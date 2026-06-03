@@ -1,0 +1,10 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 20,
+    "function.param" : 15,
+    "type.class" : 4,
+    "type.class.decl" : 4
+  },
+  "fixture" : "fixtures/dart/smoke.dart",
+  "totalCaptures" : 43
+}

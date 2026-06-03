@@ -1,0 +1,19 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 3,
+    "export" : 6,
+    "function.definition" : 5,
+    "import" : 2,
+    "interface" : 3,
+    "method" : 1,
+    "property_signature" : 11,
+    "ts.class.decl" : 1,
+    "ts.interface.decl" : 3,
+    "type.class" : 1,
+    "typeAlias" : 2,
+    "variable.field" : 2,
+    "variable.global" : 3
+  },
+  "fixture" : "fixtures/tsx/smoke.tsx",
+  "totalCaptures" : 43
+}

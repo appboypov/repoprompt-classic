@@ -1,0 +1,82 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "start(): void",
+          "lineNumber" : 72,
+          "name" : "start",
+          "parameters" : [
+
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "Service",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export const topLevelConst = SimpleNamespace.CONSTANT;",
+    "export function topLevelFunction(): void {",
+    "export namespace ExportedNamespace {"
+  ],
+  "filePath" : "fixtures/ts/namespaces.ts",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function topLevelFunction(): void",
+      "lineNumber" : 93,
+      "name" : "topLevelFunction",
+      "parameters" : [
+
+      ],
+      "returnType" : "void"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const topLevelConst",
+      "name" : "topLevelConst"
+    }
+  ],
+  "imports" : [
+    "import { Something } from \"./types\";"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+
+      ],
+      "name" : "MergedEntity",
+      "properties" : [
+        {
+          "name" : "id: string",
+          "typeName" : "string"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

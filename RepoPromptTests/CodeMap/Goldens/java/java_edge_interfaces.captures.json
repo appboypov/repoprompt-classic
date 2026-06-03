@@ -1,0 +1,15 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 2,
+    "function.definition" : 6,
+    "function.param" : 5,
+    "type.class" : 2,
+    "type.class.decl" : 2,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.interface" : 1,
+    "type.interface.decl" : 1
+  },
+  "fixture" : "fixtures/java/edge_interfaces.java",
+  "totalCaptures" : 21
+}

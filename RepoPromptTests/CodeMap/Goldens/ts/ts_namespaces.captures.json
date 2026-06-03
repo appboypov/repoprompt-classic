@@ -1,0 +1,17 @@
+{
+  "captureCountsByName" : {
+    "_val2" : 1,
+    "export" : 3,
+    "function.definition" : 1,
+    "import" : 1,
+    "interface" : 1,
+    "method" : 1,
+    "property_signature" : 1,
+    "ts.class.decl" : 1,
+    "ts.interface.decl" : 1,
+    "type.class" : 1,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/ts/namespaces.ts",
+  "totalCaptures" : 13
+}

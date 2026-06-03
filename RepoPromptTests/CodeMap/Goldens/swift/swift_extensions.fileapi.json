@@ -1,0 +1,170 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func customContains(_ element: Element) -> Bool",
+          "lineNumber" : 50,
+          "name" : "customContains",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "element",
+              "typeName" : "Element"
+            }
+          ],
+          "returnType" : "Bool"
+        }
+      ],
+      "name" : "Array",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func defaultImplementation() async throws -> Int",
+          "lineNumber" : 39,
+          "name" : "defaultImplementation",
+          "parameters" : [
+
+          ],
+          "returnType" : "Int"
+        },
+        {
+          "definitionLine" : "func anotherDefault() -> String",
+          "lineNumber" : 43,
+          "name" : "anotherDefault",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        }
+      ],
+      "name" : "ExtensionProtocol",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func baseMethod() -> String",
+          "lineNumber" : 11,
+          "name" : "baseMethod",
+          "parameters" : [
+
+          ],
+          "returnType" : "String"
+        }
+      ],
+      "name" : "ExtensionTarget",
+      "properties" : [
+        {
+          "name" : "var baseProperty: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func extensionMethod(param: Int) -> String",
+          "lineNumber" : 24,
+          "name" : "extensionMethod",
+          "parameters" : [
+            {
+              "localName" : "param",
+              "typeName" : "Int"
+            }
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "func anotherExtensionMethod()",
+          "lineNumber" : 32,
+          "name" : "anotherExtensionMethod",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "ExtensionTarget",
+      "properties" : [
+        {
+          "name" : "var computedProperty: Int",
+          "typeName" : "Int"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "UTF8View",
+      "properties" : [
+        {
+          "name" : "var customCount: Int",
+          "typeName" : "Int"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/swift/extensions.swift",
+  "functionSignatureTypes" : [
+    "Element"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "import Foundation"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func requiredMethod() async throws -> Int",
+          "lineNumber" : 17,
+          "name" : "requiredMethod",
+          "parameters" : [
+
+          ],
+          "returnType" : "Int"
+        }
+      ],
+      "name" : "ExtensionProtocol",
+      "properties" : [
+        {
+          "name" : "var requiredProperty: String",
+          "typeName" : "String"
+        }
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Element"
+  ]
+}

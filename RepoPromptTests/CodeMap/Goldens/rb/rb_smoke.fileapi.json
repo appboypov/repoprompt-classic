@@ -1,0 +1,137 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "def self.role",
+          "lineNumber" : 21,
+          "name" : "role",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "def self.role\n\t\t\"admin\"\n\tend",
+          "lineNumber" : 21,
+          "name" : "def self.role\n\t\t\"admin\"\n\tend",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "Admin",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "def initialize(name)",
+          "lineNumber" : 11,
+          "name" : "initialize",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "def initialize(name)\n\t\t@name = name\n\tend",
+          "lineNumber" : 11,
+          "name" : "def initialize(name)\n\t\t@name = name\n\tend",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "def self.build(name)",
+          "lineNumber" : 15,
+          "name" : "build",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "def self.build(name)\n\t\tnew(name)\n\tend",
+          "lineNumber" : 15,
+          "name" : "def self.build(name)\n\t\tnew(name)\n\tend",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "@@max_users"
+        },
+        {
+          "name" : "@name"
+        },
+        {
+          "name" : "DEFAULT_ROLE"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/rb/smoke.rb",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "def top_level(x, y)",
+      "lineNumber" : 26,
+      "name" : "top_level",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "def top_level(x, y)\n\tx + y\nend",
+      "lineNumber" : 26,
+      "name" : "def top_level(x, y)\n\tx + y\nend",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "$global_count = 0",
+      "name" : "$global_count"
+    },
+    {
+      "definitionLine" : "MAX_USERS = 1000",
+      "name" : "MAX_USERS"
+    }
+  ],
+  "imports" : [
+    "new(name)",
+    "require \"json\"",
+    "require_relative \"util\""
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

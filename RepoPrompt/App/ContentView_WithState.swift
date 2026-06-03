@@ -1,0 +1,77 @@
+//
+//  ContentView_WithState.swift
+//  RepoPrompt
+//
+//  Created by Eric Provencher on 2025-03-24.
+//
+
+import SwiftUI
+
+/// This view holds exactly one @StateObject WindowState, meaning
+/// each new Window/Scene gets its own WindowState.
+struct ContentView_WithState: View {
+	@EnvironmentObject var versionManager: VersionManager
+	@EnvironmentObject var windowStatesManager: WindowStatesManager
+	@Environment(\.openWindow) private var openWindow
+	
+	/// The WindowState itself (your big manager of fileManager, promptManager, etc.)
+	@StateObject private var windowState = WindowState()
+	
+	var body: some View {
+		ContentView(windowState: windowState)
+			.environmentObject(windowState) // If your subviews need it
+			.environmentObject(versionManager) // Pass versionManager to ContentView
+			.background(
+				WindowAccessor { newWindow in
+					// IMPORTANT: do not mutate SwiftUI @State here.
+					// Attach is internally guarded and safe even if called multiple times.
+					windowState.attachWindow(newWindow)
+				}
+			)
+		// Once the view appears, register it with WindowStatesManager
+			.onAppear {
+				windowStatesManager.registerWindowState(windowState)
+				
+				// Install the openWindow action into AppWindowOpener for programmatic window creation
+				AppWindowOpener.shared.install {
+					openWindow(id: "main")
+				}
+			}
+		// Cleanup if the window goes away
+			.onDisappear {
+				SettingsWindowCoordinator.shared.closeIfTargeting(windowState)
+
+				// Stop focus/title side-effects early to avoid SwiftUI observation crashes during teardown.
+				windowState.beginClose()
+
+				// Save the current workspace state before closing, but avoid extra teardown work
+				// or publish-heavy persistence once app termination has begun.
+				if !windowStatesManager.isTerminating {
+					windowState.workspaceManager.pollAndSaveState()
+				}
+
+				guard !windowStatesManager.isTerminating else {
+					windowState.aiQueriesService.cancelQuery()
+					return
+				}
+
+				windowStatesManager.unregisterWindowState(windowState)
+				Task { await windowState.tearDown() }
+			}
+		// Transition notice
+			.sheet(
+				isPresented: Binding(
+					get: { versionManager.shouldShowTransitionNotice },
+					set: { newValue in
+						if newValue == false {
+							versionManager.dismissTransitionNotice()
+						}
+					}
+				)
+			) {
+				TransitionNoticeView {
+					versionManager.dismissTransitionNotice()
+				}
+			}
+	}
+}

@@ -1,0 +1,22 @@
+**/Assets.xcassets/
+**/Preview Content/
+**/RepoPrompt.xcodeproj/
+**/Resources/
+
+.repo_ignore
+*.entitlements
+
+RepoPrompt.xctestplan
+default.profraw
+.gemini/
+
+# Git ignores generated prompt exports, but RepoPrompt should be allowed to
+# see them when they are present in a workspace.
+!/docs/
+!/docs/**
+!/prompt-exports/
+!/prompt-exports/**
+!/RepoPrompt/Docs/
+!/RepoPrompt/Docs/**
+!/RepoPrompt/prompt-exports/
+!/RepoPrompt/prompt-exports/**

@@ -1,0 +1,25 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 7,
+    "import" : 1,
+    "swift.function.method" : 2,
+    "swift.function.name" : 8,
+    "swift.function.toplevel" : 5,
+    "swift.param.external" : 1,
+    "swift.param.local" : 9,
+    "swift.param.node" : 9,
+    "swift.param.type" : 9,
+    "swift.property.decl" : 5,
+    "swift.property.member" : 1,
+    "swift.protocol.decl" : 1,
+    "swift.protocol.method" : 1,
+    "swift.protocol.name" : 1,
+    "swift.protocol.property" : 1,
+    "swift.protocol.property.decl" : 1,
+    "swift.type.decl" : 1,
+    "swift.type.name" : 1,
+    "type.class" : 1
+  },
+  "fixture" : "fixtures/swift/edge_semicolon_body.swift",
+  "totalCaptures" : 65
+}

@@ -1,0 +1,364 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/ts/interface_members.ts",
+  "functionSignatureTypes" : [
+    "Partial"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "(input: string): number",
+          "lineNumber" : 22,
+          "name" : "call",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "Callable",
+      "properties" : [
+        {
+          "name" : "description: string",
+          "typeName" : "string"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "clone(): T",
+          "lineNumber" : 88,
+          "name" : "clone",
+          "parameters" : [
+
+          ],
+          "returnType" : "T"
+        },
+        {
+          "definitionLine" : "deepClone(): T",
+          "lineNumber" : 89,
+          "name" : "deepClone",
+          "parameters" : [
+
+          ],
+          "returnType" : "T"
+        }
+      ],
+      "name" : "Cloneable",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "fetch(): Promise<T[]>",
+          "lineNumber" : 46,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<T[]>"
+        },
+        {
+          "definitionLine" : "fetchOne(id: K): Promise<T | null>",
+          "lineNumber" : 47,
+          "name" : "fetchOne",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "K"
+            }
+          ],
+          "returnType" : "Promise<T | null>"
+        },
+        {
+          "definitionLine" : "save(item: T): Promise<void>",
+          "lineNumber" : 48,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "T"
+            }
+          ],
+          "returnType" : "Promise<void>"
+        },
+        {
+          "definitionLine" : "update(id: K, changes: Partial<T>): Promise<T>",
+          "lineNumber" : 49,
+          "name" : "update",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "K"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "Partial<T>"
+            }
+          ],
+          "returnType" : "Promise<T>"
+        },
+        {
+          "definitionLine" : "delete(id: K): Promise<boolean>",
+          "lineNumber" : 50,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "K"
+            }
+          ],
+          "returnType" : "Promise<boolean>"
+        },
+        {
+          "definitionLine" : "connect(): Promise<void>",
+          "lineNumber" : 57,
+          "name" : "connect",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<void>"
+        },
+        {
+          "definitionLine" : "disconnect(): Promise<void>",
+          "lineNumber" : 58,
+          "name" : "disconnect",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<void>"
+        },
+        {
+          "definitionLine" : "query(",
+          "lineNumber" : 61,
+          "name" : "query",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "aggregate<R>(",
+          "lineNumber" : 66,
+          "name" : "aggregate",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "onConnect(handler: () => void): void",
+          "lineNumber" : 72,
+          "name" : "onConnect",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "onDisconnect(handler: (reason: string) => void): void",
+          "lineNumber" : 73,
+          "name" : "onDisconnect",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "onError(handler: (error: Error) => void): void",
+          "lineNumber" : 74,
+          "name" : "onError",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "CompleteDataProvider",
+      "properties" : [
+        {
+          "name" : "config?: Config",
+          "typeName" : "Config"
+        },
+        {
+          "name" : "errorCount: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "isConnected: boolean",
+          "typeName" : "boolean"
+        },
+        {
+          "name" : "lastUpdated: Date",
+          "typeName" : "Date"
+        },
+        {
+          "name" : "readonly name: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "retryPolicy: 'none' | 'linear' | 'exponential'",
+          "typeName" : "'none' | 'linear' | 'exponential'"
+        },
+        {
+          "name" : "version: number",
+          "typeName" : "number"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "Config",
+      "properties" : [
+        {
+          "name" : "host: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "port: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "readonly version: string",
+          "typeName" : "string"
+        },
+        {
+          "name" : "secure?: boolean",
+          "typeName" : "boolean"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "new (name: string): object",
+          "lineNumber" : 28,
+          "name" : "new",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "object"
+        }
+      ],
+      "name" : "Constructable",
+      "properties" : [
+        {
+          "name" : "prototype: object",
+          "typeName" : "object"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "[key: string]: T",
+          "lineNumber" : 34,
+          "name" : "index",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "Dictionary",
+      "properties" : [
+        {
+          "name" : "length: number",
+          "typeName" : "number"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "read(): string",
+          "lineNumber" : 8,
+          "name" : "read",
+          "parameters" : [
+
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "readAsync(): Promise<string>",
+          "lineNumber" : 9,
+          "name" : "readAsync",
+          "parameters" : [
+
+          ],
+          "returnType" : "Promise<string>"
+        }
+      ],
+      "name" : "Readable",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "serialize(): string",
+          "lineNumber" : 83,
+          "name" : "serialize",
+          "parameters" : [
+
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "deserialize(data: string): void",
+          "lineNumber" : 84,
+          "name" : "deserialize",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "Serializable",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "Config",
+    "Date"
+  ],
+  "referencedTypes" : [
+    "Config",
+    "Date",
+    "Partial"
+  ]
+}

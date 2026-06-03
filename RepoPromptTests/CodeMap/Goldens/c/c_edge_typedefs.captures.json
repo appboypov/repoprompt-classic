@@ -1,0 +1,16 @@
+{
+  "captureCountsByName" : {
+    "enum.entry" : 2,
+    "function.definition" : 2,
+    "import" : 1,
+    "macro" : 1,
+    "type.class.decl" : 1,
+    "type.enum" : 1,
+    "type.enum.decl" : 1,
+    "type.struct" : 1,
+    "variable.field" : 2,
+    "variable.global" : 1
+  },
+  "fixture" : "fixtures/c/edge_typedefs.c",
+  "totalCaptures" : 13
+}

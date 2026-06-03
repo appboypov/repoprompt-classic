@@ -1,0 +1,524 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "static func buildBlock(_ components: Element...) -> [Element]",
+          "lineNumber" : 44,
+          "name" : "buildBlock",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "components",
+              "typeName" : "Element"
+            }
+          ],
+          "returnType" : "[Element]"
+        },
+        {
+          "definitionLine" : "static func buildOptional(_ component: [Element]?) -> [Element]",
+          "lineNumber" : 49,
+          "name" : "buildOptional",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "component",
+              "typeName" : "[Element]?"
+            }
+          ],
+          "returnType" : "[Element]"
+        },
+        {
+          "definitionLine" : "static func buildEither(first component: [Element]) -> [Element]",
+          "lineNumber" : 54,
+          "name" : "buildEither",
+          "parameters" : [
+            {
+              "externalName" : "first",
+              "localName" : "component",
+              "typeName" : "[Element]"
+            }
+          ],
+          "returnType" : "[Element]"
+        },
+        {
+          "definitionLine" : "static func buildEither(second component: [Element]) -> [Element]",
+          "lineNumber" : 59,
+          "name" : "buildEither",
+          "parameters" : [
+            {
+              "externalName" : "second",
+              "localName" : "component",
+              "typeName" : "[Element]"
+            }
+          ],
+          "returnType" : "[Element]"
+        },
+        {
+          "definitionLine" : "static func buildArray(_ components: [[Element]]) -> [Element]",
+          "lineNumber" : 64,
+          "name" : "buildArray",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "components",
+              "typeName" : "[[Element]]"
+            }
+          ],
+          "returnType" : "[Element]"
+        }
+      ],
+      "name" : "ArrayBuilderAttr",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func setup()",
+          "lineNumber" : 205,
+          "name" : "setup",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "BaseServiceAttr",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "override func setup()",
+          "lineNumber" : 224,
+          "name" : "setup",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "func start() async",
+          "lineNumber" : 230,
+          "name" : "start",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "func stop() async",
+          "lineNumber" : 236,
+          "name" : "stop",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "func configure(with config: Config) throws",
+          "lineNumber" : 241,
+          "name" : "configure",
+          "parameters" : [
+            {
+              "externalName" : "with",
+              "localName" : "config",
+              "typeName" : "Config"
+            }
+          ]
+        }
+      ],
+      "name" : "ConcreteServiceAttr",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "nonisolated func cacheKey(for url: URL) -> String",
+          "lineNumber" : 123,
+          "name" : "cacheKey",
+          "parameters" : [
+            {
+              "externalName" : "for",
+              "localName" : "url",
+              "typeName" : "URL"
+            }
+          ],
+          "returnType" : "String"
+        },
+        {
+          "definitionLine" : "func store(_ data: Data, forKey key: String) async",
+          "lineNumber" : 133,
+          "name" : "store",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "data",
+              "typeName" : "Data"
+            },
+            {
+              "externalName" : "forKey",
+              "localName" : "key",
+              "typeName" : "String"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "func retrieve(forKey key: String) async -> Data?",
+          "lineNumber" : 138,
+          "name" : "retrieve",
+          "parameters" : [
+            {
+              "externalName" : "forKey",
+              "localName" : "key",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Data?"
+        }
+      ],
+      "name" : "DataManagerAttr",
+      "properties" : [
+        {
+          "name" : "nonisolated var identifier: String"
+        },
+        {
+          "name" : "private var cache: [String: Data]",
+          "typeName" : "[String: Data]"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "MatrixAttr",
+      "properties" : [
+        {
+          "name" : "private var storage: [[T]]",
+          "typeName" : "[[T]]"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "StateManager",
+      "properties" : [
+        {
+          "name" : "var currentStateAttr: AppStateAttr",
+          "typeName" : "AppStateAttr"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "UpdateResultAttr",
+      "properties" : [
+        {
+          "name" : "let success: Bool",
+          "typeName" : "Bool"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "idle",
+        "loading",
+        "loaded",
+        "error"
+      ],
+      "name" : "AppStateAttr"
+    },
+    {
+      "cases" : [
+        "tokenExpired",
+        "tokenRevoked",
+        "insufficientPermissions"
+      ],
+      "name" : "AuthFailureReasonAttr"
+    },
+    {
+      "cases" : [
+        "connectionFailed",
+        "timeout",
+        "invalidResponse",
+        "decodingFailed",
+        "rateLimited",
+        "unauthorized",
+        "serverError"
+      ],
+      "name" : "NetworkErrorAttr"
+    },
+    {
+      "cases" : [
+        "invalidInput",
+        "outOfRange"
+      ],
+      "name" : "ValidationErrorAttr"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/swift/edge_attributes_modifiers.swift",
+  "functionSignatureTypes" : [
+    "AppStateAttr",
+    "ClosedRange",
+    "Collection",
+    "Config",
+    "Data",
+    "Element",
+    "ItemProcessorAttr",
+    "ProcessableAttr",
+    "TaskPriority",
+    "URL",
+    "UpdateConfigurationAttr",
+    "UpdateResultAttr"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "@available(macOS 14.0, iOS 17.0, *) @MainActor @discardableResult func performUpdateAttr( with configuration: UpdateConfigurationAttr ) async throws -> UpdateResultAttr",
+      "lineNumber" : 8,
+      "name" : "performUpdateAttr",
+      "parameters" : [
+        {
+          "externalName" : "with",
+          "localName" : "configuration",
+          "typeName" : "UpdateConfigurationAttr"
+        }
+      ],
+      "returnType" : "UpdateResultAttr"
+    },
+    {
+      "definitionLine" : "func handleStateChangeAttr(from: AppStateAttr, to: AppStateAttr)",
+      "lineNumber" : 38,
+      "name" : "handleStateChangeAttr",
+      "parameters" : [
+        {
+          "localName" : "from",
+          "typeName" : "AppStateAttr"
+        },
+        {
+          "localName" : "to",
+          "typeName" : "AppStateAttr"
+        }
+      ]
+    },
+    {
+      "definitionLine" : "@inlinable func fastOperationAttr<T: Numeric>(_ value: T, multiplier: T) -> T",
+      "lineNumber" : 72,
+      "name" : "fastOperationAttr",
+      "parameters" : [
+        {
+          "externalName" : "_",
+          "localName" : "value",
+          "typeName" : "T"
+        },
+        {
+          "localName" : "multiplier",
+          "typeName" : "T"
+        }
+      ],
+      "returnType" : "T"
+    },
+    {
+      "definitionLine" : "@usableFromInline internal func helperOperationAttr<T: Numeric>(_ value: T) -> T",
+      "lineNumber" : 78,
+      "name" : "helperOperationAttr",
+      "parameters" : [
+        {
+          "externalName" : "_",
+          "localName" : "value",
+          "typeName" : "T"
+        }
+      ],
+      "returnType" : "T"
+    },
+    {
+      "definitionLine" : "func evaluateAttr( condition: @autoclosure () -> Bool, ifTrue: @escaping @Sendable () async -> Void, ifFalse: @escaping @Sendable () async -> Void ) async",
+      "lineNumber" : 86,
+      "name" : "evaluateAttr",
+      "parameters" : [
+        {
+          "localName" : "condition",
+          "typeName" : "@autoclosure"
+        },
+        {
+          "localName" : "ifTrue",
+          "typeName" : "@escaping"
+        },
+        {
+          "localName" : "ifFalse",
+          "typeName" : "@escaping"
+        }
+      ],
+      "returnType" : "Bool"
+    },
+    {
+      "definitionLine" : "func executeInBackgroundAttr( priority: TaskPriority = .medium, operation: @Sendable @escaping () async throws -> Void, onSuccess: @Sendable @escaping () -> Void, onFailure: @Sendable @escaping (Error) -> Void )",
+      "lineNumber" : 146,
+      "name" : "executeInBackgroundAttr",
+      "parameters" : [
+        {
+          "localName" : "priority",
+          "typeName" : "TaskPriority"
+        },
+        {
+          "localName" : "operation",
+          "typeName" : "@Sendable @escaping"
+        },
+        {
+          "localName" : "onSuccess",
+          "typeName" : "@Sendable @escaping"
+        },
+        {
+          "localName" : "onFailure",
+          "typeName" : "@Sendable @escaping"
+        }
+      ],
+      "returnType" : "Void"
+    },
+    {
+      "definitionLine" : "func processItemsAttr<T>( _ items: some Collection<T>, using processor: any ItemProcessorAttr ) -> [any ProcessableAttr] where T: ProcessableAttr",
+      "lineNumber" : 165,
+      "name" : "processItemsAttr",
+      "parameters" : [
+        {
+          "externalName" : "_",
+          "localName" : "items",
+          "typeName" : "some Collection<T>"
+        },
+        {
+          "externalName" : "using",
+          "localName" : "processor",
+          "typeName" : "any ItemProcessorAttr"
+        }
+      ],
+      "returnType" : "[any ProcessableAttr]"
+    },
+    {
+      "definitionLine" : "func validateAttr( input: String, range: ClosedRange<Int> ) throws(ValidationErrorAttr) -> Int",
+      "lineNumber" : 188,
+      "name" : "validateAttr",
+      "parameters" : [
+        {
+          "localName" : "input",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "range",
+          "typeName" : "ClosedRange<Int>"
+        }
+      ],
+      "returnType" : "Int"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "import Foundation"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func configure(with config: Config) throws",
+          "lineNumber" : 218,
+          "name" : "configure",
+          "parameters" : [
+            {
+              "externalName" : "with",
+              "localName" : "config",
+              "typeName" : "Config"
+            }
+          ]
+        }
+      ],
+      "name" : "ConfigurableAttr",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func process(_ item: any ProcessableAttr) -> Bool",
+          "lineNumber" : 176,
+          "name" : "process",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "item",
+              "typeName" : "any ProcessableAttr"
+            }
+          ],
+          "returnType" : "Bool"
+        }
+      ],
+      "name" : "ItemProcessorAttr",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func start() async",
+          "lineNumber" : 212,
+          "name" : "start",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "func stop() async",
+          "lineNumber" : 213,
+          "name" : "stop",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "ServiceProtocolAttr",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "AppStateAttr",
+    "Data"
+  ],
+  "referencedTypes" : [
+    "AppStateAttr",
+    "ClosedRange",
+    "Collection",
+    "Config",
+    "Data",
+    "Element",
+    "ItemProcessorAttr",
+    "ProcessableAttr",
+    "TaskPriority",
+    "URL",
+    "UpdateConfigurationAttr",
+    "UpdateResultAttr"
+  ]
+}

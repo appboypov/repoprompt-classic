@@ -1,0 +1,83 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor(prefix)",
+          "lineNumber" : 8,
+          "name" : "constructor",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "format(user)",
+          "lineNumber" : 12,
+          "name" : "format",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export class UserService {",
+    "export const VERSION = \"1.0.0\";",
+    "export default function makeService(prefix) {",
+    "export function createUser(id, name) {"
+  ],
+  "filePath" : "fixtures/js/edge_exports.js",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function createUser(id, name)",
+      "lineNumber" : 3,
+      "name" : "createUser",
+      "parameters" : [
+
+      ]
+    },
+    {
+      "definitionLine" : "export default function makeService(prefix)",
+      "lineNumber" : 17,
+      "name" : "makeService",
+      "parameters" : [
+
+      ]
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

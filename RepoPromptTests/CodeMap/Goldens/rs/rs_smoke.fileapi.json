@@ -1,0 +1,226 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "fn default() -> Self",
+          "lineNumber" : 73,
+          "name" : "default",
+          "parameters" : [
+
+          ],
+          "returnType" : "Self"
+        }
+      ],
+      "name" : "Config",
+      "properties" : [
+        {
+          "name" : "max_users",
+          "typeName" : ""
+        },
+        {
+          "name" : "timeout_secs",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "pub fn new(id: String, name: String, email: String) -> Self",
+          "lineNumber" : 32,
+          "name" : "new",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "String"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "String"
+            },
+            {
+              "localName" : "param2",
+              "typeName" : "String"
+            }
+          ],
+          "returnType" : "Self"
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "email",
+          "typeName" : ""
+        },
+        {
+          "name" : "id",
+          "typeName" : ""
+        },
+        {
+          "name" : "name",
+          "typeName" : ""
+        },
+        {
+          "name" : "role",
+          "typeName" : ""
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "pub fn new(config: Config) -> Self",
+          "lineNumber" : 89,
+          "name" : "new",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Config"
+            }
+          ],
+          "returnType" : "Self"
+        },
+        {
+          "definitionLine" : "fn fetch(&self) -> Result<Vec<User>, Box<dyn Error>>",
+          "lineNumber" : 113,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "Result"
+        },
+        {
+          "definitionLine" : "fn save(&mut self, user: User) -> Result<(), Box<dyn Error>>",
+          "lineNumber" : 118,
+          "name" : "save",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "User"
+            }
+          ],
+          "returnType" : "Result"
+        },
+        {
+          "definitionLine" : "fn delete(&mut self, id: &str) -> Result<bool, Box<dyn Error>>",
+          "lineNumber" : 130,
+          "name" : "delete",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "&str"
+            }
+          ],
+          "returnType" : "Result"
+        }
+      ],
+      "name" : "UserService",
+      "properties" : [
+        {
+          "name" : "config",
+          "typeName" : ""
+        },
+        {
+          "name" : "users",
+          "typeName" : ""
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Admin",
+        "Editor",
+        "Viewer",
+        "Guest"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/rs/smoke.rs",
+  "functionSignatureTypes" : [
+    "Config",
+    "Result",
+    "Self",
+    "String",
+    "User",
+    "UserRole"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "pub fn create_user(name: String, email: String, role: UserRole) -> User",
+      "lineNumber" : 143,
+      "name" : "create_user",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "String"
+        },
+        {
+          "localName" : "param2",
+          "typeName" : "UserRole"
+        }
+      ],
+      "returnType" : "User"
+    },
+    {
+      "definitionLine" : "fn generate_id() -> String",
+      "lineNumber" : 153,
+      "name" : "generate_id",
+      "parameters" : [
+
+      ],
+      "returnType" : "String"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "pub const DEFAULT_TIMEOUT: u64 = 30;",
+      "name" : "DEFAULT_TIMEOUT",
+      "typeName" : ""
+    },
+    {
+      "definitionLine" : "pub const MAX_USERS: usize = 1000;",
+      "name" : "MAX_USERS",
+      "typeName" : ""
+    }
+  ],
+  "imports" : [
+    "use std::collections::HashMap;",
+    "use std::error::Error;",
+    "use std::sync::{Arc, RwLock};",
+    "use super::*;"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "Config",
+    "Result",
+    "Self",
+    "String",
+    "User",
+    "UserRole"
+  ]
+}

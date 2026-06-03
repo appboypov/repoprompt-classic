@@ -1,0 +1,10 @@
+{
+  "captureCountsByName" : {
+    "function.definition" : 7,
+    "function.param" : 3,
+    "type.class" : 1,
+    "type.class.decl" : 1
+  },
+  "fixture" : "fixtures/dart/edge_accessors.dart",
+  "totalCaptures" : 12
+}

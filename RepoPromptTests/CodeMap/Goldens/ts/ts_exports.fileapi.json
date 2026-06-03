@@ -1,0 +1,187 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "get(key: string): unknown",
+          "lineNumber" : 26,
+          "name" : "get",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "unknown"
+        },
+        {
+          "definitionLine" : "set(key: string, value: unknown): void",
+          "lineNumber" : 30,
+          "name" : "set",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "unknown"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "DataStore",
+      "properties" : [
+        {
+          "name" : "private data: Map<string, unknown>",
+          "typeName" : "Map<string, unknown>"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "MainExport",
+      "properties" : [
+        {
+          "name" : "static version"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "Red",
+        "Green",
+        "Blue"
+      ],
+      "name" : "Color"
+    }
+  ],
+  "exports" : [
+    "export * from './types';",
+    "export async function fetchData(url: string): Promise<unknown> {",
+    "export class DataStore {",
+    "export const MAX_SIZE = 100;",
+    "export const transformData = (data: unknown[]): unknown[] => {",
+    "export default class MainExport {",
+    "export enum Color {",
+    "export function processData(input: string): string {",
+    "export interface Logger {",
+    "export let currentUser: string | null = null;",
+    "export namespace Utils {",
+    "export type Status = 'pending' | 'active' | 'done';",
+    "export type { UserID } from './types';",
+    "export var legacyFlag = false;",
+    "export { User, Config } from './models';",
+    "export { default as DefaultExport } from './default';"
+  ],
+  "filePath" : "fixtures/ts/exports.ts",
+  "functionSignatureTypes" : [
+
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "export function processData(input: string): string",
+      "lineNumber" : 36,
+      "name" : "processData",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "string"
+    },
+    {
+      "definitionLine" : "export const transformData = (data: unknown[]): unknown[] =>",
+      "lineNumber" : 41,
+      "name" : "transformData",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "unknown[]"
+        }
+      ],
+      "returnType" : "unknown[]"
+    },
+    {
+      "definitionLine" : "export async function fetchData(url: string): Promise<unknown>",
+      "lineNumber" : 46,
+      "name" : "fetchData",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "Promise<unknown>"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "export const MAX_SIZE",
+      "name" : "MAX_SIZE"
+    },
+    {
+      "definitionLine" : "export let currentUser: string | null",
+      "name" : "currentUser",
+      "typeName" : "string | null"
+    }
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "log(message: string): void",
+          "lineNumber" : 18,
+          "name" : "log",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "void"
+        },
+        {
+          "definitionLine" : "error(message: string): void",
+          "lineNumber" : 19,
+          "name" : "error",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "void"
+        }
+      ],
+      "name" : "Logger",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+    "export type Status = 'pending' | 'active' | 'done'"
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+
+  ]
+}

@@ -1,0 +1,554 @@
+{
+  "aliases" : [
+    {
+      "definitionLine" : "type EventHandler = { (event: MouseEvent): void; (event: KeyboardEvent): void; (event: TouchEvent): void; (event: Event): void; }",
+      "name" : "EventHandler"
+    },
+    {
+      "definitionLine" : "type OverloadedArrow = { (x: string): string; (x: number): number; }",
+      "name" : "OverloadedArrow"
+    }
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "process(data: string): string",
+          "lineNumber" : 67,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "process(data: number): number",
+          "lineNumber" : 68,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number"
+            }
+          ],
+          "returnType" : "number"
+        },
+        {
+          "definitionLine" : "process(data: boolean): boolean",
+          "lineNumber" : 69,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "boolean"
+            }
+          ],
+          "returnType" : "boolean"
+        },
+        {
+          "definitionLine" : "process(data: string | number | boolean): string | number | boolean",
+          "lineNumber" : 70,
+          "name" : "process",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string | number | boolean"
+            }
+          ],
+          "returnType" : "string | number | boolean"
+        },
+        {
+          "definitionLine" : "async fetch(id: string): Promise<object>",
+          "lineNumber" : 81,
+          "name" : "fetch",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "Promise<object>"
+        },
+        {
+          "definitionLine" : "async fetch(ids: string[]): Promise<object[]>",
+          "lineNumber" : 82,
+          "name" : "fetch",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string[]"
+            }
+          ],
+          "returnType" : "Promise<object[]>"
+        },
+        {
+          "definitionLine" : "async fetch(idOrIds: string | string[]): Promise<object | object[]>",
+          "lineNumber" : 83,
+          "name" : "fetch",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string | string[]"
+            }
+          ],
+          "returnType" : "Promise<object | object[]>"
+        },
+        {
+          "definitionLine" : "private async fetchOne(id: string): Promise<object>",
+          "lineNumber" : 90,
+          "name" : "fetchOne",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "Promise<object>"
+        },
+        {
+          "definitionLine" : "static create(): DataProcessor",
+          "lineNumber" : 95,
+          "name" : "create",
+          "parameters" : [
+
+          ],
+          "returnType" : "DataProcessor"
+        },
+        {
+          "definitionLine" : "static create(config: { strict: boolean }): DataProcessor",
+          "lineNumber" : 96,
+          "name" : "create",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "{ strict: boolean }"
+            }
+          ],
+          "returnType" : "DataProcessor"
+        },
+        {
+          "definitionLine" : "static create(config?: { strict: boolean }): DataProcessor",
+          "lineNumber" : 97,
+          "name" : "create",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "{ strict: boolean }"
+            }
+          ],
+          "returnType" : "DataProcessor"
+        }
+      ],
+      "name" : "DataProcessor",
+      "properties" : [
+
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "constructor()",
+          "lineNumber" : 109,
+          "name" : "constructor",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "constructor(x: number, y: number)",
+          "lineNumber" : 110,
+          "name" : "constructor",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "number"
+            }
+          ]
+        },
+        {
+          "definitionLine" : "constructor(coords: { x: number",
+          "lineNumber" : 111,
+          "name" : "constructor",
+          "parameters" : [
+
+          ]
+        },
+        {
+          "definitionLine" : "constructor(xOrCoords?: number | { x: number; y: number }, y?: number)",
+          "lineNumber" : 112,
+          "name" : "constructor",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number | { x: number; y: number }"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "number"
+            }
+          ]
+        }
+      ],
+      "name" : "Point",
+      "properties" : [
+        {
+          "name" : "x: number",
+          "typeName" : "number"
+        },
+        {
+          "name" : "y: number",
+          "typeName" : "number"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+    "export function convert(",
+    "export function convert(value: number, to: \"string\"): string;",
+    "export function convert(value: string, to: \"boolean\"): boolean;",
+    "export function convert(value: string, to: \"number\"): number;",
+    "export type { Formatter, EventHandler };",
+    "export { greet, parse, createElement, fetchData, DataProcessor, Point };"
+  ],
+  "filePath" : "fixtures/ts/function_overloads.ts",
+  "functionSignatureTypes" : [
+    "DataProcessor",
+    "Date",
+    "HTMLDivElement",
+    "HTMLElement",
+    "HTMLInputElement",
+    "HTMLSpanElement",
+    "OverloadedArrow"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "function greet(name: string): string",
+      "lineNumber" : 11,
+      "name" : "greet",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "string"
+    },
+    {
+      "definitionLine" : "function greet(firstName: string, lastName: string): string",
+      "lineNumber" : 12,
+      "name" : "greet",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "string"
+    },
+    {
+      "definitionLine" : "function greet(nameOrFirst: string, lastName?: string): string",
+      "lineNumber" : 13,
+      "name" : "greet",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "string"
+    },
+    {
+      "definitionLine" : "function parse(input: string): object",
+      "lineNumber" : 23,
+      "name" : "parse",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "object"
+    },
+    {
+      "definitionLine" : "function parse(input: string, asArray: true): any[]",
+      "lineNumber" : 24,
+      "name" : "parse",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "true"
+        }
+      ],
+      "returnType" : "any[]"
+    },
+    {
+      "definitionLine" : "function parse(input: string, asArray: false): object",
+      "lineNumber" : 25,
+      "name" : "parse",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "false"
+        }
+      ],
+      "returnType" : "object"
+    },
+    {
+      "definitionLine" : "function parse(input: string, asArray?: boolean): object | any[]",
+      "lineNumber" : 26,
+      "name" : "parse",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "boolean"
+        }
+      ],
+      "returnType" : "object | any[]"
+    },
+    {
+      "definitionLine" : "function createElement(tag: \"div\"): HTMLDivElement",
+      "lineNumber" : 37,
+      "name" : "createElement",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "\"div\""
+        }
+      ],
+      "returnType" : "HTMLDivElement"
+    },
+    {
+      "definitionLine" : "function createElement(tag: \"span\"): HTMLSpanElement",
+      "lineNumber" : 38,
+      "name" : "createElement",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "\"span\""
+        }
+      ],
+      "returnType" : "HTMLSpanElement"
+    },
+    {
+      "definitionLine" : "function createElement(tag: \"input\"): HTMLInputElement",
+      "lineNumber" : 39,
+      "name" : "createElement",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "\"input\""
+        }
+      ],
+      "returnType" : "HTMLInputElement"
+    },
+    {
+      "definitionLine" : "function createElement<T extends HTMLElement>(tag: string): T",
+      "lineNumber" : 40,
+      "name" : "createElement",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "T"
+    },
+    {
+      "definitionLine" : "function createElement(tag: string): HTMLElement",
+      "lineNumber" : 41,
+      "name" : "createElement",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "HTMLElement"
+    },
+    {
+      "definitionLine" : "function fetchData(url: string): Promise<unknown>",
+      "lineNumber" : 48,
+      "name" : "fetchData",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        }
+      ],
+      "returnType" : "Promise<unknown>"
+    },
+    {
+      "definitionLine" : "function fetchData(url: string, callback: (data: unknown) => void): void",
+      "lineNumber" : 49,
+      "name" : "fetchData",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "(data: unknown"
+        }
+      ],
+      "returnType" : "void"
+    },
+    {
+      "definitionLine" : "function fetchData( url: string, callback?: (data: unknown) => void ): Promise<unknown> | void",
+      "lineNumber" : 50,
+      "name" : "fetchData",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "(data: unknown"
+        }
+      ],
+      "returnType" : "Promise<unknown> | void"
+    },
+    {
+      "definitionLine" : "export function convert( value: string | number, to: \"number\" | \"string\" | \"boolean\" ): number | string | boolean",
+      "lineNumber" : 142,
+      "name" : "convert",
+      "parameters" : [
+        {
+          "localName" : "param0",
+          "typeName" : "string | number"
+        },
+        {
+          "localName" : "param1",
+          "typeName" : "\"number\" | \"string\" | \"boolean\""
+        }
+      ],
+      "returnType" : "number | string | boolean"
+    },
+    {
+      "definitionLine" : "const processValue: OverloadedArrow = (x: string | number): any =>",
+      "lineNumber" : 164,
+      "name" : "processValue",
+      "parameters" : [
+
+      ],
+      "returnType" : "OverloadedArrow"
+    }
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "format(value: string): string",
+          "lineNumber" : 130,
+          "name" : "format",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "format(value: number): string",
+          "lineNumber" : 131,
+          "name" : "format",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "number"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "format(value: Date): string",
+          "lineNumber" : 132,
+          "name" : "format",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "Date"
+            }
+          ],
+          "returnType" : "string"
+        },
+        {
+          "definitionLine" : "format(value: string | number | Date): string",
+          "lineNumber" : 133,
+          "name" : "format",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "string | number | Date"
+            }
+          ],
+          "returnType" : "string"
+        }
+      ],
+      "name" : "Formatter",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "DataProcessor",
+    "Date",
+    "Event",
+    "HTMLDivElement",
+    "HTMLElement",
+    "HTMLInputElement",
+    "HTMLSpanElement",
+    "KeyboardEvent",
+    "MouseEvent",
+    "OverloadedArrow",
+    "TouchEvent"
+  ]
+}

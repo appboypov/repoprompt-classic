@@ -1,0 +1,69 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "User(\n std::string id, std::string name, std::string email)",
+          "lineNumber" : 6,
+          "name" : "User",
+          "parameters" : [
+            {
+              "localName" : "param0",
+              "typeName" : "std::string"
+            },
+            {
+              "localName" : "param1",
+              "typeName" : "std::string"
+            },
+            {
+              "localName" : "param2",
+              "typeName" : "std::string"
+            }
+          ]
+        }
+      ],
+      "name" : "User",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "enums" : [
+
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/cpp/initializer_list.cpp",
+  "functionSignatureTypes" : [
+    "std::string"
+  ],
+  "functions" : [
+
+  ],
+  "globalVars" : [
+
+  ],
+  "imports" : [
+    "#include <string>",
+    "#include <utility>"
+  ],
+  "interfaces" : [
+
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+
+  ],
+  "referencedTypes" : [
+    "std::string"
+  ]
+}

@@ -1,0 +1,2 @@
+{"method":"codex/event/mcp_tool_call_begin","payload":{"msg":{"type":"mcp_tool_call_begin","call_id":"call_write_1","invocation":{"tool":"write_stdin","arguments":{"session_id":27588,"chars":"","yield_time_ms":1000}}}}}
+{"method":"codex/event/mcp_tool_call_end","payload":{"msg":{"type":"mcp_tool_call_end","call_id":"call_write_1","invocation":{"tool":"write_stdin","arguments":{"session_id":27588,"chars":"","yield_time_ms":1000}},"result":{"Ok":{"content":[{"type":"text","text":"{\"status\":\"running\"}"}],"isError":false}}}}}

@@ -1,0 +1,214 @@
+{
+  "aliases" : [
+
+  ],
+  "classes" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func fetchUsers() async throws -> [User]",
+          "lineNumber" : 72,
+          "name" : "fetchUsers",
+          "parameters" : [
+
+          ],
+          "returnType" : "[User]"
+        },
+        {
+          "definitionLine" : "func authenticate(_ credentials: LoginCredentials) async throws -> User",
+          "lineNumber" : 73,
+          "name" : "authenticate",
+          "parameters" : [
+            {
+              "externalName" : "_",
+              "localName" : "credentials",
+              "typeName" : "LoginCredentials"
+            }
+          ],
+          "returnType" : "User"
+        }
+      ],
+      "name" : "APIClient",
+      "properties" : [
+        {
+          "name" : "static let `default`"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "LoginCredentials",
+      "properties" : [
+        {
+          "name" : "let password: String",
+          "typeName" : "String"
+        },
+        {
+          "name" : "let username: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+
+      ],
+      "name" : "User",
+      "properties" : [
+        {
+          "name" : "let createdAt: Date",
+          "typeName" : "Date"
+        },
+        {
+          "name" : "let id: UUID",
+          "typeName" : "UUID"
+        },
+        {
+          "name" : "var email: String",
+          "typeName" : "String"
+        },
+        {
+          "name" : "var name: String",
+          "typeName" : "String"
+        }
+      ]
+    },
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func fetch() async throws -> [User]",
+          "lineNumber" : 29,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "[User]"
+        },
+        {
+          "definitionLine" : "func login(credentials: LoginCredentials) async throws -> User",
+          "lineNumber" : 35,
+          "name" : "login",
+          "parameters" : [
+            {
+              "localName" : "credentials",
+              "typeName" : "LoginCredentials"
+            }
+          ],
+          "returnType" : "User"
+        },
+        {
+          "definitionLine" : "func logout()",
+          "lineNumber" : 41,
+          "name" : "logout",
+          "parameters" : [
+
+          ]
+        }
+      ],
+      "name" : "UserManager",
+      "properties" : [
+        {
+          "name" : "private let apiClient: APIClient",
+          "typeName" : "APIClient"
+        },
+        {
+          "name" : "private(set) var currentUser: User?",
+          "typeName" : "User?"
+        },
+        {
+          "name" : "static let shared"
+        }
+      ]
+    }
+  ],
+  "enums" : [
+    {
+      "cases" : [
+        "admin",
+        "editor",
+        "viewer",
+        "guest"
+      ],
+      "name" : "UserRole"
+    }
+  ],
+  "exports" : [
+
+  ],
+  "filePath" : "fixtures/swift/smoke.swift",
+  "functionSignatureTypes" : [
+    "Item",
+    "LoginCredentials",
+    "User"
+  ],
+  "functions" : [
+    {
+      "definitionLine" : "func formatUserName(_ user: User) -> String",
+      "lineNumber" : 83,
+      "name" : "formatUserName",
+      "parameters" : [
+        {
+          "externalName" : "_",
+          "localName" : "user",
+          "typeName" : "User"
+        }
+      ],
+      "returnType" : "String"
+    }
+  ],
+  "globalVars" : [
+    {
+      "definitionLine" : "let maxRetryCount",
+      "name" : "let maxRetryCount"
+    },
+    {
+      "definitionLine" : "var isDebugMode",
+      "name" : "var isDebugMode"
+    }
+  ],
+  "imports" : [
+    "import Combine",
+    "import Foundation"
+  ],
+  "interfaces" : [
+    {
+      "methods" : [
+        {
+          "definitionLine" : "func fetch() async throws -> [Item]",
+          "lineNumber" : 8,
+          "name" : "fetch",
+          "parameters" : [
+
+          ],
+          "returnType" : "[Item]"
+        }
+      ],
+      "name" : "DataProvider",
+      "properties" : [
+
+      ]
+    }
+  ],
+  "literalUnions" : [
+
+  ],
+  "macros" : [
+
+  ],
+  "propertySignatureTypes" : [
+    "APIClient",
+    "Date",
+    "UUID",
+    "User"
+  ],
+  "referencedTypes" : [
+    "APIClient",
+    "Date",
+    "Item",
+    "LoginCredentials",
+    "UUID",
+    "User"
+  ]
+}
