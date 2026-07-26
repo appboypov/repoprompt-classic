@@ -37,7 +37,7 @@ Xcode package references live in [`RepoPrompt.xcodeproj/project.pbxproj`](../Rep
 
 | Dependency | Current Xcode project form | Current resolved state | Readiness note |
 | --- | --- | --- | --- |
-| `swift-sdk` | fixed revision at `https://github.com/provencher/swift-sdk.git` | `cb6a62f7c266ed535792b3e9e6e05dc3f0dac8e4` | Portable immutable remote pin; both MCP product dependencies use this package reference. |
+| `swift-sdk` | fixed revision at `https://github.com/repoprompt/swift-sdk.git` | `cb6a62f7c266ed535792b3e9e6e05dc3f0dac8e4` | Portable immutable remote pin; both MCP product dependencies use this package reference. |
 | `SwiftTreeSitter` | exact version `0.8.0` | `2599e95310b3159641469d8a21baf2d3d200e61f` | Deterministic exact version; attribution curated. |
 | `SwiftAnthropic` | fixed revision | `c069979c681de4434b6611c091c0cab01f141213` | Immutable revision pin. |
 | `SwiftOpenAI` | fixed revision | `1211782eb337e7968124448a20d9260df1952012` | Immutable revision pin for the required fork snapshot. |
