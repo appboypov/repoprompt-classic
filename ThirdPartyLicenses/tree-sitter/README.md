@@ -26,7 +26,7 @@ These fixed-revision grammar products were already linked by the app. Their lice
 | --- | --- | --- | --- | --- |
 | C# | <https://github.com/tree-sitter/tree-sitter-c-sharp.git> | `b27b091bfdc5f16d0ef76421ea5609c82a57dff0` | `TreeSitterCSharp` | [`LICENSE-tree-sitter-c-sharp.txt`](LICENSE-tree-sitter-c-sharp.txt) |
 | C++ | <https://github.com/tree-sitter/tree-sitter-cpp> | `e5cea0ec884c5c3d2d1e41a741a66ce13da4d945` | `TreeSitterCPP` | [`LICENSE-tree-sitter-max-brunsfeld-2014.txt`](LICENSE-tree-sitter-max-brunsfeld-2014.txt) |
-| PHP | <https://github.com/provencher/tree-sitter-php> | `0a99deca13c4af1fb9adcb03c958bfc9f4c740a9` | `TreeSitterPHP` | [`LICENSE-tree-sitter-php.txt`](LICENSE-tree-sitter-php.txt) |
+| PHP | <https://github.com/tree-sitter/tree-sitter-php> | `0a99deca13c4af1fb9adcb03c958bfc9f4c740a9` | `TreeSitterPHP` | [`LICENSE-tree-sitter-php.txt`](LICENSE-tree-sitter-php.txt) |
 | Ruby | <https://github.com/tree-sitter/tree-sitter-ruby> | `7a010836b74351855148818d5cb8170dc4df8e6a` | `TreeSitterRuby` | [`LICENSE-tree-sitter-ruby.txt`](LICENSE-tree-sitter-ruby.txt) |
 | Swift | <https://github.com/alex-pinkus/tree-sitter-swift> | `9253825dd2570430b53fa128cbb40cb62498e75d` | `TreeSitterSwift` | [`LICENSE-tree-sitter-swift.txt`](LICENSE-tree-sitter-swift.txt) |
 | TypeScript / TSX | <https://github.com/tree-sitter/tree-sitter-typescript> | `75b3874edb2dc714fb1fd77a32013d0f8699989f` | `TreeSitterTypeScript` (`TreeSitterTypeScript`, `TreeSitterTSX` modules) | [`LICENSE-tree-sitter-typescript.txt`](LICENSE-tree-sitter-typescript.txt) |
