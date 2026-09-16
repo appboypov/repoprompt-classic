@@ -25,8 +25,23 @@ public struct MCPWorkspaceSummary: Codable, Hashable, Sendable {
     public let showingWindowIDs: [Int]
 	/// True when this workspace is recoverable but hidden from default menus/lists.
 	public let isHidden: Bool
+	/// True when this workspace is the one shown in the single main window.
+	public let isVisible: Bool
+	/// False when at least one root folder no longer exists on disk.
+	public let isAvailable: Bool
+	/// True when the workspace's retained runtime has an active agent run.
+	public let hasRunningAgents: Bool
 
-    public init(id: UUID, name: String, allRepoPaths: [String], showingWindowIDs: [Int], isHidden: Bool = false) {
+    public init(
+        id: UUID,
+        name: String,
+        allRepoPaths: [String],
+        showingWindowIDs: [Int],
+        isHidden: Bool = false,
+        isVisible: Bool = false,
+        isAvailable: Bool = true,
+        hasRunningAgents: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.rootCount = allRepoPaths.count
@@ -34,6 +49,9 @@ public struct MCPWorkspaceSummary: Codable, Hashable, Sendable {
         self.repoPaths = Array(allRepoPaths.prefix(3))
         self.showingWindowIDs = showingWindowIDs
 		self.isHidden = isHidden
+		self.isVisible = isVisible
+		self.isAvailable = isAvailable
+		self.hasRunningAgents = hasRunningAgents
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -43,7 +61,35 @@ public struct MCPWorkspaceSummary: Codable, Hashable, Sendable {
         case repoPaths = "repo_paths"
         case showingWindowIDs = "showing_window_ids"
 		case isHidden = "is_hidden"
+		case isVisible = "is_visible"
+		case isAvailable = "is_available"
+		case hasRunningAgents = "has_running_agents"
     }
+}
+
+/// Read-only view of the single-window workspace shell.
+/// Published by the shell view model, rendered by the sidebar and returned under `shell` by manage_workspaces.
+public struct WorkspaceShellSnapshot: Codable, Hashable, Sendable {
+	/// Nil when no workspace is registered (empty shell).
+	public let visibleWorkspaceID: UUID?
+	/// Global sidebar preference.
+	public let isWorkspaceSidebarCollapsed: Bool
+	/// Catalog-ordered summaries, system workspaces excluded.
+	public let workspaces: [MCPWorkspaceSummary]
+
+	public init(visibleWorkspaceID: UUID?, isWorkspaceSidebarCollapsed: Bool, workspaces: [MCPWorkspaceSummary]) {
+		self.visibleWorkspaceID = visibleWorkspaceID
+		self.isWorkspaceSidebarCollapsed = isWorkspaceSidebarCollapsed
+		self.workspaces = workspaces
+	}
+
+	public static let empty = WorkspaceShellSnapshot(visibleWorkspaceID: nil, isWorkspaceSidebarCollapsed: false, workspaces: [])
+
+	private enum CodingKeys: String, CodingKey {
+		case visibleWorkspaceID = "visible_workspace_id"
+		case isWorkspaceSidebarCollapsed = "is_workspace_sidebar_collapsed"
+		case workspaces
+	}
 }
 
 /// Summary info for a compose tab.
@@ -104,8 +150,9 @@ public struct ManageWorkspacesResponse: Codable, Sendable {
     public let workspaces: [MCPWorkspaceSummary]?
     public let tabs: [MCPComposeTabSummary]?    // For create_tab / close_tab actions
     public let status: String?
-    public let windowID: Int?                   // For switch/create with open_in_new_window
-    public let closedWindowID: Int?             // For delete with close_window
+    public let windowID: Int?                   // The single shell window, when known
+    public let closedWindowID: Int?             // Always nil in the single-window shell; kept for decoders
+    public let shell: WorkspaceShellSnapshot?   // Shell state after the action
 
     public init(
         action: String,
@@ -113,7 +160,8 @@ public struct ManageWorkspacesResponse: Codable, Sendable {
         tabs: [MCPComposeTabSummary]? = nil,
         status: String?,
         windowID: Int? = nil,
-        closedWindowID: Int? = nil
+        closedWindowID: Int? = nil,
+        shell: WorkspaceShellSnapshot? = nil
     ) {
         self.action = action
         self.workspaces = workspaces
@@ -121,10 +169,11 @@ public struct ManageWorkspacesResponse: Codable, Sendable {
         self.status = status
         self.windowID = windowID
         self.closedWindowID = closedWindowID
+        self.shell = shell
     }
     
     private enum CodingKeys: String, CodingKey {
-        case action, workspaces, tabs, status
+        case action, workspaces, tabs, status, shell
         case windowID = "window_id"
         case closedWindowID = "closed_window_id"
     }
