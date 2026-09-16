@@ -1042,8 +1042,9 @@ actor InteractiveREPL {
           \u{001B}[32mworkspace\u{001B}[0m unhide <name>         Restore to default lists
           \u{001B}[32mworkspace\u{001B}[0m <name>                Switch to workspace
           \u{001B}[32mworkspace\u{001B}[0m <name> --include-hidden  Switch hidden workspace by name
-          \u{001B}[32mworkspace\u{001B}[0m <name> --new-window   Open workspace in NEW window
-          \u{001B}[32mworkspace\u{001B}[0m create <name> --new-window   Create workspace in NEW window
+          \u{001B}[32mworkspace\u{001B}[0m state                 Shell state: visible workspace, sidebar, every workspace
+          \u{001B}[32mworkspace\u{001B}[0m rename <name> --name <new>  Rename a workspace
+          \u{001B}[32mworkspace\u{001B}[0m capture --output-path <file.png>  Save a PNG of the window
           \u{001B}[32mworkspace\u{001B}[0m create <name> --switch       Create workspace and switch to it
           \u{001B}[32mworkspace\u{001B}[0m create <name> --folder-path <path>  Create workspace with a root folder
           \u{001B}[32mwindows\u{001B}[0m                         List windows and context_id values
@@ -1054,7 +1055,7 @@ actor InteractiveREPL {
           \u{001B}[32mworkspace\u{001B}[0m remove-folder <path>  Remove folder from workspace
           \u{001B}[32mworkspace\u{001B}[0m delete <name>         Delete workspace
           \u{001B}[32mworkspace\u{001B}[0m delete <name> --include-hidden  Delete hidden workspace by name
-          \u{001B}[32mworkspace\u{001B}[0m delete <name> --close-window  Delete workspace and close its window
+          \u{001B}[32mtabs\u{001B}[0m create <name> --workspace <ws>  Create a tab in another workspace without switching
           \u{001B}[32mmodels\u{001B}[0m                          List available models
 
         \u{001B}[1m═══════════════════════════════════════════════════════════════\u{001B}[0m

@@ -1933,22 +1933,24 @@ func printUsage() {
           bind_context op=bind context_id=<uuid>       Bind a specific compose context
           bind_context op=bind window_id=<id>          Bind a window without pinning a tab
 
-        manage_workspaces (workspace, ws) - Manage workspaces/tab lifecycle
+        manage_workspaces (workspace, ws) - Manage workspaces/tab lifecycle in the single window
           workspace list                               List visible workspaces
           workspace list --include-hidden              Include recoverable hidden workspaces
+          workspace state                              Shell state: visible workspace, sidebar, every workspace
           workspace hide MyProject                     Hide from default lists (non-destructive)
           workspace unhide MyProject                   Restore to default lists
-          workspace switch MyProject                   Switch workspace
+          workspace switch MyProject                   Make a workspace visible
           workspace switch MyProject --include-hidden  Switch hidden workspace by name
-          workspace switch MyProject --new-window      Open in NEW window (returns window_id)
-          workspace create "New Project" --new-window  Create in NEW window (returns window_id)
-          workspace create "New Project" --switch      Create and switch to it
+          workspace create "New Project" --switch      Create and make it visible
+          workspace rename MyProject --name "Renamed"  Rename a workspace
+          workspace capture --output-path shot.png     Save a PNG of the window
           workspace delete MyProject --include-hidden  Delete hidden workspace by name
           tabs list                                    List tabs via bind_context
           tabs create "Feature Work"                   Create a new compose tab
+          tabs create "Task" --workspace MyProject     Create a tab in another workspace without switching
           manage_workspaces action=create name="New Project"
-          manage_workspaces action=create name="New Project" open_in_new_window=true
-          manage_workspaces action=switch workspace=X open_in_new_window=true
+          manage_workspaces action=state
+          manage_workspaces action=reorder workspace_ids=["<uuid>","<uuid>"]
           manage_workspaces action=list include_hidden=true
           manage_workspaces action=hide workspace=X
           manage_workspaces action=unhide workspace=X

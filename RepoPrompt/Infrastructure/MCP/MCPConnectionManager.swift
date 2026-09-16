@@ -5848,12 +5848,17 @@ actor ServerNetworkManager {
 					let effectiveArgs: [String: Value]
 					let effectiveArgsForFormatter: [String: Value]
 					if Self.shouldAutoInjectPublicWindowID(for: toolName) {
-						let routingWindowID: Int? = {
-							if let wsSvc {
-								return capturedWindowID ?? chosenID ?? wsSvc.windowID
-							}
-							return capturedWindowID ?? chosenID
-						}()
+						// Tools see the public window ID; under the shell every runtime answers as the one window.
+						let routingWindowID: Int? = await MainActor.run {
+							let runtimeID: Int? = {
+								if let wsSvc {
+									return capturedWindowID ?? chosenID ?? wsSvc.windowID
+								}
+								return capturedWindowID ?? chosenID
+							}()
+							guard runtimeID != nil, let shellWindowID = WindowStatesManager.shared.shellWindowID else { return runtimeID }
+							return shellWindowID
+						}
 						effectiveArgs = self.injectWindowIDIfNeeded(
 							schema: toolDef.inputSchema,
 							routingWindowID: routingWindowID,

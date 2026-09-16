@@ -1349,6 +1349,9 @@ enum MCPCommandParser {
                 } else if flags["focus"] != nil {
                     args["focus"] = AnyCodableSendable(true)
                 }
+                if let workspace = flags["workspace"] ?? flags["ws"] {
+                    args["workspace"] = AnyCodableSendable(workspace)
+                }
                 if let windowIDStr = flags["window-id"] ?? flags["window_id"] ?? flags["window"],
                    let windowID = Int(windowIDStr) {
                     args["window_id"] = AnyCodableSendable(windowID)
@@ -1373,13 +1376,16 @@ enum MCPCommandParser {
                 throw CommandParseError.invalidArgument("Unknown tabs action '\(action)'. Use list, select, create, or close.")
             }
 
-        // Workspaces: workspace [list|switch|tabs|tab|create|add-folder|remove-folder] [args]
+        // Workspaces: workspace [list|state|switch|tabs|tab|create|rename|capture|hide|unhide|add-folder|remove-folder|delete] [args]
         case "workspace", "ws":
             var args: [String: AnyCodableSendable] = ["action": AnyCodableSendable("list")]
             if parts.count >= 2 {
                 let action = parts[1].lowercased()
                 let remaining = Array(parts.dropFirst(2))
                 let flags = parseFlagArgs(remaining)
+                for removed in ["new-window", "new_window", "close-window", "close_window"] where flags[removed] != nil {
+                    throw CommandParseError.invalidArgument("Unknown flag '--\(removed)': RepoPrompt runs a single window. Use 'workspace switch <ws>' to change the visible workspace or 'tabs create --workspace <ws>' for background work.")
+                }
 
                 switch action {
                 case "list", "ls":
@@ -1391,17 +1397,25 @@ enum MCPCommandParser {
 					}
                 case "tabs":
                     args["action"] = AnyCodableSendable("list_tabs")
+                case "state":
+                    args["action"] = AnyCodableSendable("state")
+                case "capture":
+                    args["action"] = AnyCodableSendable("capture")
+                    if let path = flags["output-path"] ?? flags["output_path"] ?? flags["output"] ?? flags.positional.first {
+                        args["output_path"] = AnyCodableSendable(ctx.resolvePathArg(path))
+                    }
+                case "rename":
+                    args["action"] = AnyCodableSendable("rename")
+                    if let ws = flags["workspace"] ?? flags.positional.first {
+                        args["workspace"] = AnyCodableSendable(ws)
+                    }
+                    if let name = flags["name"] ?? flags.positional.dropFirst().first {
+                        args["name"] = AnyCodableSendable(name)
+                    }
                 case "switch":
                     args["action"] = AnyCodableSendable("switch")
                     if let ws = flags["workspace"] ?? flags.positional.first {
                         args["workspace"] = AnyCodableSendable(ws)
-                    }
-                    // Support --new-window flag to open in a new window
-                    if let newWindow = parseBoolFlag(flags["new-window"] ?? flags["new_window"]) {
-                        args["open_in_new_window"] = AnyCodableSendable(newWindow)
-                    } else if flags["new-window"] != nil || flags["new_window"] != nil {
-                        // Flag present without value means true
-                        args["open_in_new_window"] = AnyCodableSendable(true)
                     }
 					if let includeHidden = parseBoolFlag(flags["include-hidden"] ?? flags["include_hidden"]) {
 						args["include_hidden"] = AnyCodableSendable(includeHidden)
@@ -1436,11 +1450,6 @@ enum MCPCommandParser {
                     if let path = flags["folder-path"] ?? flags["folder_path"] ?? flags["path"] ?? flags.positional.dropFirst().first {
                         args["folder_path"] = AnyCodableSendable(ctx.resolvePathArg(path))
                     }
-                    if let newWindow = parseBoolFlag(flags["new-window"] ?? flags["new_window"]) {
-                        args["open_in_new_window"] = AnyCodableSendable(newWindow)
-                    } else if flags["new-window"] != nil || flags["new_window"] != nil {
-                        args["open_in_new_window"] = AnyCodableSendable(true)
-                    }
                     if let switchToCreated = parseBoolFlag(flags["switch"] ?? flags["activate"]) {
                         args["switch_to_created"] = AnyCodableSendable(switchToCreated)
                     } else if flags["switch"] != nil || flags["activate"] != nil {
@@ -1467,11 +1476,6 @@ enum MCPCommandParser {
 					if let ws = flags["workspace"] ?? flags.positional.first {
 						args["workspace"] = AnyCodableSendable(ws)
 					}
-					if let closeWindow = parseBoolFlag(flags["close-window"] ?? flags["close_window"]) {
-						args["close_window"] = AnyCodableSendable(closeWindow)
-					} else if flags["close-window"] != nil || flags["close_window"] != nil {
-						args["close_window"] = AnyCodableSendable(true)
-					}
 					if let includeHidden = parseBoolFlag(flags["include-hidden"] ?? flags["include_hidden"]) {
 						args["include_hidden"] = AnyCodableSendable(includeHidden)
 					} else if flags["include-hidden"] != nil || flags["include_hidden"] != nil {
@@ -1481,12 +1485,6 @@ enum MCPCommandParser {
                     // Assume it's a workspace name to switch to (preserve original case)
                     args["action"] = AnyCodableSendable("switch")
                     args["workspace"] = AnyCodableSendable(parts[1])
-                    // Support --new-window flag even in shorthand form: workspace MyProject --new-window
-                    if let newWindow = parseBoolFlag(flags["new-window"] ?? flags["new_window"]) {
-                        args["open_in_new_window"] = AnyCodableSendable(newWindow)
-                    } else if flags["new-window"] != nil || flags["new_window"] != nil {
-                        args["open_in_new_window"] = AnyCodableSendable(true)
-                    }
 					if let includeHidden = parseBoolFlag(flags["include-hidden"] ?? flags["include_hidden"]) {
 						args["include_hidden"] = AnyCodableSendable(includeHidden)
 					} else if flags["include-hidden"] != nil || flags["include_hidden"] != nil {
