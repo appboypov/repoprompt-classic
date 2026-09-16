@@ -186,6 +186,13 @@ enum WorkspaceOpenBehavior {
 	case addToActiveOnly
 }
 
+/// Who asked a manager to switch. `.caller` routes through the shell forwarder when one is installed;
+/// `.shell` is the shell preparing or adopting this runtime's own workspace.
+enum WorkspaceSwitchOrigin: Equatable {
+	case caller
+	case shell
+}
+
 struct WorkspaceMenuQuery {
 	var includeSystem: Bool = false
 	var includeHidden: Bool = false
@@ -586,7 +593,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 		defaultWorkspaceRoot().appendingPathComponent("workspaces.json")
 	}
 	
-	private var workspaceIndexFileURL: URL {
+	var workspaceIndexFileURL: URL {
 		currentBaseRoot.appendingPathComponent("workspacesIndex.json")
 	}
 
@@ -695,7 +702,18 @@ class WorkspaceManagerViewModel: ObservableObject {
 	
 	// MARK: - Init / Deinit
 	
-	init(fileManager: RepoFileManagerViewModel, promptViewModel: PromptViewModel) {
+	/// What the manager activates once its catalog is loaded.
+	/// `.deferred` leaves `activeWorkspaceID` nil for the shell to switch once.
+	enum InitialActivation {
+		case defaultWorkspace
+		case deferred
+	}
+
+	/// Installed by the workspace shell. When set, every `.caller` switch is handed to it and
+	/// this manager's own document switch does not run.
+	var shellSwitchForwarder: ((WorkspaceModel) async -> WorkspaceSwitchResult)?
+
+	init(fileManager: RepoFileManagerViewModel, promptViewModel: PromptViewModel, initialActivation: InitialActivation = .defaultWorkspace) {
 		#if DEBUG
 		let initStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 		#endif
@@ -897,16 +915,21 @@ class WorkspaceManagerViewModel: ObservableObject {
 			}
 		}
 		
-		if activeWorkspace == nil {
-			if let defaultWS = findOrCreateDefaultWorkspace() {
-				Task {
-					await switchWorkspace(to: defaultWS, saveState: false)
-					self.completeInitialization()
-				}
-			}
-		} else {
-			// Already has an active workspace
+		switch initialActivation {
+		case .deferred:
 			completeInitialization()
+		case .defaultWorkspace:
+			if activeWorkspace == nil {
+				if let defaultWS = findOrCreateDefaultWorkspace() {
+					Task {
+						await switchWorkspace(to: defaultWS, saveState: false)
+						self.completeInitialization()
+					}
+				}
+			} else {
+				// Already has an active workspace
+				completeInitialization()
+			}
 		}
 	}
 
@@ -1046,7 +1069,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 		Self.loadWorkspaceIndex(from: workspaceIndexFileURL)
 	}
 	
-	nonisolated private static func loadWorkspaceIndex(from indexURL: URL) -> [WorkspaceIndexEntry] {
+	nonisolated static func loadWorkspaceIndex(from indexURL: URL) -> [WorkspaceIndexEntry] {
 		guard FileManager.default.fileExists(atPath: indexURL.path) else { return [] }
 		
 		do {
@@ -1072,6 +1095,12 @@ class WorkspaceManagerViewModel: ObservableObject {
 	
 	/// Reloads the workspace list from disk, preserving the active workspace
 	func reloadWorkspacesFromDisk() {
+		Task { await reloadWorkspacesFromDiskAsync() }
+	}
+
+	/// Reloads the catalog from disk and returns once the in-memory list is replaced.
+	/// A newer reload cancels this one; the newest result wins.
+	func reloadWorkspacesFromDiskAsync() async {
 		let currentActiveID = activeWorkspaceID
 		let base = currentBaseRoot
 		let indexURL = workspaceIndexFileURL
@@ -1081,7 +1110,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 		let token = UUID()
 		reloadWorkspacesToken = token
 		
-		reloadWorkspacesTask = Task.detached(priority: .utility) { [weak self, indexURL, base, currentActiveID, token] in
+		let task = Task.detached(priority: .utility) { [weak self, indexURL, base, currentActiveID, token] in
 			let indexEntries = Self.loadWorkspaceIndex(from: indexURL)
 			var loadedMutable: [WorkspaceModel] = []
 			
@@ -1128,6 +1157,34 @@ class WorkspaceManagerViewModel: ObservableObject {
 				self.reloadWorkspacesTask = nil
 			}
 		}
+		reloadWorkspacesTask = task
+		await task.value
+	}
+
+	/// Reorders the catalog so system entries keep their slot and the rest follow `ids`, then writes the index.
+	func reorderWorkspaces(ids: [UUID]) async {
+		let systemIDs = workspaces.filter(\.isSystemWorkspace).map(\.id)
+		let fullOrder = workspaces.map(\.id)
+		let target = WorkspaceOrdering.applyVisibleMove(fullOrder: fullOrder, visibleOrder: ids.filter { !systemIDs.contains($0) })
+		let byID = Dictionary(uniqueKeysWithValues: workspaces.map { ($0.id, $0) })
+		workspaces = target.compactMap { byID[$0] }
+		await rebuildAndSaveIndexAsync()
+		await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
+		NotificationCenter.default.post(
+			name: .workspaceListDidChange,
+			object: nil,
+			userInfo: ["managerID": instanceID]
+		)
+	}
+
+	/// Inserts a document another manager wrote to disk, without touching disk here.
+	func adoptWorkspaceModel(_ workspace: WorkspaceModel) {
+		if let index = workspaces.firstIndex(where: { $0.id == workspace.id }) {
+			workspaces[index] = workspace
+		} else {
+			workspaces.append(workspace)
+		}
+		recordRepoPathBaseline(for: workspace)
 	}
 	
 	private func postWorkspaceRepoPathsDidChange(for workspaceID: UUID) {
@@ -1357,6 +1414,27 @@ class WorkspaceManagerViewModel: ObservableObject {
 	
 	@discardableResult
 	func createWorkspace(name: String, repoPaths: [String], ephemeral: Bool = false) -> WorkspaceModel {
+		let newWorkspace = insertNewWorkspace(name: name, repoPaths: repoPaths, ephemeral: ephemeral)
+		if ephemeral {
+			// For ephemeral workspaces, notify immediately since there's no disk write
+			NotificationCenter.default.post(
+				name: .workspaceListDidChange,
+				object: nil,
+				userInfo: ["managerID": instanceID])
+		} else {
+			Task { await persistNewWorkspace(newWorkspace) }
+		}
+		return newWorkspace
+	}
+
+	/// `createWorkspace` that returns after the document and index are flushed to disk.
+	func createWorkspaceAsync(name: String, repoPaths: [String]) async -> WorkspaceModel {
+		let newWorkspace = insertNewWorkspace(name: name, repoPaths: repoPaths, ephemeral: false)
+		await persistNewWorkspace(newWorkspace)
+		return newWorkspace
+	}
+
+	private func insertNewWorkspace(name: String, repoPaths: [String], ephemeral: Bool) -> WorkspaceModel {
 		var newWorkspace = WorkspaceModel(name: name, repoPaths: repoPaths)
 
 		// Mark as ephemeral if needed
@@ -1373,47 +1451,38 @@ class WorkspaceManagerViewModel: ObservableObject {
 				userInfo: ["workspaceID": newWorkspace.id]
 			)
 		}
+		return newWorkspace
+	}
 
-		// Only save to disk and index if not ephemeral
-		if !ephemeral {
-			Task {
-				do {
-					_ = try ensureWorkspaceDirectoryExists(for: newWorkspace)
-					// Persist this new workspace file and flush before proceeding
-					let finalURL = try await saveWorkspaceToFileAsync(newWorkspace, preserveDiskRepoPathsIfUnchangedSinceBaseline: false)
-					await WorkspaceDiskWriter.shared.flush(url: finalURL)
-					await MainActor.run { self.recordRepoPathBaseline(for: newWorkspace) }
-					
-					await rebuildAndSaveIndexAsync()
-					await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
-					
-					// Notify other windows after disk commits
-					await MainActor.run {
-						NotificationCenter.default.post(
-							name: .workspaceListDidChange,
-							object: nil,
-							userInfo: ["managerID": instanceID]
-						)
-					}
-				} catch {
-					print("Error creating workspace folder/file: \(error)")
-				}
-			}
-		} else {
-			// For ephemeral workspaces, notify immediately since there's no disk write
+	private func persistNewWorkspace(_ newWorkspace: WorkspaceModel) async {
+		do {
+			_ = try ensureWorkspaceDirectoryExists(for: newWorkspace)
+			// Persist this new workspace file and flush before proceeding
+			let finalURL = try await saveWorkspaceToFileAsync(newWorkspace, preserveDiskRepoPathsIfUnchangedSinceBaseline: false)
+			await WorkspaceDiskWriter.shared.flush(url: finalURL)
+			recordRepoPathBaseline(for: newWorkspace)
+			
+			await rebuildAndSaveIndexAsync()
+			await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
+			
+			// Notify other windows after disk commits
 			NotificationCenter.default.post(
 				name: .workspaceListDidChange,
 				object: nil,
-				userInfo: ["managerID": instanceID])
+				userInfo: ["managerID": instanceID]
+			)
+		} catch {
+			print("Error creating workspace folder/file: \(error)")
 		}
-		
-		return newWorkspace
 	}
 	
 	// MARK: - Switch
 
 	@MainActor
-	func requestWorkspaceSwitch(to newWorkspace: WorkspaceModel, saveState: Bool = true, reason: String = "userOrInternal") async -> WorkspaceSwitchResult {
+	func requestWorkspaceSwitch(to newWorkspace: WorkspaceModel, saveState: Bool = true, reason: String = "userOrInternal", origin: WorkspaceSwitchOrigin = .caller) async -> WorkspaceSwitchResult {
+		if origin == .caller, let shellSwitchForwarder {
+			return await shellSwitchForwarder(newWorkspace)
+		}
 		if newWorkspace.id == activeWorkspaceID {
 			return .blocked("Already on workspace \"\(newWorkspace.name)\".")
 		}
@@ -3241,6 +3310,15 @@ class WorkspaceManagerViewModel: ObservableObject {
 					continue
 				}
 
+				if let shell = windowStates.shell {
+					// Shell mode: the duplicate's runtime is disposed instead of re-pointed at the canonical
+					// document, which already has its own retained runtime.
+					await window.workspaceManager.pollAndSaveStateAsync()
+					await shell.disposeRuntime(for: activeWorkspace.id, reason: .duplicateCleanup)
+					reassignedWindowIDs.insert(window.windowID)
+					continue
+				}
+
 				await window.workspaceManager.pollAndSaveStateAsync()
 				let switchResult = await window.workspaceManager.requestWorkspaceSwitch(to: canonical, saveState: true)
 				if switchResult.didSwitch {
@@ -3695,6 +3773,17 @@ class WorkspaceManagerViewModel: ObservableObject {
 	// MARK: - CRUD
 	
 	func deleteWorkspace(_ workspace: WorkspaceModel) {
+		removeWorkspaceFromCatalog(workspace)
+		Task { await persistCatalogAfterDelete() }
+	}
+
+	/// `deleteWorkspace` that returns after the index is flushed to disk.
+	func deleteWorkspaceAsync(_ workspace: WorkspaceModel) async {
+		removeWorkspaceFromCatalog(workspace)
+		await persistCatalogAfterDelete()
+	}
+
+	private func removeWorkspaceFromCatalog(_ workspace: WorkspaceModel) {
 		workspaces.removeAll { $0.id == workspace.id }
 		if activeWorkspaceID == workspace.id {
 			activeWorkspaceID = nil
@@ -3718,25 +3807,33 @@ class WorkspaceManagerViewModel: ObservableObject {
 				print("Failed to remove workspace folder: \(error)")
 			}
 		}
-		
-		// Schedule async index save and notify after completion and flush
-		Task {
-			await rebuildAndSaveIndexAsync()
-			await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
-			await MainActor.run {
-				NotificationCenter.default.post(
-					name: .workspaceListDidChange,
-					object: nil,
-					userInfo: ["managerID": instanceID]
-				)
-			}
-		}
+	}
+
+	private func persistCatalogAfterDelete() async {
+		await rebuildAndSaveIndexAsync()
+		await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
+		NotificationCenter.default.post(
+			name: .workspaceListDidChange,
+			object: nil,
+			userInfo: ["managerID": instanceID]
+		)
 	}
 	
 	func renameWorkspace(_ workspace: WorkspaceModel, newName: String) {
-		guard let index = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+		guard let index = applyRenameInMemory(workspace, newName: newName) else { return }
+		Task { await persistRenamedWorkspace(at: index) }
+	}
+
+	/// `renameWorkspace` that returns after the document and index are flushed to disk.
+	func renameWorkspaceAsync(_ workspace: WorkspaceModel, newName: String) async {
+		guard let index = applyRenameInMemory(workspace, newName: newName) else { return }
+		await persistRenamedWorkspace(at: index)
+	}
+
+	private func applyRenameInMemory(_ workspace: WorkspaceModel, newName: String) -> Int? {
+		guard let index = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return nil }
 		let finalName = newName.trimmingCharacters(in: .whitespaces)
-		guard !finalName.isEmpty else { return }
+		guard !finalName.isEmpty else { return nil }
 		
 		workspaces[index].name = finalName
 		workspaces[index].dateModified = Date()
@@ -3757,26 +3854,24 @@ class WorkspaceManagerViewModel: ObservableObject {
 				print("Failed to rename workspace folder: \(error)")
 			}
 		}
-		
-		// Schedule async save of the specific workspace and index update, with flushes before notify
-		Task {
-			do {
-				let finalURL = try await saveWorkspaceToFileAsync(workspaces[index])
-				await WorkspaceDiskWriter.shared.flush(url: finalURL)
-				
-				await rebuildAndSaveIndexAsync()
-				await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
-				
-				await MainActor.run {
-					NotificationCenter.default.post(
-						name: .workspaceListDidChange,
-						object: nil,
-						userInfo: ["managerID": instanceID]
-					)
-				}
-			} catch {
-				print("Error saving renamed workspace: \(error)")
-			}
+		return index
+	}
+
+	private func persistRenamedWorkspace(at index: Int) async {
+		do {
+			let finalURL = try await saveWorkspaceToFileAsync(workspaces[index])
+			await WorkspaceDiskWriter.shared.flush(url: finalURL)
+			
+			await rebuildAndSaveIndexAsync()
+			await WorkspaceDiskWriter.shared.flush(url: workspaceIndexFileURL)
+			
+			NotificationCenter.default.post(
+				name: .workspaceListDidChange,
+				object: nil,
+				userInfo: ["managerID": instanceID]
+			)
+		} catch {
+			print("Error saving renamed workspace: \(error)")
 		}
 	}
 	

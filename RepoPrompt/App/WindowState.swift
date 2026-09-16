@@ -311,8 +311,19 @@ class WindowState: ObservableObject {
 	private(set) var claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID: UUID?
 	
 	// MARK: - Initialization
+
+	/// How this state was created. `.shellRuntime` retains one catalog workspace under the shell and
+	/// defers its first activation to the shell; `.shellHost` is the shell's always-on system runtime.
+	enum Launch {
+		case standalone
+		case shellHost
+		case shellRuntime
+	}
+
+	let launch: Launch
 	
-	init() {
+	init(launch: Launch = .standalone) {
+		self.launch = launch
 		#if DEBUG
 		let initStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 		let initialGlobalUIMode = UserDefaults.standard.string(forKey: "windowUIMode") ?? "nil"
@@ -380,7 +391,8 @@ class WindowState: ObservableObject {
 		#endif
 		self.workspaceManager = WorkspaceManagerViewModel(
 			fileManager: self.fileManager,
-			promptViewModel: self.promptManager
+			promptViewModel: self.promptManager,
+			initialActivation: launch == .shellRuntime ? .deferred : .defaultWorkspace
 		)
 		#if DEBUG
 		if let workspaceManagerInitStartMS {
@@ -632,7 +644,8 @@ class WindowState: ObservableObject {
 	/// Attaches the NSWindow to this state and updates the title.
 	/// Uses deferred title update to avoid triggering layout during window lifecycle events
 	/// (REPOPROMPT-1K4 fix).
-	func attachWindow(_ window: NSWindow?) {
+	/// `installsDelegateProxy: false` is the shell path: the shell owns the window's single delegate proxy.
+	func attachWindow(_ window: NSWindow?, installsDelegateProxy: Bool = true) {
 		// Detach path (always do the cleanup even if both are nil)
 		if window == nil {
 			let oldWindow = nsWindow
@@ -650,7 +663,9 @@ class WindowState: ObservableObject {
 
 		if nsWindow === window {
 			configureWindowChrome(for: window)
-			ensureWindowDelegateProxy(for: window)
+			if installsDelegateProxy {
+				ensureWindowDelegateProxy(for: window)
+			}
 			scheduleFocusUpdate(from: window)
 			requestWindowTitleUpdate(reason: .windowAttached)
 			applyAgentTitlebarAccessoryIfPossible()
@@ -670,7 +685,9 @@ class WindowState: ObservableObject {
 		configureWindowChrome(for: window)
 		installFocusObservers(for: window)
 		scheduleFocusUpdate(from: window)
-		ensureWindowDelegateProxy(for: window)
+		if installsDelegateProxy {
+			ensureWindowDelegateProxy(for: window)
+		}
 		// Use deferred update to avoid recursive layout issues
 		requestWindowTitleUpdate(reason: .windowAttached)
 		// Install Agent mode titlebar accessory if requested before window was attached

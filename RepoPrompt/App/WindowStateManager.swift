@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 import KeyboardShortcuts
+import MCP
 
 struct WindowSessionSnapshot: Codable, Sendable {
 	var version: Int
@@ -268,15 +269,58 @@ class WindowStatesManager: ObservableObject {
 		guard let expectedDeferralID else { return true }
 		return claimedWaiterID == waiterID && claimedDeferralID == expectedDeferralID
 	}
-	
-	/// Returns the *most recently added* window if it exists
-	var latestWindowState: WindowState? {
-		allWindows.last
+	// MARK: - Workspace shell
+
+	/// The single-window shell once `RepoPromptApp` starts it. Nil on the legacy per-window path.
+	weak var shell: (any WorkspaceShellCoordinating)?
+	/// The runtime whose content the shell window shows. Nil before the shell starts.
+	private(set) weak var visibleWindowState: WindowState?
+	/// The one native window the shell owns.
+	weak var shellNSWindow: NSWindow?
+	/// The host runtime's ID: the only window ID MCP clients see.
+	var shellWindowID: Int?
+
+	func setVisibleWindowState(_ state: WindowState?) {
+		visibleWindowState = state
+	}
+
+	/// Maps the public window ID onto the runtime that should serve a call.
+	/// `nil` stays `nil`; `shellWindowID` maps to the connection's bound runtime, else the visible runtime,
+	/// else the host; any other value is rejected.
+	func resolveRuntimeWindowID(publicWindowID: Int?, connectionID: UUID?) async throws -> Int? {
+		guard let publicWindowID else { return nil }
+		guard let shellWindowID else { return publicWindowID }
+		guard publicWindowID == shellWindowID else {
+			throw MCPError.invalidParams("window_id \(publicWindowID) is not the RepoPrompt window. Valid window ID: \(shellWindowID)")
+		}
+		let bound: Int?
+		if let connectionID {
+			bound = await ServerNetworkManager.shared.selectedWindow(for: connectionID)
+		} else {
+			bound = await ServerNetworkManager.shared.currentConnectionWindowID()
+		}
+		if let bound, hasWindow(id: bound) {
+			return bound
+		}
+		return visibleWindowState?.windowID ?? shellWindowID
+	}
+
+	/// Hands the restore entry to the shell. Empties the queue so no runtime consumes it.
+	func takeShellRestoreEntry() -> WindowSessionEntry? {
+		guard !restoreQueue.isEmpty else { return nil }
+		let entry = restoreQueue.removeFirst()
+		restoreQueue.removeAll()
+		return entry
 	}
 	
-	/// Returns whether multi-window routing should be enforced (multiple windows are open).
-	/// Use this for behavior/error messages, not for UI binding.
-	var isMultiWindowModeEffectivelyActive: Bool { allWindows.count > 1 }
+	/// Returns the visible runtime, else the *most recently added* window if it exists
+	var latestWindowState: WindowState? {
+		visibleWindowState ?? allWindows.last
+	}
+	
+	/// Whether multi-window routing should be enforced. The shell owns one physical window,
+	/// so it is `false` once the shell runs.
+	var isMultiWindowModeEffectivelyActive: Bool { shell == nil && allWindows.count > 1 }
 	
 	/// Finds a window that's showing a specific workspace
 	func findWindowState(showing workspaceId: UUID) -> WindowState? {
@@ -607,7 +651,10 @@ class WindowStatesManager: ObservableObject {
 			self.persistWindowSession(reason: "workspaceSwitch")
 		}
 		
-		applyNextRestoreEntryIfAvailable(to: state)
+		// The shell consumes the restore entry and drains URLs itself.
+		if shell == nil {
+			applyNextRestoreEntryIfAvailable(to: state)
+		}
 		
 		// Assign an initial instance number if the workspace is already set
 		if let ws = state.workspaceManager.activeWorkspace {
@@ -619,12 +666,14 @@ class WindowStatesManager: ObservableObject {
 		// If we have pending URLs that arrived *before* any windows,
 		// route them through the app router so scoped routes are parsed before
 		// choosing a target window. Drain once and preserve ordering.
-		let urlsToRoute = pendingURLs
-		pendingURLs.removeAll()
-		if !urlsToRoute.isEmpty {
-			Task { @MainActor in
-				for url in urlsToRoute {
-					await AppDeepLinkRouter.shared.route(url: url, preferredLegacyWindow: state)
+		if shell == nil {
+			let urlsToRoute = pendingURLs
+			pendingURLs.removeAll()
+			if !urlsToRoute.isEmpty {
+				Task { @MainActor in
+					for url in urlsToRoute {
+						await AppDeepLinkRouter.shared.route(url: url, preferredLegacyWindow: state)
+					}
 				}
 			}
 		}
@@ -689,7 +738,14 @@ class WindowStatesManager: ObservableObject {
 	}
 	
 	private func captureCurrentSession() -> WindowSessionSnapshot {
-		let candidates = allWindows.map { window -> WindowSessionCaptureCandidate in
+		let captured: [WindowState]
+		if shell != nil {
+			// One physical window: persist the visible runtime only. An empty catalog persists no entry.
+			captured = visibleWindowState.map { [$0] } ?? []
+		} else {
+			captured = allWindows
+		}
+		let candidates = captured.map { window -> WindowSessionCaptureCandidate in
 			guard let workspace = window.workspaceManager.activeWorkspace else {
 				return WindowSessionCaptureCandidate(windowID: window.windowID, entry: nil)
 			}
@@ -708,7 +764,7 @@ class WindowStatesManager: ObservableObject {
 				isSystemWorkspace: workspace.isSystemWorkspace,
 				isEphemeral: workspace.isEphemeral,
 				primaryRepoPath: primaryPath,
-				lastFocused: window.isCurrentlyFocused,
+				lastFocused: shell != nil || window.isCurrentlyFocused,
 				uiMode: window.uiMode,
 				workspaceInstanceNumber: window.workspaceInstanceNumber
 			)
@@ -765,9 +821,12 @@ class WindowStatesManager: ObservableObject {
 		allWindows.first { $0.windowID == id && $0.mcpServer.windowToolsEnabled }
 	}
 
-	/// Get the first window that has MCP tools enabled.
+	/// Get the first window that has MCP tools enabled. The visible runtime wins when enabled.
 	func firstMCPEnabledWindow() -> WindowState? {
-		allWindows.first { $0.mcpServer.windowToolsEnabled }
+		if let visibleWindowState, visibleWindowState.mcpServer.windowToolsEnabled {
+			return visibleWindowState
+		}
+		return allWindows.first { $0.mcpServer.windowToolsEnabled }
 	}
 
 	/// Get all window IDs that have MCP tools enabled.
@@ -777,7 +836,7 @@ class WindowStatesManager: ObservableObject {
 
 	/// Returns window count and multi-window mode status in a single call.
 	func windowCountAndMode() -> (count: Int, isMultiWindowActive: Bool) {
-		(allWindows.count, allWindows.count > 1)
+		(allWindows.count, isMultiWindowModeEffectivelyActive)
 	}
 
 	// MARK: - App Termination
@@ -970,8 +1029,8 @@ class WindowStatesManager: ObservableObject {
 	}
 }
 
-extension Notification.Name {
+extension Foundation.Notification.Name {
 	/// Posted when a window's sticky instance number changes.
 	/// userInfo: ["windowID": Int, "number": Int or NSNull()]
-	static let repoPromptWindowInstanceNumberDidChange = Notification.Name("repoPromptWindowInstanceNumberDidChange")
+	static let repoPromptWindowInstanceNumberDidChange = Foundation.Notification.Name("repoPromptWindowInstanceNumberDidChange")
 }
