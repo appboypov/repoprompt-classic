@@ -346,19 +346,13 @@ final class WindowRoutingService: Service {
 		}
 	}
 
-	nonisolated static func workspaceDeleteCloseAuthorization() -> WindowCloseAuthorization {
-		WindowCloseAuthorization(
-			source: .workspaceDelete,
-			bypassConfirmation: true,
-			bypassBackgroundPreservation: true
-		)
-	}
-    
     // ---------------------------------------------------------------------
     // MARK: Stored references
     // ---------------------------------------------------------------------
 	private let windowStates: WindowStatesManager
 	private let networkMgr  : ServerNetworkManager
+	/// Every workspace mutation from MCP goes through the shell's named actions. Nil only in tests.
+	private let shellActionService: WorkspaceShellActionService?
 	private var previousDisabledTools: Set<String>
     
     // Thread-safe tools storage
@@ -372,9 +366,11 @@ final class WindowRoutingService: Service {
     // MARK: Init & registration
     // ---------------------------------------------------------------------
     init(windowStates: WindowStatesManager,
-         networkMgr  : ServerNetworkManager) {
+         networkMgr  : ServerNetworkManager,
+         shellActionService: WorkspaceShellActionService? = nil) {
         self.windowStates = windowStates
         self.networkMgr   = networkMgr
+        self.shellActionService = shellActionService
 		self.previousDisabledTools = Set(UserDefaults.standard.stringArray(forKey: "mcp.disabledTools") ?? [])
         
         // Initialize cached tools and register service
@@ -619,26 +615,169 @@ final class WindowRoutingService: Service {
 		)
 	}
 
-	private func resolveTargetWindow(windowID: Int?) async throws -> WindowState {
-		let windows = await MainActor.run { self.windowStates.allWindows }
-		let targetWindow: WindowState? = {
-			if let windowID {
-				return windows.first(where: { $0.windowID == windowID })
-			}
-			return windows.only
-		}()
+	/// The client-facing window ID for a runtime: the shell window when the shell runs, else the runtime itself.
+	private func publicWindowID(for runtimeWindowID: Int) -> Int {
+		windowStates.shellWindowID ?? runtimeWindowID
+	}
 
-		if let windowID, targetWindow == nil {
-			let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-			throw MCPError.invalidParams("Unknown window_id \(windowID). Valid window IDs: \(validIDs)")
+	/// The runtime a tool call operates on. `window_id` is validated against the shell window and mapped to the
+	/// connection's bound runtime, else the visible runtime, else the host. Without a shell (tests), the only window.
+	private func resolveTargetRuntime(windowID: Int?) async throws -> WindowState {
+		let connectionID = await self.networkMgr.currentConnectionUUID()
+		let runtimeID = try await windowStates.resolveRuntimeWindowID(publicWindowID: windowID, connectionID: connectionID)
+		if let runtimeID {
+			guard let runtime = windowStates.allWindows.first(where: { $0.windowID == runtimeID }) else {
+				throw MCPError.invalidParams("Unknown window_id \(runtimeID)")
+			}
+			return runtime
 		}
-		if windowID == nil && windows.count != 1 {
+		if windowStates.shell != nil {
+			if let connectionID,
+				let bound = await self.networkMgr.selectedWindow(for: connectionID),
+				let runtime = windowStates.allWindows.first(where: { $0.windowID == bound }) {
+				return runtime
+			}
+			if let visible = windowStates.visibleWindowState {
+				return visible
+			}
+			if let host = windowStates.allWindows.first {
+				return host
+			}
+			throw MCPError.internalError("Workspace shell has not started")
+		}
+		guard let only = windowStates.allWindows.only else {
 			throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
 		}
-		guard let targetWindow else {
-			throw MCPError.invalidParams("No valid target window found")
+		return only
+	}
+
+	private var shellViewModel: WorkspaceShellViewModel {
+		get throws {
+			guard let shellActionService else {
+				throw MCPError.internalError("Workspace shell is not available")
+			}
+			return shellActionService.viewModel
 		}
-		return targetWindow
+	}
+
+	private func requireShellActionService() throws -> WorkspaceShellActionService {
+		guard let shellActionService else {
+			throw MCPError.internalError("Workspace shell is not available")
+		}
+		return shellActionService
+	}
+
+	/// Maps shell errors onto the tool contract's error table.
+	private func dispatchShellAction(_ payload: WorkspaceShellActionPayload) async throws -> WorkspaceShellSnapshot {
+		let service = try requireShellActionService()
+		do {
+			return try await service.dispatch(payload)
+		} catch let error as WorkspaceShellError {
+			throw Self.mcpError(for: error)
+		}
+	}
+
+	/// The shell state for a response; nil on the legacy path without a shell.
+	private var currentShellSnapshot: WorkspaceShellSnapshot? {
+		shellActionService?.viewModel.snapshot
+	}
+
+	private func resolveWorkspace(rawWorkspaceParam: String, action: String, includeHidden: Bool) async throws -> WorkspaceModel {
+		let diskWorkspaces = try await loadWorkspaceDiskSnapshot()
+		return try Self.resolveWorkspaceReference(
+			rawWorkspaceParam,
+			in: diskWorkspaces,
+			mode: .visibleNameByDefault(action: action, includeHidden: includeHidden)
+		)
+	}
+
+	/// The runtime that writes a catalog mutation for `workspaceID`: its retained runtime, else the host
+	/// (hidden entries have no runtime). Without a shell, the first window.
+	private func catalogWriter(for workspaceID: UUID) throws -> WindowState {
+		if let shell = shellActionService?.viewModel {
+			if let runtime = shell.runtime(for: workspaceID) {
+				return runtime
+			}
+			guard let host = shell.hostRuntime else {
+				throw MCPError.internalError("Workspace shell has not started")
+			}
+			return host
+		}
+		guard let window = windowStates.allWindows.first else {
+			throw MCPError.invalidParams("No windows available to update workspace state. Open at least one window first.")
+		}
+		return window
+	}
+
+	/// After a catalog write through `writer`: every other manager reloads from disk and the shell republishes.
+	private func propagateCatalogWrite(from writer: WindowState) async {
+		guard let shell = shellActionService?.viewModel else {
+			for window in windowStates.allWindows where window !== writer {
+				await window.workspaceManager.reloadWorkspacesFromDiskAsync()
+			}
+			return
+		}
+		await shell.catalog?.reloadOthers(except: writer, runtimes: Array(shell.loadedWorkspaceStates.values))
+		shell.publish()
+	}
+
+	/// The runtime and model a folder mutation targets: the named workspace's writer, else the active
+	/// workspace of the request's target runtime.
+	private func resolveFolderMutationTarget(
+		rawWorkspaceParam: String?,
+		windowID: Int?,
+		action: String
+	) async throws -> (runtime: WindowState, workspace: WorkspaceModel) {
+		if let rawWorkspaceParam, !rawWorkspaceParam.isEmpty {
+			let resolved = try await resolveWorkspace(rawWorkspaceParam: rawWorkspaceParam, action: action, includeHidden: true)
+			let runtime = try catalogWriter(for: resolved.id)
+			guard let model = runtime.workspaceManager.workspace(withID: resolved.id) else {
+				throw MCPError.invalidParams("Unknown workspace '\(rawWorkspaceParam)'")
+			}
+			return (runtime, model)
+		}
+		let runtime = try await resolveTargetRuntime(windowID: windowID)
+		guard let model = runtime.workspaceManager.activeWorkspace else {
+			throw MCPError.invalidParams("No active workspace. Use manage_workspaces action='list' to see available workspaces, then pass workspace=<id|name>.")
+		}
+		return (runtime, model)
+	}
+
+	/// A summary for one workspace after a mutation: the shell's row when it has one, else built from the model.
+	private func workspaceSummary(for model: WorkspaceModel, snapshot: WorkspaceShellSnapshot?) -> MCPWorkspaceSummary {
+		if let row = snapshot?.workspaces.first(where: { $0.id == model.id }) {
+			return row
+		}
+		return MCPWorkspaceSummary(
+			id: model.id,
+			name: model.name,
+			allRepoPaths: model.repoPaths,
+			showingWindowIDs: [],
+			isHidden: model.isHiddenInMenus
+		)
+	}
+
+	nonisolated static func mcpError(for error: WorkspaceShellError) -> MCPError {
+		switch error {
+		case .unknownWorkspace(let id):
+			return .invalidParams("Unknown workspace id '\(id.uuidString)'")
+		case .emptyName:
+			return .invalidParams("Workspace name must not be empty.")
+		case .duplicateName(let name):
+			return .invalidParams("A workspace named '\(name)' already exists.")
+		case .invalidOrder(let detail):
+			return .invalidParams("workspace_ids must list every workspace exactly once: \(detail)")
+		case .approvalDenied:
+			return .invalidRequest("Workspace operation was denied by the user.")
+		case .cancelled:
+			return .invalidRequest("Workspace operation was cancelled.")
+		case .runtimeUnavailable(let id):
+			return .internalError("Runtime not retained for workspace \(id.uuidString)")
+		case .captureFailed(let detail):
+			return .internalError(detail)
+		case .invalidOutputPath(let detail):
+			return .invalidParams(detail)
+		}
 	}
 
 	private func resolveComposeTab(rawTabParam: String, tabs: [ComposeTabState]) throws -> ComposeTabState {
@@ -980,10 +1119,10 @@ final class WindowRoutingService: Service {
 		)
 	}
 
-	private static func bindContextBindingSummary(from snapshot: MCPServerViewModel.ConnectionBindingSnapshot) -> MCPBindContextBindingSummary {
+	private func bindContextBindingSummary(from snapshot: MCPServerViewModel.ConnectionBindingSnapshot) -> MCPBindContextBindingSummary {
 		MCPBindContextBindingSummary(
-			bindingKind: bindingKindString(snapshot.bindingKind),
-			windowID: snapshot.windowID,
+			bindingKind: Self.bindingKindString(snapshot.bindingKind),
+			windowID: snapshot.windowID.map(publicWindowID(for:)),
 			contextID: snapshot.tabID,
 			workspaceID: snapshot.workspaceID,
 			workspaceName: snapshot.workspaceName,
@@ -1041,13 +1180,14 @@ final class WindowRoutingService: Service {
 	}
 
 	private func currentBindingSummary(for connectionID: UUID?) async -> MCPBindContextBindingSummary {
-		Self.bindContextBindingSummary(from: await currentBindingSnapshot(for: connectionID))
+		bindContextBindingSummary(from: await currentBindingSnapshot(for: connectionID))
 	}
 
-	private func bindContextWindowNote(windowID: Int?) -> String? {
-		guard let windowID,
-			let window = self.windowStates.allWindows.first(where: { $0.windowID == windowID }) else { return nil }
-		return Self.bindContextWorkspaceNote(windowID: windowID, workspace: window.workspaceManager.activeWorkspace)
+	/// The runtime a binding refers to; the summary carries the public ID so the runtime is looked up from the snapshot.
+	private func bindContextWindowNote(runtimeWindowID: Int?) -> String? {
+		guard let runtimeWindowID,
+			let window = self.windowStates.allWindows.first(where: { $0.windowID == runtimeWindowID }) else { return nil }
+		return Self.bindContextWorkspaceNote(windowID: publicWindowID(for: runtimeWindowID), workspace: window.workspaceManager.activeWorkspace)
 	}
 
 	nonisolated private static func workspaceMatches(
@@ -1374,82 +1514,55 @@ final class WindowRoutingService: Service {
 		)
 	}
 
-	private func openRoutingWindow(deferringInitialAgentSystemWorkspaceRefresh: Bool = false) async throws -> WindowState {
-		do {
-			return try await self.windowStates.openNewMainWindow(
-				deferringInitialAgentSystemWorkspaceRefresh: deferringInitialAgentSystemWorkspaceRefresh
-			)
-		} catch let error as WindowOpenError {
-			throw MCPError.internalError("Failed to open new window: \(error.localizedDescription)")
-		} catch is CancellationError {
-			throw CancellationError()
-		} catch {
-			throw MCPError.internalError("Failed to open new window: \(error)")
+	/// Shows `workspace` in the shell and returns its retained runtime.
+	private func showWorkspaceInShell(_ workspace: WorkspaceModel) async throws -> WindowState {
+		let service = try requireShellActionService()
+		let result = await service.forwardSwitch(workspace)
+		switch result {
+		case .switched:
+			break
+		case .cancelled(let message):
+			throw MCPError.invalidRequest(message)
+		case .blocked(let message):
+			throw MCPError.invalidParams(message)
 		}
+		guard let runtime = service.viewModel.runtime(for: workspace.id) else {
+			throw MCPError.internalError("Runtime not retained for workspace \(workspace.id.uuidString)")
+		}
+		return runtime
 	}
 
-	private func openInitializedWindow() async throws -> WindowState {
-		let newWindow = try await openRoutingWindow()
-		await newWindow.workspaceManager.awaitInitialized()
-		return newWindow
-	}
-
-	private func openNewWindowShowingWorkspace(_ workspace: WorkspaceModel) async throws -> WindowState {
-		let newWindow = try await openRoutingWindow(deferringInitialAgentSystemWorkspaceRefresh: true)
-		defer { newWindow.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral() }
-		await newWindow.workspaceManager.awaitInitialized()
-		let switchResult = await newWindow.workspaceManager.requestWorkspaceSwitch(to: workspace, saveState: true)
-		if !switchResult.didSwitch {
-			throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
-		}
-		return newWindow
-	}
-
-	private func resolveWorkspaceApprovalWindow(
-		requestedWindowID: Int?,
-		openInNewWindow: Bool
-	) async throws -> WindowState {
-		let windows = self.windowStates.allWindows
-		let focusedWindowID = windows.first(where: { $0.isCurrentlyFocused })?.windowID
-		let approvalWindow: WindowState? = {
-			if let requestedWindowID {
-				return windows.first(where: { $0.windowID == requestedWindowID })
-			}
-			if openInNewWindow {
-				if let focusedWindowID {
-					return windows.first(where: { $0.windowID == focusedWindowID })
-				}
-				return windows.last ?? windows.first
-			}
-			return windows.only
-		}()
-		if let requestedWindowID, approvalWindow == nil {
-			let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-			throw MCPError.invalidParams("Unknown window_id \(requestedWindowID). Valid window IDs: \(validIDs)")
-		}
-		if !openInNewWindow, requestedWindowID == nil, windows.count != 1 {
-			throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-		}
-		guard let approvalWindow else {
-			throw MCPError.invalidParams("No windows available to create workspace. Open at least one window first.")
-		}
-		return approvalWindow
-	}
-
-	private func createWorkspace(
-		in window: WindowState,
+	/// Creates a workspace through `workspace_shell.add` (tool approval included) and returns its runtime and model.
+	/// Roots after the first are added on the runtime, since the catalog creates with at most one root.
+	private func createWorkspaceInShell(
 		name: String,
 		repoPaths: [String],
-		switchToCreated: Bool
-	) async throws -> WorkspaceModel {
-		let newWorkspace = window.workspaceManager.createWorkspace(name: name, repoPaths: repoPaths)
-		if switchToCreated {
-			let switchResult = await window.workspaceManager.requestWorkspaceSwitch(to: newWorkspace, saveState: true)
-			if !switchResult.didSwitch {
-				throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
+		makeVisible: Bool,
+		clientID: String
+	) async throws -> (workspace: WorkspaceModel, runtime: WindowState) {
+		let snapshot = try await dispatchShellAction(.add(AddWorkspacePayload(
+			name: name,
+			folderPath: repoPaths.first,
+			makeVisible: makeVisible,
+			source: .tool(clientID: clientID)
+		)))
+		let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard let created = snapshot.workspaces.first(where: { $0.name == trimmedName }),
+			let runtime = try shellViewModel.runtime(for: created.id) else {
+			throw MCPError.internalError("Runtime not retained for created workspace '\(trimmedName)'")
+		}
+		for path in repoPaths.dropFirst() {
+			guard let current = runtime.workspaceManager.workspace(withID: created.id) else { break }
+			do {
+				try await runtime.workspaceManager.addFolder(URL(fileURLWithPath: path), to: current)
+			} catch {
+				throw MCPError.internalError("Failed to add folder '\(path)': \(error.localizedDescription)")
 			}
 		}
-		return newWorkspace
+		guard let model = runtime.workspaceManager.workspace(withID: created.id) else {
+			throw MCPError.internalError("Created workspace '\(trimmedName)' is not loaded")
+		}
+		return (model, runtime)
 	}
 
 	private func derivedWorkspaceName(
@@ -1547,6 +1660,18 @@ final class WindowRoutingService: Service {
 		)
 	}
 
+	/// The retained runtime for `workspace`, prepared in the background when absent. Never changes the visible workspace.
+	private func retainedRuntime(for workspace: WorkspaceModel) async throws -> WindowState {
+		let shell = try shellViewModel
+		if let runtime = shell.runtime(for: workspace.id) {
+			return runtime
+		}
+		if let runtime = await shell.ensureRuntime(for: workspace.id) {
+			return runtime
+		}
+		return await shell.adoptRuntime(for: workspace)
+	}
+
 	private func resolveMatchToWindow(
 		_ match: WorkspaceMatch,
 		connectionID: UUID?,
@@ -1592,9 +1717,9 @@ final class WindowRoutingService: Service {
 			}
 		}
 
-		let newWindow = try await openNewWindowShowingWorkspace(match.workspace)
+		let runtime = try await retainedRuntime(for: match.workspace)
 		return workingDirsResolution(
-			windowID: newWindow.windowID,
+			windowID: runtime.windowID,
 			workspace: match.workspace,
 			normalizedWorkingDirs: normalizedWorkingDirs,
 			matchedBy: matchedBy,
@@ -1610,7 +1735,7 @@ final class WindowRoutingService: Service {
 		matchedBy: String,
 		createdWorkspace: Bool
 	) async throws -> WorkingDirsBindResolution {
-		if let requestedWindowID {
+		if let requestedWindowID, windowStates.shell == nil {
 			let windows = self.windowStates.allWindows
 			guard let requestedWindow = windows.first(where: { $0.windowID == requestedWindowID }) else {
 				let validIDs = windows.map(\.windowID).sorted().map(String.init).joined(separator: ", ")
@@ -1653,8 +1778,9 @@ final class WindowRoutingService: Service {
 		guard let targetWindow = self.windowStates.allWindows.first(where: { $0.windowID == resolution.windowID }),
 			let activeWorkspace = targetWindow.workspaceManager.activeWorkspace,
 			activeWorkspace.id == resolution.workspaceID else {
+			let windowID = publicWindowID(for: resolution.windowID)
 			throw MCPError.invalidRequest(
-				"Workspace '\(resolution.workspaceName)' was matched but is not loaded in window \(resolution.windowID). Use manage_workspaces action='switch' workspace='\(resolution.workspaceName)' window_id=\(resolution.windowID) to load it."
+				"Workspace '\(resolution.workspaceName)' was matched but is not loaded in window \(windowID). Use manage_workspaces action='switch' workspace='\(resolution.workspaceName)' to load it."
 			)
 		}
 	}
@@ -1665,6 +1791,8 @@ final class WindowRoutingService: Service {
 		connectionID: UUID?,
 		afterApproval: Bool
 	) async throws -> WorkingDirsBindResolution? {
+		// One physical window under the shell: window_id validates the caller but never disambiguates matches.
+		let windowID = windowStates.shell == nil ? windowID : nil
 		let exactMatches = try await exactWorkspaceMatchesIncludingActiveWindows(normalizedWorkingDirs: normalizedWorkingDirs)
 		let supersetMatches = exactMatches.isEmpty
 			? try await supersetWorkspaceMatchesIncludingActiveWindows(normalizedWorkingDirs: normalizedWorkingDirs)
@@ -1702,62 +1830,30 @@ final class WindowRoutingService: Service {
 		return resolution
 	}
 
-	private func createBlankBindTarget(
-		in window: WindowState,
-		tabName: String?,
-		matchedBy: String,
-		normalizedWorkingDirs: [String]? = nil
-	) async throws -> ResolvedBindTarget {
-		guard let workspace = window.workspaceManager.activeWorkspace else {
-			throw MCPError.invalidParams("No active workspace in target window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-		}
-		guard let createdTab = await window.promptManager.createBackgroundComposeTab(strategy: .blank, name: tabName) else {
-			throw MCPError.internalError("Failed to create a blank compose tab in window \(window.windowID).")
-		}
-		return ResolvedBindTarget(
-			windowID: window.windowID,
-			workspaceID: workspace.id,
-			workspaceName: workspace.name,
-			tabID: createdTab.id,
-			tabName: createdTab.name,
-			repoPaths: workspace.repoPaths,
-			matchedBy: matchedBy,
-			createdTab: true,
-			normalizedWorkingDirs: normalizedWorkingDirs
-		)
-	}
-
-	private func resolveWindowForBinding(windowID: Int?) throws -> WindowState {
-		let windows = self.windowStates.allWindows
-		let targetWindow: WindowState? = {
-			if let windowID {
-				return windows.first(where: { $0.windowID == windowID })
+	/// Validates a caller-supplied window ID: the shell window under the shell, else a live window.
+	private func validateRequestedWindowID(_ windowID: Int?) throws {
+		guard let windowID else { return }
+		if let shellWindowID = windowStates.shellWindowID {
+			guard windowID == shellWindowID else {
+				throw MCPError.invalidParams("window_id \(windowID) is not the RepoPrompt window. Valid window ID: \(shellWindowID)")
 			}
-			return windows.only
-		}()
-
-		if let windowID, targetWindow == nil {
+			return
+		}
+		let windows = self.windowStates.allWindows
+		guard windows.contains(where: { $0.windowID == windowID }) else {
 			let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
 			throw MCPError.invalidParams("Unknown window_id \(windowID). Valid window IDs: \(validIDs)")
 		}
-		if windowID == nil && windows.count != 1 {
-			throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-		}
-		guard let targetWindow else {
-			throw MCPError.invalidParams("No valid target window found")
-		}
-		return targetWindow
 	}
 
 	private func resolveContextIDBindTarget(contextID: UUID, windowID: Int?, connectionPreferredWindowID: Int?) throws -> ResolvedBindTarget {
+		try validateRequestedWindowID(windowID)
 		let windows = self.windowStates.allWindows
-		if let windowID, !windows.contains(where: { $0.windowID == windowID }) {
-			let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-			throw MCPError.invalidParams("Unknown window_id \(windowID). Valid window IDs: \(validIDs)")
-		}
+		// Under the shell every retained runtime is searched; the public ID never narrows the search.
+		let filterWindowID = windowStates.shell == nil ? windowID : nil
 
 		let matches = windows.compactMap { window -> ResolvedBindTarget? in
-			guard windowID == nil || window.windowID == windowID else { return nil }
+			guard filterWindowID == nil || window.windowID == filterWindowID else { return nil }
 			guard let candidate = window.workspaceManager.bindingCandidate(forContextID: contextID) else { return nil }
 			let tabName = window.workspaceManager.composeTabName(with: candidate.tabID) ?? contextID.uuidString
 			return ResolvedBindTarget(
@@ -1802,11 +1898,7 @@ final class WindowRoutingService: Service {
 		tabName: String?,
 		connectionID: UUID?
 	) async throws -> WorkingDirsBindResolution {
-		let windows = self.windowStates.allWindows
-		if let windowID, !windows.contains(where: { $0.windowID == windowID }) {
-			let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-			throw MCPError.invalidParams("Unknown window_id \(windowID). Valid window IDs: \(validIDs)")
-		}
+		try validateRequestedWindowID(windowID)
 
 		let normalizedWorkingDirs = WorkspaceManagerViewModel.normalizedExactWorkspaceDirectorySet(workingDirs)
 		guard !normalizedWorkingDirs.isEmpty else {
@@ -1828,73 +1920,30 @@ final class WindowRoutingService: Service {
 			)
 		}
 
-		let approvalWindow = try await resolveWorkspaceApprovalWindow(requestedWindowID: windowID, openInNewWindow: true)
-		let existingWorkspaces = await approvalWindow.workspaceManager.loadWorkspaceSnapshotFromDisk()
+		let referenceManager = try await resolveTargetRuntime(windowID: windowID).workspaceManager
+		let existingWorkspaces = await referenceManager.loadWorkspaceSnapshotFromDisk()
 		let workspaceName = derivedWorkspaceName(
 			normalizedWorkingDirs: normalizedWorkingDirs,
 			creationNameHint: tabName,
 			existingWorkspaces: existingWorkspaces
 		)
 		let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
-		let approvalResult = await WorkspaceApprovalManager.shared.requestCreateWorkspaceApproval(
-			clientID: clientID,
-			workspaceName: workspaceName,
-			windowID: approvalWindow.windowID
-		)
-		guard approvalResult.isApproved else {
-			throw MCPError.invalidRequest("Workspace creation was denied by the user.")
-		}
-
-		if let resolution = try await resolveExistingWorkingDirsBindResolution(
-			normalizedWorkingDirs: normalizedWorkingDirs,
-			windowID: windowID,
-			connectionID: connectionID,
-			afterApproval: true
-		) {
-			return resolution
-		}
-
-		let newWindow = try await openRoutingWindow(deferringInitialAgentSystemWorkspaceRefresh: true)
-		defer { newWindow.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral() }
-		await newWindow.workspaceManager.awaitInitialized()
-		let newWorkspace = try await createWorkspace(
-			in: newWindow,
+		// A background binding never changes what the user sees.
+		let created = try await createWorkspaceInShell(
 			name: workspaceName,
 			repoPaths: normalizedWorkingDirs,
-			switchToCreated: true
+			makeVisible: false,
+			clientID: clientID
 		)
 		return WorkingDirsBindResolution(
-			windowID: newWindow.windowID,
-			workspaceID: newWorkspace.id,
-			workspaceName: newWorkspace.name,
-			repoPaths: newWorkspace.repoPaths,
+			windowID: created.runtime.windowID,
+			workspaceID: created.workspace.id,
+			workspaceName: created.workspace.name,
+			repoPaths: created.workspace.repoPaths,
 			matchedBy: "working_dirs",
 			createdWorkspace: true,
 			normalizedWorkingDirs: normalizedWorkingDirs
 		)
-	}
-
-	private func resolveCreationTargetWindow(windowID: Int?, connectionID: UUID?) async throws -> WindowState {
-		let windows = self.windowStates.allWindows
-		if let windowID {
-			guard let exactWindow = windows.first(where: { $0.windowID == windowID }) else {
-				let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-				throw MCPError.invalidParams("Unknown window_id \(windowID). Valid window IDs: \(validIDs)")
-			}
-			return exactWindow
-		}
-
-		if let connectionID,
-			let selectedWindowID = await self.networkMgr.selectedWindow(for: connectionID),
-			let selectedWindow = windows.first(where: { $0.windowID == selectedWindowID }) {
-			return selectedWindow
-		}
-
-		if let onlyWindow = windows.only {
-			return onlyWindow
-		}
-		let available = windows.map(\.windowID).sorted().map(String.init).joined(separator: ", ")
-		throw MCPError.invalidParams("Ambiguous window choice for bind_context tab creation. Supply window_id. Available windows: \(available)")
 	}
 
 	private func clearNonRunScopedBindingsAcrossWindows(for connectionID: UUID) {
@@ -1923,7 +1972,9 @@ final class WindowRoutingService: Service {
 	}
 
 	private func bindWindowOnly(windowID: Int, connectionID: UUID) async throws {
-		_ = try resolveWindowForBinding(windowID: windowID)
+		guard windowStates.hasWindow(id: windowID) else {
+			throw MCPError.invalidParams("Window \(windowID) not found")
+		}
 		clearNonRunScopedBindingsAcrossWindows(for: connectionID)
 		try await self.networkMgr.setActiveWindowForCurrentConnection(windowID)
 	}
@@ -1933,38 +1984,57 @@ final class WindowRoutingService: Service {
 		currentWindowID: Int?,
 		bindingSummary: MCPBindContextBindingSummary
 	) throws -> [MCPBindContextWindowSummary] {
-		let windows = self.windowStates.allWindows
-		if let filterWindowID, !windows.contains(where: { $0.windowID == filterWindowID }) {
-			let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-			throw MCPError.invalidParams("Unknown window_id \(filterWindowID). Valid window IDs: \(validIDs)")
+		try validateRequestedWindowID(filterWindowID)
+		if let shellWindowID = windowStates.shellWindowID {
+			return [shellBindContextWindowSummary(shellWindowID: shellWindowID, bindingSummary: bindingSummary)]
 		}
-
+		let windows = self.windowStates.allWindows
 		return windows.compactMap { window in
 			guard filterWindowID == nil || window.windowID == filterWindowID else { return nil }
 			let workspace = window.workspaceManager.activeWorkspace
-			let tabs = workspace?.composeTabs ?? []
 			let activeContextID = workspace?.activeComposeTabID
-			let workspaceID = workspace?.id
-			let workspaceName = Self.bindContextWorkspaceDisplayName(workspace) ?? ""
-			let repoPaths = workspace.map { WorkspaceManagerViewModel.loadableRepoPaths(for: $0) } ?? []
-			let tabSummaries = tabs.compactMap { tab -> MCPBindContextTabSummary? in
-				guard let workspaceID else { return nil }
-				return MCPBindContextTabSummary(
-					contextID: tab.id,
-					name: tab.name,
-					workspaceID: workspaceID,
-					workspaceName: workspaceName,
-					isActive: activeContextID == tab.id,
-					isBound: bindingSummary.bindingKind == "context" && bindingSummary.windowID == window.windowID && bindingSummary.contextID == tab.id,
-					repoPaths: repoPaths
-				)
-			}
 			return MCPBindContextWindowSummary(
 				windowID: window.windowID,
 				isCurrentWindow: currentWindowID == window.windowID,
 				workspace: workspace.map { MCPBindContextWorkspaceSummary(id: $0.id, name: Self.bindContextWorkspaceDisplayName($0) ?? $0.name) },
 				activeContextID: activeContextID,
-				tabs: tabSummaries
+				tabs: bindContextTabSummaries(for: window, bindingSummary: bindingSummary)
+			)
+		}
+	}
+
+	/// One entry for the shell window: the visible workspace, its active tab and every retained runtime's tabs.
+	/// An empty catalog yields no workspace, no active context and no tabs.
+	private func shellBindContextWindowSummary(shellWindowID: Int, bindingSummary: MCPBindContextBindingSummary) -> MCPBindContextWindowSummary {
+		let visible = windowStates.visibleWindowState
+		let workspace = visible?.workspaceManager.activeWorkspace.flatMap { $0.isSystemWorkspace ? nil : $0 }
+		let runtimes = windowStates.allWindows.filter { $0.launch == .shellRuntime }
+		return MCPBindContextWindowSummary(
+			windowID: shellWindowID,
+			isCurrentWindow: true,
+			workspace: workspace.map { MCPBindContextWorkspaceSummary(id: $0.id, name: $0.name) },
+			activeContextID: workspace?.activeComposeTabID,
+			tabs: runtimes.flatMap { bindContextTabSummaries(for: $0, bindingSummary: bindingSummary) }
+		)
+	}
+
+	private func bindContextTabSummaries(for window: WindowState, bindingSummary: MCPBindContextBindingSummary) -> [MCPBindContextTabSummary] {
+		guard let workspace = window.workspaceManager.activeWorkspace, !(windowStates.shell != nil && workspace.isSystemWorkspace) else {
+			return []
+		}
+		let activeContextID = workspace.activeComposeTabID
+		let workspaceName = Self.bindContextWorkspaceDisplayName(workspace) ?? ""
+		let repoPaths = WorkspaceManagerViewModel.loadableRepoPaths(for: workspace)
+		let publicID = publicWindowID(for: window.windowID)
+		return workspace.composeTabs.map { tab in
+			MCPBindContextTabSummary(
+				contextID: tab.id,
+				name: tab.name,
+				workspaceID: workspace.id,
+				workspaceName: workspaceName,
+				isActive: activeContextID == tab.id,
+				isBound: bindingSummary.bindingKind == "context" && bindingSummary.windowID == publicID && bindingSummary.contextID == tab.id,
+				repoPaths: repoPaths
 			)
 		}
 	}
@@ -1979,10 +2049,12 @@ final class WindowRoutingService: Service {
 			Tool(
 				name: "bind_context",
 				description: """
-List, inspect, and bind sticky RepoPrompt window/tab context for this MCP connection.
+List, inspect, and bind sticky RepoPrompt workspace/tab context for this MCP connection.
+
+RepoPrompt runs a single window. Every registered workspace stays loaded in memory, so binding to a workspace that is not visible never changes what the user sees.
 
 Operations:
-• list    – return **all** open windows, their compose tabs, and this connection's current binding
+• list    – return the RepoPrompt window, the visible workspace, every loaded workspace's compose tabs, and this connection's current binding
 • status  – return this connection's current binding only
 • bind    – bind by working_dirs (preferred), context_id, or window_id
 
@@ -1990,18 +2062,18 @@ Operations:
 Bind by `working_dirs` using absolute workspace root paths:
 	`{"op":"bind","working_dirs":["/path/to/root1","/path/to/root2"]}`
 RepoPrompt first looks for an exact workspace `repo_paths` set match (order-insensitive). If no exact match exists, RepoPrompt may fall back to a workspace whose `repo_paths` is a strict superset of the requested roots. Both modes match workspace roots only — not descendant paths.
-If the matching workspace is already open, RepoPrompt prefers that window. If it exists but is not open, RepoPrompt opens a window and switches to it. Add `create_if_missing=true` to create a new workspace after approval when neither exact nor superset workspace matches.
+The matching workspace is bound in the background; the visible workspace stays as it is. Add `create_if_missing=true` to create a new workspace after approval when neither exact nor superset workspace matches.
 
 Parameters:
 - op: "list" | "status" | "bind" (required)
 - working_dirs: string | string[]         (for bind: preferred — absolute workspace roots; exact match first, repo_paths superset fallback)
 - context_id: string                      (for bind: canonical compose-tab context UUID from a previous list)
-- window_id: integer                      (for list: filter to one window; for bind with working_dirs: disambiguate when multiple workspaces match; for bind alone: set window affinity)
+- window_id: integer                      (optional; the RepoPrompt window only. For bind alone: bind to the visible workspace)
 - create_if_missing: boolean              (for bind with working_dirs; create a new workspace after approval when no exact or superset workspace matches)
 - tab_name: string                        (optional workspace name hint when creating via working_dirs + create_if_missing)
 
 **Binding modes:**
-- **Window affinity** (from working_dirs or window_id): routes tool calls to whichever tab is currently active in that window. Most agents should use this.
+- **Workspace affinity** (from working_dirs or window_id): routes tool calls to whichever tab is currently active in that workspace. Most agents should use this.
 - **Tab binding** (from context_id): pins tool calls to a specific compose tab, even if you switch to another tab. Use when you need a stable context that won't change.
 
 **Discovery:**
@@ -2065,8 +2137,9 @@ Parameters:
 							let target = try await MainActor.run {
 								try self.resolveContextIDBindTarget(contextID: request.contextID!, windowID: request.windowID, connectionPreferredWindowID: connectionPreferredWindow)
 							}
+							let targetPublicWindowID = await self.publicWindowID(for: target.windowID)
 							let unchanged = previousBinding.bindingKind == "context"
-								&& previousBinding.windowID == target.windowID
+								&& previousBinding.windowID == targetPublicWindowID
 								&& previousBinding.contextID == target.tabID
 								&& previousBinding.explicit
 								&& !previousBinding.runScoped
@@ -2078,7 +2151,7 @@ Parameters:
 							}
 
 							let binding = await self.currentBindingSummary(for: connectionID)
-							let note = await MainActor.run { self.bindContextWindowNote(windowID: binding.windowID) }
+							let note = await self.bindContextWindowNote(runtimeWindowID: target.windowID)
 							return BindContextResponse(
 								binding: binding,
 								changed: !unchanged,
@@ -2096,8 +2169,9 @@ Parameters:
 								connectionID: connectionID
 							)
 
+							let targetPublicWindowID = await self.publicWindowID(for: target.windowID)
 							let unchanged = previousBinding.bindingKind == "window"
-								&& previousBinding.windowID == target.windowID
+								&& previousBinding.windowID == targetPublicWindowID
 								&& previousBinding.contextID == nil
 								&& !previousBinding.runScoped
 							if !unchanged {
@@ -2107,7 +2181,7 @@ Parameters:
 							}
 
 							let binding = await self.currentBindingSummary(for: connectionID)
-							let note = await MainActor.run { self.bindContextWindowNote(windowID: binding.windowID) }
+							let note = await self.bindContextWindowNote(runtimeWindowID: target.windowID)
 							return BindContextResponse(
 								binding: binding,
 								changed: binding != previousBinding,
@@ -2118,9 +2192,11 @@ Parameters:
 								note: note
 							)
 						case .windowID:
-							let windowID = request.windowID!
+							let runtime = try await self.resolveTargetRuntime(windowID: request.windowID!)
+							let windowID = runtime.windowID
+							let targetPublicWindowID = await self.publicWindowID(for: windowID)
 							let unchanged = previousBinding.bindingKind == "window"
-								&& previousBinding.windowID == windowID
+								&& previousBinding.windowID == targetPublicWindowID
 								&& previousBinding.contextID == nil
 								&& !previousBinding.runScoped
 
@@ -2131,7 +2207,7 @@ Parameters:
 							}
 
 							let binding = await self.currentBindingSummary(for: connectionID)
-							let note = await MainActor.run { self.bindContextWindowNote(windowID: binding.windowID) }
+							let note = await self.bindContextWindowNote(runtimeWindowID: windowID)
 							return BindContextResponse(
 								binding: binding,
 								changed: !unchanged,
@@ -2154,68 +2230,71 @@ Parameters:
             Tool(
                 name: "manage_workspaces",
                 description: """
-Manage workspaces and compose-tab lifecycle across RepoPrompt windows.
+Manage workspaces and compose-tab lifecycle in the single RepoPrompt window.
 
-**This is the workspace inventory view.** `bind_context` remains the canonical API for per-window tab routing and context_id discovery. Legacy-compatible `list_tabs` and `select_tab` actions are restored for older clients, but new integrations should prefer `bind_context`.
+RepoPrompt runs one window. Every registered workspace stays loaded in memory; one of them is visible. Tools address workspaces by id or name, never by window. `bind_context` remains the canonical API for tab routing and context_id discovery. Legacy-compatible `list_tabs` and `select_tab` actions remain for older clients, but new integrations should prefer `bind_context`.
 
 Actions:
-• list         – Return known visible workspaces by default (id, name, repoPaths, showing window IDs, is_hidden)
-• switch       – Switch a window to a specified workspace
-• create       – Create a new workspace (optional folder_path)
+• list         – Return registered workspaces in sidebar order (id, name, repoPaths, is_visible, is_available, has_running_agents, is_hidden)
+• state        – Return the shell state: visible workspace, sidebar preference and the workspace list
+• capture      – Write a PNG of the current window to output_path
+• switch       – Make a workspace visible
+• create       – Create a new workspace (optional folder_path); visible unless switch_to_created=false
+• rename       – Rename a workspace
+• reorder      – Set the sidebar order with workspace_ids (every workspace exactly once)
 • hide         – Hide a workspace from default workspace lists without deleting it
 • unhide       – Restore a hidden workspace to default workspace lists
-• delete       – Delete a workspace permanently (optionally close window)
-• add_folder   – Add a folder to a workspace (defaults to active workspace)
-• remove_folder – Remove a folder from a workspace (defaults to active workspace)
-• list_tabs    – List compose tabs in one window (Legacy compatibility — prefer bind_context op=list)
+• delete       – Remove a workspace permanently (repository files stay on disk)
+• add_folder   – Add a folder to a workspace (defaults to the visible workspace)
+• remove_folder – Remove a folder from a workspace (defaults to the visible workspace)
+• list_tabs    – List compose tabs of the bound or visible workspace (Legacy compatibility — prefer bind_context op=list)
 • select_tab   – Bind this connection to a compose tab (Legacy compatibility — prefer bind_context op=bind context_id=<id>)
-• create_tab   – Create a new compose tab in the background
+• create_tab   – Create a new compose tab in the background, optionally in a workspace that is not visible
 • close_tab    – Close a compose tab safely
 
 Parameters:
-- action: "list" | "switch" | "create" | "hide" | "unhide" | "delete" | "add_folder" | "remove_folder" | "list_tabs" | "select_tab" | "create_tab" | "close_tab" (required)
-- workspace: string                             (required for 'switch', 'hide', 'unhide', 'delete'; optional for 'add_folder', 'remove_folder' - defaults to active workspace; UUID or name)
-- name: string                                  (required for 'create'; optional for 'create_tab')
+- action: "list" | "state" | "capture" | "switch" | "create" | "rename" | "reorder" | "hide" | "unhide" | "delete" | "add_folder" | "remove_folder" | "list_tabs" | "select_tab" | "create_tab" | "close_tab" (required)
+- workspace: string                             (required for 'switch', 'rename', 'hide', 'unhide', 'delete'; optional for 'add_folder', 'remove_folder', 'create_tab' - defaults to the visible workspace; UUID or name)
+- name: string                                  (required for 'create', 'rename'; optional for 'create_tab')
 - folder_path: string                           (required for 'add_folder', 'remove_folder'; optional for 'create' to initialize with a root folder; absolute path)
+- workspace_ids: string[]                       (required for 'reorder'; every registered workspace UUID exactly once, in the new order)
+- output_path: string                           (required for 'capture'; absolute .png path in an existing directory)
 - tab: string                                   (required for 'select_tab'; optional for 'close_tab'; UUID or name)
+- context_id: string                            (optional for 'close_tab'; compose-tab context UUID)
 - mode: "blank" | "fork"                      (optional for 'create_tab'; default "blank")
 - source_tab: string                            (optional for 'create_tab' when mode="fork"; UUID or name)
 - bind: boolean                                 (optional for 'create_tab'; default true)
-- focus: boolean                                (optional for 'select_tab' or 'create_tab'; if true, also switches the UI to show the tab)
+- focus: boolean                                (optional for 'select_tab' or 'create_tab'; if true, also makes the workspace visible and shows the tab)
 - allow_active: boolean                         (optional for 'close_tab'; default false)
-- window_id: integer                            (optional; target window, defaults to selected or only window)
-- open_in_new_window: boolean                   (optional for 'switch' or 'create'; when true, opens workspace in a new window and binds the connection to it)
-- switch_to_created: boolean                    (optional for 'create'; when true, switches to the newly created workspace)
-- close_window: boolean                         (optional for 'delete'; when true, switches away without saving, deletes the workspace, then requests window close)
+- window_id: integer                            (optional; the RepoPrompt window only)
+- switch_to_created: boolean                    (optional for 'create'; default true; when false the workspace is registered without becoming visible)
 - include_hidden: boolean                       (optional; default false. For 'list', includes hidden workspaces. For name-based 'switch'/'delete', allows hidden matches. UUID lookup remains explicit and can resolve hidden workspaces.)
+
+Every response carries `shell`: the state after the action (visible_workspace_id, is_workspace_sidebar_collapsed, workspaces).
 
 Hidden workspaces remain persisted/recoverable. Default 'list' and name-based 'switch'/'delete' exclude hidden workspaces unless include_hidden=true; 'hide'/'unhide' are non-destructive. Explicit UUID switch/delete can target hidden workspaces without unhiding them.
 
-**Relationship with bind_context:**
-- `manage_workspaces.list` returns workspace inventory: names, folder paths, and which windows show each workspace
-- `bind_context.list` returns per-window routing state: windows, active tabs, context_ids, and current binding
-- When the same workspace is open in multiple windows, compose tabs are shared — use `bind_context` to discover per-window context_ids
+create_tab defaults to bind=true and focus=false so automation can create isolated background tabs without stealing UI focus. Pass workspace=<id|name> to work in a workspace the user is not looking at.
 
-create_tab defaults to bind=true and focus=false so automation can create isolated background tabs without stealing UI focus.
-
-IMPORTANT: The 'focus' parameter switches the visible tab in the UI, which can be disruptive to the user's workflow. Only set focus=true when the user explicitly requests to see or switch to a specific tab. For background operations, omit focus or set it to false. The 'close_tab' action refuses to close the last remaining tab, the active visible tab unless allow_active=true, or any tab with a live bound run.
+IMPORTANT: 'switch' and the 'focus' parameter change what the user sees, which can be disruptive to the user's workflow. Only use them when the user explicitly asks to see a workspace or tab. For background operations, use create_tab with workspace and omit focus. The 'close_tab' action refuses to close the last remaining tab, the active visible tab unless allow_active=true, or any tab with a live bound run.
 """,
                 inputSchema: .object(
                     properties: [
-                        "action": .string(description: "Action to perform. Legacy compatibility: prefer bind_context for list_tabs/select_tab when building new integrations.", enum: ["list", "switch", "create", "hide", "unhide", "delete", "add_folder", "remove_folder", "list_tabs", "select_tab", "create_tab", "close_tab"]),
-                        "workspace": .string(description: "Workspace UUID or name (required for 'switch', 'hide', 'unhide', 'delete'; optional for 'add_folder', 'remove_folder' - defaults to active workspace)"),
-                        "name": .string(description: "Name for new workspace (required for 'create'; optional for 'create_tab')"),
+                        "action": .string(description: "Action to perform. Legacy compatibility: prefer bind_context for list_tabs/select_tab when building new integrations.", enum: ["list", "state", "capture", "switch", "create", "rename", "reorder", "hide", "unhide", "delete", "add_folder", "remove_folder", "list_tabs", "select_tab", "create_tab", "close_tab"]),
+                        "workspace": .string(description: "Workspace UUID or name (required for 'switch', 'rename', 'hide', 'unhide', 'delete'; optional for 'add_folder', 'remove_folder', 'create_tab' - defaults to the visible workspace)"),
+                        "name": .string(description: "Name for the workspace (required for 'create', 'rename'; optional for 'create_tab')"),
                         "folder_path": .string(description: "Absolute folder path (required for 'add_folder', 'remove_folder'; optional for 'create' to initialize with a root folder)"),
+                        "workspace_ids": .array(description: "For 'reorder': every registered workspace UUID exactly once, in the new sidebar order", items: .string()),
+                        "output_path": .string(description: "For 'capture': absolute .png path whose directory exists"),
 						"tab": .string(description: "Compose tab UUID or name (required for 'select_tab'; optional for 'close_tab')"),
+						"context_id": .string(description: "For 'close_tab': compose-tab context UUID"),
                         "mode": .string(description: "For 'create_tab': creation mode ('blank' or 'fork')"),
                         "source_tab": .string(description: "For 'create_tab' with mode='fork': source compose tab UUID or name"),
                         "bind": .boolean(description: "For 'create_tab': if true, bind this MCP connection to the new tab (default true)"),
-                        "window_id": .integer(description: "Optional window ID; defaults to selected or only window"),
-                        "focus": .boolean(description: "For 'select_tab' or 'create_tab': if true, also switches the UI to show the tab"),
+                        "window_id": .integer(description: "Optional; the RepoPrompt window only"),
+                        "focus": .boolean(description: "For 'select_tab' or 'create_tab': if true, also makes the workspace visible and shows the tab"),
                         "allow_active": .boolean(description: "For 'close_tab': allow closing the currently active visible tab"),
-                        "open_in_new_window": .boolean(description: "For 'switch' or 'create': when true, opens workspace in a new window and binds connection to it. Returns window_id in response."),
-                        "switch_to_created": .boolean(description: "For 'create': when true, switches to the newly created workspace in the target window."),
-                        "close_window": .boolean(description: "For 'delete': when true, switches away without saving, deletes the workspace, then requests window close."),
+                        "switch_to_created": .boolean(description: "For 'create': default true; when false the workspace is registered without becoming visible."),
 						"include_hidden": .boolean(description: "Default false. For list, includes hidden workspaces. For name-based switch/delete, allows hidden matches; UUID lookup remains explicit.")
                     ],
                     required: ["action"]
@@ -2225,171 +2304,74 @@ IMPORTANT: The 'focus' parameter switches the visible tab in the UI, which can b
                 guard let self else {
                     throw MCPError.internalError("Service unavailable")
                 }
-                
-                guard let action = args["action"]?.stringValue?.lowercased() else {
-                    throw MCPError.invalidParams("Missing or invalid 'action' parameter")
-                }
-                
-                switch action {
-                case "list":
-					let includeHidden = args["include_hidden"]?.boolValue ?? false
-                    // Load fresh workspace data from disk to ensure accurate repoPaths
-                    // Then overlay window visibility information from in-memory state
-                    
-                    // Get a workspace manager to load disk snapshot
-                    guard let referenceManager = await MainActor.run(body: {
-                        self.windowStates.allWindows.first?.workspaceManager
-                    }) else {
-                        return ManageWorkspacesResponse(action: "list", workspaces: [], status: "ok")
-                    }
-                    
-                    // Load authoritative workspace data from disk
-                    let diskWorkspaces = await referenceManager.loadWorkspaceSnapshotFromDisk()
-                    
-                    // Build map of which windows are showing each workspace
-                    let windowsByWorkspaceID: [UUID: Set<Int>] = await MainActor.run {
-                        var result: [UUID: Set<Int>] = [:]
-                        for ws in self.windowStates.allWindows {
-                            if let activeID = ws.workspaceManager.activeWorkspace?.id {
-                                result[activeID, default: []].insert(ws.windowID)
-                            }
-                        }
-                        return result
-                    }
-                    
-					// Build summaries from disk data with window visibility overlay.
-					// Hidden workspaces remain persisted/recoverable, but are excluded unless explicitly requested.
-					let summaries: [MCPWorkspaceSummary] = diskWorkspaces.filter { model in
-						includeHidden || !model.isHiddenInMenus
-					}.map { model in
-                        MCPWorkspaceSummary(
-                            id: model.id,
-                            name: model.name,
-                            allRepoPaths: model.repoPaths,
-							showingWindowIDs: Array(windowsByWorkspaceID[model.id] ?? []).sorted(),
-							isHidden: model.isHiddenInMenus
-                        )
-                    }.sorted { lhs, rhs in
-						let lhsKey = lhs.name.lowercased()
-						let rhsKey = rhs.name.lowercased()
-						if lhsKey != rhsKey {
-							return lhsKey < rhsKey
-						}
-						if lhs.name != rhs.name {
-							return lhs.name < rhs.name
-						}
-						return lhs.id.uuidString < rhs.id.uuidString
-					}
+                return try await self.handleManageWorkspaces(args)
+            }
+        )
+        
+        // Update the cache with the new tools
+        await toolsCache.update(newTools)
+    }
 
-                    return ManageWorkspacesResponse(action: "list", workspaces: summaries, status: "ok")
-                    
-                case "switch":
-                    // Validate required 'workspace' param for switch
-                    guard let rawWorkspaceParam = args["workspace"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-                          !rawWorkspaceParam.isEmpty
-                    else {
-                        throw MCPError.invalidParams("Missing required 'workspace' parameter (UUID or name) for 'switch' action.")
-                    }
-                    
-                    // Check if we should open in a new window
-                    let openInNewWindow = args["open_in_new_window"]?.boolValue ?? false
-					let includeHidden = args["include_hidden"]?.boolValue ?? false
-                    
-                    if openInNewWindow {
-                        // ═══════════════════════════════════════════════════════════════
-                        // OPEN IN NEW WINDOW MODE
-                        // ═══════════════════════════════════════════════════════════════
-                        
-						// First, resolve the workspace model from disk (don't require an existing window)
-						let targetWorkspace = try await resolveWorkspaceForSwitch(rawWorkspaceParam: rawWorkspaceParam, includeHidden: includeHidden)
-                        
-                        // Open a new window
-                        let newWindow: WindowState
-                        do {
-							newWindow = try await self.openRoutingWindow(deferringInitialAgentSystemWorkspaceRefresh: true)
-                        } catch let error as WindowOpenError {
-                            throw MCPError.internalError("Failed to open new window: \(error.localizedDescription)")
-                        } catch {
-                            throw MCPError.internalError("Failed to open new window: \(error)")
-                        }
-                        
-						defer {
-							Task { @MainActor [newWindow] in
-								newWindow.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral()
-							}
-						}
-						
-						// Wait for initial workspace setup before switching
-						await newWindow.workspaceManager.awaitInitialized()
-						
-						// Switch the new window to the target workspace
-						let switchResult = await newWindow.workspaceManager.requestWorkspaceSwitch(to: targetWorkspace, saveState: true)
-						if !switchResult.didSwitch {
-							throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
-						}
-                        
-                        // Bind this MCP connection to the new window
-                        try await self.networkMgr.setActiveWindowForCurrentConnection(newWindow.windowID)
-                        
-                        // Return success with the new window ID
-                        return ManageWorkspacesResponse(
-                            action: "switch",
-                            workspaces: nil,
-                            status: "ok",
-                            windowID: newWindow.windowID
-                        )
-                    }
-                    
-                    // ═══════════════════════════════════════════════════════════════
-                    // STANDARD SWITCH MODE (switch existing window)
-                    // ═══════════════════════════════════════════════════════════════
-                    
-                    // Determine target window
-                    let targetWindowIDArg = args["window_id"]?.intValue
-                    let windows = await MainActor.run { self.windowStates.allWindows }
-                    
-                    // Safe target window selection (no force-unwrap)
-                    let targetWindowOpt: WindowState? = {
-                        if let wid = targetWindowIDArg {
-                            return windows.first(where: { $0.windowID == wid })
-                        } else {
-                            return windows.only
-                        }
-                    }()
-                    
-                    // Validate window selection or guide the client
-                    if let wid = targetWindowIDArg, targetWindowOpt == nil {
-                        let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-                        throw MCPError.invalidParams("Unknown window_id \(wid). Valid window IDs: \(validIDs)")
-                    }
-                    if targetWindowIDArg == nil && windows.count != 1 {
-                        throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-                    }
-                    guard let targetWindow = targetWindowOpt else {
-                        throw MCPError.invalidParams("No valid target window found")
-                    }
-                    
-                    // Resolve the target workspace model using hidden-aware UUID-or-name logic.
-					let targetModel = try await resolveWorkspaceForSwitch(rawWorkspaceParam: rawWorkspaceParam, includeHidden: includeHidden)
-					
-					// Perform the switch on the target window
-					let switchResult = await targetWindow.workspaceManager.requestWorkspaceSwitch(to: targetModel, saveState: true)
-					if !switchResult.didSwitch {
-						throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
-					}
-					
-					return ManageWorkspacesResponse(action: "switch", workspaces: nil, status: "ok")
+    /// The `manage_workspaces` handler body. Runs on the main actor: every step touches shell or window state.
+    func handleManageWorkspaces(_ args: [String: Value]) async throws -> ManageWorkspacesResponse {
+    guard let action = args["action"]?.stringValue?.lowercased() else {
+        throw MCPError.invalidParams("Missing or invalid 'action' parameter")
+    }
+    for removed in ["open_in_new_window", "close_window"] where args[removed] != nil {
+        throw MCPError.invalidParams("'\(removed)' is no longer supported: RepoPrompt runs a single window. Use action=switch to change the visible workspace or create_tab with workspace=<id|name> for background work.")
+    }
+    let requestedWindowID = args["window_id"]?.intValue
+    try self.validateRequestedWindowID(requestedWindowID)
+    let shellWindowID = self.windowStates.shellWindowID
+    let includeHidden = args["include_hidden"]?.boolValue ?? false
+    let workspaceParam = args["workspace"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                case "create":
-                    // Create a new workspace
-                    guard let workspaceName = args["name"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-                          !workspaceName.isEmpty
-                    else {
-                        throw MCPError.invalidParams("Missing required 'name' parameter for 'create' action.")
-                    }
+    func requiredWorkspaceParam() throws -> String {
+        guard let workspaceParam, !workspaceParam.isEmpty else {
+            throw MCPError.invalidParams("Missing required 'workspace' parameter (UUID or name) for '\(action)' action.")
+        }
+        return workspaceParam
+    }
 
+    switch action {
+    case "list":
+        let snapshot = try self.shellViewModel.snapshot
+        let summaries = snapshot.workspaces.filter { includeHidden || !$0.isHidden }
+        return ManageWorkspacesResponse(action: "list", workspaces: summaries, status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "state":
+        let snapshot = try await self.dispatchShellAction(.state)
+        return ManageWorkspacesResponse(action: "state", workspaces: nil, status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "capture":
+        guard let rawPath = args["output_path"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), !rawPath.isEmpty else {
+            throw MCPError.invalidParams("Missing required 'output_path' parameter for 'capture' action.")
+        }
+        let outputPath: URL
+        do {
+            outputPath = try WorkspaceShellActionService.validateCaptureOutputPath(rawPath)
+        } catch let error as WorkspaceShellError {
+            throw Self.mcpError(for: error)
+        }
+        let snapshot = try await self.dispatchShellAction(.capture(CapturePayload(outputPath: outputPath)))
+        return ManageWorkspacesResponse(action: "capture", workspaces: nil, status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "switch":
+        let targetModel = try await self.resolveWorkspaceForSwitch(rawWorkspaceParam: try requiredWorkspaceParam(), includeHidden: includeHidden)
+        guard !targetModel.isSystemWorkspace else {
+            throw MCPError.invalidParams("\"\(targetModel.name)\" is the system workspace and cannot be selected.")
+        }
+        let snapshot = try await self.dispatchShellAction(.select(SelectWorkspacePayload(workspaceID: targetModel.id)))
+        return ManageWorkspacesResponse(action: "switch", workspaces: nil, status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "create":
+        guard let workspaceName = args["name"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !workspaceName.isEmpty
+        else {
+            throw MCPError.invalidParams("Missing required 'name' parameter for 'create' action.")
+        }
 					let rawFolderPath = args["folder_path"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-					let initialRepoPaths: [String]
+					var initialRepoPaths: [String] = []
 					if let rawFolderPath, !rawFolderPath.isEmpty {
 						let expandedPath = (rawFolderPath as NSString).expandingTildeInPath
 						var isDirectory: ObjCBool = false
@@ -2397,734 +2379,308 @@ IMPORTANT: The 'focus' parameter switches the visible tab in the UI, which can b
 							  isDirectory.boolValue else {
 							throw MCPError.invalidParams("Folder does not exist or is not a directory: \(expandedPath)")
 						}
-						let normalizedPath = (expandedPath as NSString).standardizingPath
-						initialRepoPaths = [normalizedPath]
-					} else {
-						initialRepoPaths = []
+						initialRepoPaths = [(expandedPath as NSString).standardizingPath]
 					}
-                    
-                    // Check if we should open in a new window
-                    let openInNewWindow = args["open_in_new_window"]?.boolValue ?? false
-                    let switchToCreated = args["switch_to_created"]?.boolValue ?? true
-                    
-                    // Determine target window for approval
-                    let targetWindowIDArg = args["window_id"]?.intValue
-					let (windows, focusedWindowID) = await MainActor.run { () -> ([WindowState], Int?) in
-						let allWindows = self.windowStates.allWindows
-						let focusedID = allWindows.first(where: { $0.isCurrentlyFocused })?.windowID
-						return (allWindows, focusedID)
-					}
+        let switchToCreated = args["switch_to_created"]?.boolValue ?? true
+        let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
+        let created = try await self.createWorkspaceInShell(
+            name: workspaceName,
+            repoPaths: initialRepoPaths,
+            makeVisible: switchToCreated,
+            clientID: clientID
+        )
+        let snapshot = self.currentShellSnapshot
+        let summary = self.workspaceSummary(for: created.workspace, snapshot: snapshot)
+        return ManageWorkspacesResponse(action: "create", workspaces: [summary], status: "ok", windowID: shellWindowID, shell: snapshot)
 
-                    let approvalWindowOpt: WindowState? = {
-                        if let wid = targetWindowIDArg {
-                            return windows.first(where: { $0.windowID == wid })
-                        }
-                        if openInNewWindow {
-							if let focusedID = focusedWindowID {
-								return windows.first(where: { $0.windowID == focusedID })
-							}
-							return windows.last ?? windows.first
-                        }
-                        return windows.only
-                    }()
-                    
-                    if let wid = targetWindowIDArg, approvalWindowOpt == nil {
-                        let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-                        throw MCPError.invalidParams("Unknown window_id \(wid). Valid window IDs: \(validIDs)")
-                    }
-                    if !openInNewWindow, targetWindowIDArg == nil, windows.count != 1 {
-                        throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-                    }
-                    guard let approvalWindow = approvalWindowOpt else {
-                        throw MCPError.invalidParams("No windows available to create workspace. Open at least one window first.")
-                    }
-                    
-                    // Get client ID for approval
-                    let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
-                    
-                    // Request approval
-                    let approvalResult = await WorkspaceApprovalManager.shared.requestCreateWorkspaceApproval(
-                        clientID: clientID,
-                        workspaceName: workspaceName,
-                        windowID: approvalWindow.windowID
-                    )
-                    
-                    guard approvalResult.isApproved else {
-                        throw MCPError.invalidRequest("Workspace creation was denied by the user.")
-                    }
-                    
-                    if openInNewWindow {
-                        // Open a new window for the workspace
-                        let newWindow: WindowState
-                        do {
-							newWindow = try await self.openRoutingWindow(deferringInitialAgentSystemWorkspaceRefresh: switchToCreated)
-                        } catch let error as WindowOpenError {
-                            throw MCPError.internalError("Failed to open new window: \(error.localizedDescription)")
-                        } catch {
-                            throw MCPError.internalError("Failed to open new window: \(error)")
-                        }
-						defer {
-							Task { @MainActor [newWindow] in
-								newWindow.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral()
-							}
-						}
-                        
-                        // Wait for initial workspace setup before creating
-                        await newWindow.workspaceManager.awaitInitialized()
-                        
-                        // Create the workspace in the new window
-                        let newWorkspace = await MainActor.run {
-                            newWindow.workspaceManager.createWorkspace(name: workspaceName, repoPaths: initialRepoPaths)
-                        }
-                        if switchToCreated {
-                            let switchResult = await newWindow.workspaceManager.requestWorkspaceSwitch(to: newWorkspace, saveState: true)
-                            if !switchResult.didSwitch {
-                                throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
-                            }
-                        }
-                        
-                        // Bind this MCP connection to the new window
-                        try await self.networkMgr.setActiveWindowForCurrentConnection(newWindow.windowID)
-                        
-						let summary = MCPWorkspaceSummary(
-							id: newWorkspace.id,
-							name: newWorkspace.name,
-							allRepoPaths: newWorkspace.repoPaths,
-							showingWindowIDs: switchToCreated ? [newWindow.windowID] : []
-						)
-                        
-                        return ManageWorkspacesResponse(
-                            action: "create",
-                            workspaces: [summary],
-                            status: "ok",
-                            windowID: newWindow.windowID
-                        )
-                    }
-                    
-                    // Create the workspace in the target window
-                    let newWorkspace = await MainActor.run {
-                        approvalWindow.workspaceManager.createWorkspace(name: workspaceName, repoPaths: initialRepoPaths)
-                    }
-                    
-                    if switchToCreated {
-                        let switchResult = await approvalWindow.workspaceManager.requestWorkspaceSwitch(to: newWorkspace, saveState: true)
-                        if !switchResult.didSwitch {
-                            throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
-                        }
-                    }
-                    
-                    let summary = MCPWorkspaceSummary(
-                        id: newWorkspace.id,
-                        name: newWorkspace.name,
-                        allRepoPaths: newWorkspace.repoPaths,
-                        showingWindowIDs: switchToCreated ? [approvalWindow.windowID] : []
-                    )
-                    
-                    return ManageWorkspacesResponse(action: "create", workspaces: [summary], status: "ok")
+    case "rename":
+        guard let newName = args["name"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), !newName.isEmpty else {
+            throw MCPError.invalidParams("Missing required 'name' parameter for 'rename' action.")
+        }
+        let target = try await self.resolveWorkspace(rawWorkspaceParam: try requiredWorkspaceParam(), action: "rename", includeHidden: true)
+        guard !target.isSystemWorkspace else {
+            throw MCPError.invalidParams("Cannot rename system workspace '\(target.name)'.")
+        }
+        let snapshot = try await self.dispatchShellAction(.rename(RenameWorkspacePayload(workspaceID: target.id, name: newName)))
+        let summary = snapshot.workspaces.first(where: { $0.id == target.id }).map { [$0] }
+        return ManageWorkspacesResponse(action: "rename", workspaces: summary, status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "reorder":
+        guard let rawIDs = args["workspace_ids"]?.arrayValue else {
+            throw MCPError.invalidParams("Missing required 'workspace_ids' parameter (array of workspace UUIDs) for 'reorder' action.")
+        }
+        let ids = try rawIDs.map { raw -> UUID in
+            guard let string = raw.stringValue, let id = UUID(uuidString: string) else {
+                throw MCPError.invalidParams("workspace_ids must contain workspace UUID strings; got '\(raw)'.")
+            }
+            return id
+        }
+        let snapshot = try await self.dispatchShellAction(.reorder(ReorderWorkspacesPayload(workspaceIDs: ids)))
+        return ManageWorkspacesResponse(action: "reorder", workspaces: snapshot.workspaces, status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "delete":
+        let workspace = try await self.resolveWorkspaceForDelete(rawWorkspaceParam: try requiredWorkspaceParam(), includeHidden: includeHidden)
+        guard !workspace.isSystemWorkspace else {
+            throw MCPError.invalidParams("Cannot delete system workspace '\(workspace.name)'.")
+        }
+        let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
+        let service = try self.requireShellActionService()
+        do {
+            let snapshot = try await service.dispatch(.remove(RemoveWorkspacePayload(workspaceID: workspace.id, source: .tool(clientID: clientID))))
+            return ManageWorkspacesResponse(action: "delete", workspaces: nil, status: "ok", windowID: shellWindowID, shell: snapshot)
+        } catch WorkspaceShellError.approvalDenied {
+            throw MCPError.invalidRequest("Workspace deletion was denied by the user.")
+        } catch WorkspaceShellError.cancelled {
+            throw MCPError.invalidRequest("Workspace removal was cancelled: \"\(workspace.name)\" has a running agent and the user kept it (status: cancelled).")
+        } catch let error as WorkspaceShellError {
+            throw Self.mcpError(for: error)
+        }
 
 				case "hide", "unhide":
-					guard let rawWorkspaceParam = args["workspace"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-						!rawWorkspaceParam.isEmpty
-					else {
-						throw MCPError.invalidParams("Missing required 'workspace' parameter (UUID or name) for '\(action)' action.")
-					}
-
 					let shouldHide = action == "hide"
-					let resolvedWorkspace = try await resolveWorkspaceForHiddenMutation(rawWorkspaceParam: rawWorkspaceParam, hidden: shouldHide)
+					let resolvedWorkspace = try await self.resolveWorkspaceForHiddenMutation(rawWorkspaceParam: try requiredWorkspaceParam(), hidden: shouldHide)
 					guard !resolvedWorkspace.isSystemWorkspace else {
 						throw MCPError.invalidParams("Cannot \(action) system workspace '\(resolvedWorkspace.name)'.")
 					}
-					let mutationManagers = await MainActor.run {
-						self.windowStates.allWindows.map(\.workspaceManager)
-					}
-					guard let writerManager = mutationManagers.first else {
-						throw MCPError.invalidParams("No windows available to update workspace hidden state. Open at least one window first.")
-					}
+					let writer = try self.catalogWriter(for: resolvedWorkspace.id)
+					let updatedWorkspace = try await writer.workspaceManager.setWorkspaceHiddenFromSnapshot(resolvedWorkspace, hidden: shouldHide)
+					await self.propagateCatalogWrite(from: writer)
+					let snapshot = self.currentShellSnapshot
+					let summary = self.workspaceSummary(for: updatedWorkspace, snapshot: snapshot)
+					return ManageWorkspacesResponse(action: action, workspaces: [summary], status: "ok", windowID: shellWindowID, shell: snapshot)
 
-					let updatedWorkspace = try await writerManager.setWorkspaceHiddenFromSnapshot(resolvedWorkspace, hidden: shouldHide)
-					await MainActor.run {
-						for manager in mutationManagers {
-							manager.applyWorkspaceHiddenStateInMemory(
-								workspaceID: updatedWorkspace.id,
-								hidden: updatedWorkspace.isHiddenInMenus,
-								dateModified: updatedWorkspace.dateModified
-							)
-						}
-					}
-
-					let showingWindowIDs = await MainActor.run { () -> [Int] in
-						self.windowStates.allWindows.compactMap { window in
-							guard window.workspaceManager.activeWorkspace?.id == updatedWorkspace.id else { return nil }
-							return window.windowID
-						}.sorted()
-					}
-					let summary = MCPWorkspaceSummary(
-						id: updatedWorkspace.id,
-						name: updatedWorkspace.name,
-						allRepoPaths: updatedWorkspace.repoPaths,
-						showingWindowIDs: showingWindowIDs,
-						isHidden: updatedWorkspace.isHiddenInMenus
-					)
-					return ManageWorkspacesResponse(action: action, workspaces: [summary], status: "ok")
-
-				case "delete":
-					// Delete a workspace
-					guard let rawWorkspaceParam = args["workspace"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-						  !rawWorkspaceParam.isEmpty
-					else {
-						throw MCPError.invalidParams("Missing required 'workspace' parameter (UUID or name) for 'delete' action.")
-					}
-					
-					let closeWindow = args["close_window"]?.boolValue ?? false
-					let includeHidden = args["include_hidden"]?.boolValue ?? false
-					
-					// Determine target window
-					let targetWindowIDArg = args["window_id"]?.intValue
-					let windows = await MainActor.run { self.windowStates.allWindows }
-					
-                    let targetWindowOpt: WindowState? = {
-                        if let wid = targetWindowIDArg {
-                            return windows.first(where: { $0.windowID == wid })
-                        } else {
-                            return windows.only
-                        }
-                    }()
-                    
-                    if let wid = targetWindowIDArg, targetWindowOpt == nil {
-                        let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-                        throw MCPError.invalidParams("Unknown window_id \(wid). Valid window IDs: \(validIDs)")
-                    }
-                    if targetWindowIDArg == nil && windows.count != 1 {
-                        throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-                    }
-					guard let targetWindow = targetWindowOpt else {
-						throw MCPError.invalidParams("No valid target window found")
-					}
-
-					let workspace = try await resolveWorkspaceForDelete(rawWorkspaceParam: rawWorkspaceParam, includeHidden: includeHidden)
-					
-					await MainActor.run {
-						targetWindow.workspaceManager.reloadWorkspacesFromDisk()
-					}
-					
-					let showingWindowIDs = await MainActor.run { () -> [Int] in
-						self.windowStates.allWindows.compactMap { window in
-							guard window.workspaceManager.activeWorkspace?.id == workspace.id else { return nil }
-							return window.windowID
-						}.sorted()
-					}
-					
-					if closeWindow {
-						guard showingWindowIDs.contains(targetWindow.windowID) else {
-							let detail = showingWindowIDs.isEmpty
-								? "Workspace '\(workspace.name)' is not active in any window."
-								: "Workspace '\(workspace.name)' is active in windows: \(showingWindowIDs.map(String.init).joined(separator: ", "))"
-							throw MCPError.invalidParams("close_window requires the workspace to be active in the target window. \(detail)")
-						}
-						if showingWindowIDs.count > 1 {
-							throw MCPError.invalidParams("Workspace '\(workspace.name)' is active in multiple windows: \(showingWindowIDs.map(String.init).joined(separator: ", ")). Close those windows or switch them away before deleting.")
-						}
-					} else {
-						let isActive = await MainActor.run {
-							targetWindow.workspaceManager.activeWorkspace?.id == workspace.id
-						}
-						if isActive {
-							throw MCPError.invalidParams("Cannot delete the currently active workspace. Switch to another workspace first.")
-						}
-					}
-					
-					// Get client ID for approval
-					let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
-                    
-                    // Request approval
-                    let approvalResult = await WorkspaceApprovalManager.shared.requestDeleteWorkspaceApproval(
-                        clientID: clientID,
-                        workspaceName: workspace.name,
-                        workspaceID: workspace.id,
-                        windowID: targetWindow.windowID
-                    )
-                    
-					guard approvalResult.isApproved else {
-						throw MCPError.invalidRequest("Workspace deletion was denied by the user.")
-					}
-					
-						if closeWindow {
-							let fallback = await MainActor.run {
-								targetWindow.workspaceManager.getOrCreateSystemWorkspace()
-							}
-							let switchResult = await targetWindow.workspaceManager.requestWorkspaceSwitch(to: fallback, saveState: false)
-							if !switchResult.didSwitch {
-								throw MCPError.invalidRequest(switchResult.message ?? "Workspace switch was cancelled.")
-							}
-						}
-					
-					// Delete the workspace
-					await MainActor.run {
-						targetWindow.workspaceManager.deleteWorkspace(workspace)
-					}
-					
-					if closeWindow {
-						let authorization = Self.workspaceDeleteCloseAuthorization()
-						try await MainActor.run {
-							try self.windowStates.requestCloseWindow(
-								windowID: targetWindow.windowID,
-								authorization: authorization
-							)
-						}
-					}
-					
-					return ManageWorkspacesResponse(
-						action: "delete",
-						workspaces: nil,
-						status: "ok",
-						closedWindowID: closeWindow ? targetWindow.windowID : nil
-					)
-
-                case "add_folder":
-                    // Add a folder to a workspace
-                    // workspace param is optional - defaults to active workspace
-                    let rawWorkspaceParam = args["workspace"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    
-                    guard let folderPath = args["folder_path"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-                          !folderPath.isEmpty
-                    else {
-                        throw MCPError.invalidParams("Missing required 'folder_path' parameter for 'add_folder' action.")
-                    }
-                    
-                    // Validate folder exists
-                    let folderURL = URL(fileURLWithPath: folderPath)
-                    var isDirectory: ObjCBool = false
-                    guard FileManager.default.fileExists(atPath: folderPath, isDirectory: &isDirectory),
-                          isDirectory.boolValue else {
-                        throw MCPError.invalidParams("Folder does not exist or is not a directory: \(folderPath)")
-                    }
-                    
-                    // Determine target window
-                    let targetWindowIDArg = args["window_id"]?.intValue
-                    let windows = await MainActor.run { self.windowStates.allWindows }
-                    
-                    let targetWindowOpt: WindowState? = {
-                        if let wid = targetWindowIDArg {
-                            return windows.first(where: { $0.windowID == wid })
-                        } else {
-                            return windows.only
-                        }
-                    }()
-                    
-                    if let wid = targetWindowIDArg, targetWindowOpt == nil {
-                        let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-                        throw MCPError.invalidParams("Unknown window_id \(wid). Valid window IDs: \(validIDs)")
-                    }
-                    if targetWindowIDArg == nil && windows.count != 1 {
-                        throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-                    }
-                    guard let targetWindow = targetWindowOpt else {
-                        throw MCPError.invalidParams("No valid target window found")
-                    }
-                    
-                    // Resolve workspace: explicit param, or default to active workspace
-                    var targetWorkspace: WorkspaceModel? = nil
-                    if let param = rawWorkspaceParam, !param.isEmpty {
-                        if let targetID = UUID(uuidString: param) {
-                            targetWorkspace = await MainActor.run {
-                                targetWindow.workspaceManager.workspace(withID: targetID)
-                            }
-                        } else {
-                            targetWorkspace = await MainActor.run {
-                                targetWindow.workspaceManager.workspaces.first(where: { $0.name == param })
-                            }
-                        }
-                        guard targetWorkspace != nil else {
-                            throw MCPError.invalidParams("Unknown workspace '\(param)'")
-                        }
-                    } else {
-                        // Default to active workspace
-                        targetWorkspace = await MainActor.run {
-                            targetWindow.workspaceManager.activeWorkspace
-                        }
-                        guard targetWorkspace != nil else {
-							throw MCPError.invalidParams("No active workspace in this window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-                        }
-                    }
-                    
-                    let workspace = targetWorkspace!
-                    try Self.validateAddFolderWorkspace(workspace)
-                    
-                    // Get client ID for approval
-                    let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
-                    
-                    // Request approval
-                    let approvalResult = await WorkspaceApprovalManager.shared.requestAddFolderApproval(
-                        clientID: clientID,
-                        folderPath: folderPath,
-                        workspaceName: workspace.name,
-                        workspaceID: workspace.id,
-                        windowID: targetWindow.windowID
-                    )
-                    
-                    guard approvalResult.isApproved else {
-                        throw MCPError.invalidRequest("Folder addition was denied by the user.")
-                    }
-                    
-                    // Add the folder to the workspace
-                    do {
-                        try await targetWindow.workspaceManager.addFolder(folderURL, to: workspace)
-                    } catch {
-                        if let addError = error as? WorkspaceManagerViewModel.AddFolderError {
-                            throw MCPError.invalidParams(addError.agentMessage)
-                        }
-                        throw MCPError.internalError("Failed to add folder: \(error.localizedDescription)")
-                    }
-                    
-                    // Return updated workspace info
-                    let updatedWorkspace = await MainActor.run {
-                        targetWindow.workspaceManager.workspace(withID: workspace.id)
-                    }
-                    
-                    if let updated = updatedWorkspace {
-                        let summary = MCPWorkspaceSummary(
-                            id: updated.id,
-                            name: updated.name,
-                            allRepoPaths: updated.repoPaths,
-                            showingWindowIDs: [],
-							isHidden: updated.isHiddenInMenus
-                        )
-                        return ManageWorkspacesResponse(action: "add_folder", workspaces: [summary], status: "ok")
-                    }
-                    
-                    return ManageWorkspacesResponse(action: "add_folder", workspaces: nil, status: "ok")
-
-                case "remove_folder":
-                    // Remove a folder from a workspace
-                    // workspace param is optional - defaults to active workspace
-                    let rawWorkspaceParam = args["workspace"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    
-                    guard let folderPath = args["folder_path"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-                          !folderPath.isEmpty
-                    else {
-                        throw MCPError.invalidParams("Missing required 'folder_path' parameter for 'remove_folder' action.")
-                    }
-                    
-                    // Determine target window
-                    let targetWindowIDArg = args["window_id"]?.intValue
-                    let windows = await MainActor.run { self.windowStates.allWindows }
-                    
-                    let targetWindowOpt: WindowState? = {
-                        if let wid = targetWindowIDArg {
-                            return windows.first(where: { $0.windowID == wid })
-                        } else {
-                            return windows.only
-                        }
-                    }()
-                    
-                    if let wid = targetWindowIDArg, targetWindowOpt == nil {
-                        let validIDs = windows.map { String($0.windowID) }.joined(separator: ", ")
-                        throw MCPError.invalidParams("Unknown window_id \(wid). Valid window IDs: \(validIDs)")
-                    }
-                    if targetWindowIDArg == nil && windows.count != 1 {
-                        throw MCPError.invalidParams(Self.bindContextWindowSelectionMessage)
-                    }
-                    guard let targetWindow = targetWindowOpt else {
-                        throw MCPError.invalidParams("No valid target window found")
-                    }
-                    
-                    // Resolve workspace: explicit param, or default to active workspace
-                    var targetWorkspace: WorkspaceModel? = nil
-                    if let param = rawWorkspaceParam, !param.isEmpty {
-                        if let targetID = UUID(uuidString: param) {
-                            targetWorkspace = await MainActor.run {
-                                targetWindow.workspaceManager.workspace(withID: targetID)
-                            }
-                        } else {
-                            targetWorkspace = await MainActor.run {
-                                targetWindow.workspaceManager.workspaces.first(where: { $0.name == param })
-                            }
-                        }
-                        guard targetWorkspace != nil else {
-                            throw MCPError.invalidParams("Unknown workspace '\(param)'")
-                        }
-                    } else {
-                        // Default to active workspace
-                        targetWorkspace = await MainActor.run {
-                            targetWindow.workspaceManager.activeWorkspace
-                        }
-                        guard targetWorkspace != nil else {
-							throw MCPError.invalidParams("No active workspace in this window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-                        }
-                    }
-                    
-                    let workspace = targetWorkspace!
-                    
-                    // Verify folder is in the workspace
-                    let normalizedPath = (folderPath as NSString).standardizingPath
-                    let folderInWorkspace = workspace.repoPaths.contains { path in
-                        let normalized = (path as NSString).standardizingPath
-                        return normalized.caseInsensitiveCompare(normalizedPath) == .orderedSame
-                    }
-                    
-                    guard folderInWorkspace else {
-                        throw MCPError.invalidParams("Folder '\(folderPath)' is not in workspace '\(workspace.name)'")
-                    }
-                    
-                    // Get client ID for approval
-                    let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
-                    
-                    // Request approval
-                    let approvalResult = await WorkspaceApprovalManager.shared.requestRemoveFolderApproval(
-                        clientID: clientID,
-                        folderPath: folderPath,
-                        workspaceName: workspace.name,
-                        workspaceID: workspace.id,
-                        windowID: targetWindow.windowID
-                    )
-                    
-                    guard approvalResult.isApproved else {
-                        throw MCPError.invalidRequest("Folder removal was denied by the user.")
-                    }
-                    
-                    // Remove the folder from the workspace
-                    await targetWindow.workspaceManager.removeFolder(folderPath, from: workspace)
-                    
-                    // Return updated workspace info
-                    let updatedWorkspace = await MainActor.run {
-                        targetWindow.workspaceManager.workspace(withID: workspace.id)
-                    }
-                    
-                    if let updated = updatedWorkspace {
-                        let summary = MCPWorkspaceSummary(
-                            id: updated.id,
-                            name: updated.name,
-                            allRepoPaths: updated.repoPaths,
-                            showingWindowIDs: [],
-							isHidden: updated.isHiddenInMenus
-                        )
-                        return ManageWorkspacesResponse(action: "remove_folder", workspaces: [summary], status: "ok")
-                    }
-                    
-                    return ManageWorkspacesResponse(action: "remove_folder", workspaces: nil, status: "ok")
-
-				case "list_tabs":
-					let targetWindow = try await resolveTargetWindow(windowID: args["window_id"]?.intValue)
-					let connectionID = await self.networkMgr.currentConnectionUUID()
-					let (workspace, activeTabID, tabs, boundTabID): (WorkspaceModel?, UUID?, [ComposeTabState], UUID?) = await MainActor.run {
-						let workspace = targetWindow.workspaceManager.activeWorkspace
-						return (
-							workspace,
-							workspace?.activeComposeTabID,
-							workspace?.composeTabs ?? [],
-							targetWindow.mcpServer.boundTabID(forConnection: connectionID)
-						)
-					}
-
-					guard let workspace else {
-						throw MCPError.invalidParams("No active workspace loaded in this window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-					}
-
-					let summaries = await MainActor.run {
-						tabs.map {
-							self.makeComposeTabSummary(
-								tab: $0,
-								workspace: workspace,
-								windowID: targetWindow.windowID,
-								activeTabID: activeTabID,
-								boundTabID: boundTabID
-							)
-						}
-					}
-					return ManageWorkspacesResponse(action: "list_tabs", workspaces: nil, tabs: summaries, status: "ok")
-
-				case "select_tab":
-					guard let rawTabParam = args["tab"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
-							!rawTabParam.isEmpty
-					else {
-						throw MCPError.invalidParams("Missing required 'tab' parameter (UUID or name) for 'select_tab' action.")
-					}
-
-					let targetWindow = try await resolveTargetWindow(windowID: args["window_id"]?.intValue)
-					let shouldFocus = args["focus"]?.boolValue ?? false
-					let connectionID = await self.networkMgr.currentConnectionUUID()
-					let clientName = await self.networkMgr.currentClientIdentifier()
-					let (workspace, tabs): (WorkspaceModel?, [ComposeTabState]) = await MainActor.run {
-						let workspace = targetWindow.workspaceManager.activeWorkspace
-						return (workspace, workspace?.composeTabs ?? [])
-					}
-
-					guard let workspace else {
-						throw MCPError.invalidParams("No active workspace loaded in this window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-					}
-					guard let connectionID else {
-						throw MCPError.internalError("No active connection context")
-					}
-
-					let tab = try await MainActor.run {
-						try self.resolveComposeTab(rawTabParam: rawTabParam, tabs: tabs)
-					}
-
-					try await self.networkMgr.setActiveWindowForCurrentConnection(targetWindow.windowID)
-					try await MainActor.run {
-						try targetWindow.mcpServer.bindTabForConnection(
-							connectionID: connectionID,
-							clientName: clientName,
-							tabID: tab.id,
-							workspaceID: workspace.id,
-							windowID: targetWindow.windowID
-						)
-					}
-
-					if shouldFocus {
-						await targetWindow.promptManager.switchComposeTab(tab.id)
-					}
-
-					return ManageWorkspacesResponse(action: "select_tab", workspaces: nil, status: "ok")
-
-                case "create_tab":
-                    let targetWindow = try await resolveTargetWindow(windowID: args["window_id"]?.intValue)
-                    let connectionID = await self.networkMgr.currentConnectionUUID()
-                    let clientName = await self.networkMgr.currentClientIdentifier()
-                    let mode = args["mode"]?.stringValue?.lowercased() ?? "blank"
-                    let shouldBind = args["bind"]?.boolValue ?? true
-                    let shouldFocus = args["focus"]?.boolValue ?? false
-                    let requestedName = args["name"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                    let (workspace, activeTabID, tabs, boundTabID): (WorkspaceModel?, UUID?, [ComposeTabState], UUID?) = await MainActor.run {
-                        let workspace = targetWindow.workspaceManager.activeWorkspace
-                        return (
-                            workspace,
-                            workspace?.activeComposeTabID,
-                            workspace?.composeTabs ?? [],
-                            targetWindow.mcpServer.boundTabID(forConnection: connectionID)
-                        )
-                    }
-
-                    guard let workspace else {
-						throw MCPError.invalidParams("No active workspace loaded in this window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-                    }
-
-                    let newTab: ComposeTabState
-                    switch mode {
-                    case "blank":
-                        guard let created = await targetWindow.promptManager.createBackgroundComposeTab(strategy: .blank, name: requestedName) else {
-                            throw MCPError.internalError("Failed to create compose tab")
-                        }
-                        newTab = created
-                    case "fork":
-                        let sourceRaw = args["source_tab"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let sourceTab: ComposeTabState
-                        if let sourceRaw, !sourceRaw.isEmpty {
-							sourceTab = try await MainActor.run {
-								try self.resolveComposeTab(rawTabParam: sourceRaw, tabs: tabs)
-							}
-                        } else if let boundTabID, let boundTab = tabs.first(where: { $0.id == boundTabID }) {
-                            sourceTab = boundTab
-                        } else if let activeTabID, let activeTab = tabs.first(where: { $0.id == activeTabID }) {
-                            sourceTab = activeTab
-                        } else {
-                            throw MCPError.invalidParams("create_tab mode='fork' requires a source tab or an active/bound tab")
-                        }
-                        guard let created = await targetWindow.promptManager.createBackgroundForkComposeTab(sourceTabID: sourceTab.id, named: requestedName) else {
-                            throw MCPError.internalError("Failed to fork compose tab")
-                        }
-                        newTab = created
-                    default:
-                        throw MCPError.invalidParams("Unsupported create_tab mode '\(mode)'. Use 'blank' or 'fork'.")
-                    }
-
-                    try await self.networkMgr.setActiveWindowForCurrentConnection(targetWindow.windowID)
-
-                    if shouldBind, let connectionID {
-                        try await MainActor.run {
-                            try targetWindow.mcpServer.bindTabForConnection(
-                                connectionID: connectionID,
-                                clientName: clientName,
-                                tabID: newTab.id,
-                                workspaceID: workspace.id,
-                                windowID: targetWindow.windowID
-                            )
-                        }
-                    }
-
-                    if shouldFocus {
-                        await targetWindow.promptManager.switchComposeTab(newTab.id)
-                    }
-
-					let summary = await MainActor.run {
-						self.makeComposeTabSummary(
-							tab: newTab,
-							workspace: workspace,
-							windowID: targetWindow.windowID,
-							activeTabID: shouldFocus ? newTab.id : activeTabID,
-							boundTabID: shouldBind ? newTab.id : boundTabID
-						)
-					}
-                    return ManageWorkspacesResponse(action: "create_tab", workspaces: nil, tabs: [summary], status: "ok")
-
-                case "close_tab":
-					let rawTabParam = args["tab"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
-					let contextID = try Self.parseContextID(args["context_id"], action: "close_tab")
-
-                    let targetWindow = try await resolveTargetWindow(windowID: args["window_id"]?.intValue)
-                    let allowActive = args["allow_active"]?.boolValue ?? false
-                    let connectionID = await self.networkMgr.currentConnectionUUID()
-                    let (workspace, activeTabID, tabs, boundTabID): (WorkspaceModel?, UUID?, [ComposeTabState], UUID?) = await MainActor.run {
-                        let workspace = targetWindow.workspaceManager.activeWorkspace
-                        return (
-                            workspace,
-                            workspace?.activeComposeTabID,
-                            workspace?.composeTabs ?? [],
-                            targetWindow.mcpServer.boundTabID(forConnection: connectionID)
-                        )
-                    }
-
-                    guard let workspace, !tabs.isEmpty else {
-						throw MCPError.invalidParams("No active workspace with compose tabs loaded in this window. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
-                    }
-
-					let tab = try await MainActor.run {
-						try self.resolveComposeTab(
-							rawTabParam: rawTabParam,
-							contextID: contextID,
-							tabs: tabs,
-							action: "close_tab"
-						)
-					}
-                    guard tabs.count > 1 else {
-                        throw MCPError.invalidParams("Cannot close the last remaining compose tab.")
-                    }
-                    if activeTabID == tab.id && !allowActive {
-                        throw MCPError.invalidParams("Refusing to close the active visible tab. Pass allow_active=true to close it explicitly.")
-                    }
-
-                    let liveRunIDs = await MainActor.run {
-                        targetWindow.mcpServer.liveRunIDsBound(toTabID: tab.id)
-                    }
-                    if !liveRunIDs.isEmpty {
-                        let joined = liveRunIDs.map(\.uuidString).joined(separator: ", ")
-                        throw MCPError.invalidParams("Refusing to close tab '\(tab.name)' because it has live bound runs: \(joined)")
-                    }
-
-					let summary = await MainActor.run {
-						self.makeComposeTabSummary(
-							tab: tab,
-							workspace: workspace,
-							windowID: targetWindow.windowID,
-							activeTabID: activeTabID,
-							boundTabID: boundTabID
-						)
-					}
-
-                    await targetWindow.promptManager.closeComposeTab(tab.id)
-
-                    return ManageWorkspacesResponse(action: "close_tab", workspaces: nil, tabs: [summary], status: "ok")
-                    
-                default:
-                    throw MCPError.invalidParams("Unsupported action '\(action)'. Use 'list', 'switch', 'create', 'hide', 'unhide', 'delete', 'add_folder', 'remove_folder', 'list_tabs', 'select_tab', 'create_tab', or 'close_tab'.")
-
-                }
-            }
+    case "add_folder":
+        guard let folderPath = args["folder_path"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !folderPath.isEmpty
+        else {
+            throw MCPError.invalidParams("Missing required 'folder_path' parameter for 'add_folder' action.")
+        }
+        let folderURL = URL(fileURLWithPath: folderPath)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folderPath, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            throw MCPError.invalidParams("Folder does not exist or is not a directory: \(folderPath)")
+        }
+        let target = try await self.resolveFolderMutationTarget(rawWorkspaceParam: workspaceParam, windowID: requestedWindowID, action: "add_folder")
+        try Self.validateAddFolderWorkspace(target.workspace)
+        let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
+        let approvalResult = await WorkspaceApprovalManager.shared.requestAddFolderApproval(
+            clientID: clientID,
+            folderPath: folderPath,
+            workspaceName: target.workspace.name,
+            workspaceID: target.workspace.id,
+            windowID: self.publicWindowID(for: target.runtime.windowID)
         )
-        
-        // Update the cache with the new tools
-        await toolsCache.update(newTools)
+        guard approvalResult.isApproved else {
+            throw MCPError.invalidRequest("Folder addition was denied by the user.")
+        }
+        do {
+            try await target.runtime.workspaceManager.addFolder(folderURL, to: target.workspace)
+        } catch {
+            if let addError = error as? WorkspaceManagerViewModel.AddFolderError {
+                throw MCPError.invalidParams(addError.agentMessage)
+            }
+            throw MCPError.internalError("Failed to add folder: \(error.localizedDescription)")
+        }
+        await self.propagateCatalogWrite(from: target.runtime)
+        let snapshot = self.currentShellSnapshot
+        let updated = target.runtime.workspaceManager.workspace(withID: target.workspace.id) ?? target.workspace
+        return ManageWorkspacesResponse(action: "add_folder", workspaces: [self.workspaceSummary(for: updated, snapshot: snapshot)], status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "remove_folder":
+        guard let folderPath = args["folder_path"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !folderPath.isEmpty
+        else {
+            throw MCPError.invalidParams("Missing required 'folder_path' parameter for 'remove_folder' action.")
+        }
+        let target = try await self.resolveFolderMutationTarget(rawWorkspaceParam: workspaceParam, windowID: requestedWindowID, action: "remove_folder")
+        let normalizedPath = (folderPath as NSString).standardizingPath
+        let folderInWorkspace = target.workspace.repoPaths.contains { path in
+            (path as NSString).standardizingPath.caseInsensitiveCompare(normalizedPath) == .orderedSame
+        }
+        guard folderInWorkspace else {
+            throw MCPError.invalidParams("Folder '\(folderPath)' is not in workspace '\(target.workspace.name)'")
+        }
+        let clientID = await self.networkMgr.currentClientIdentifier() ?? "unknown-client"
+        let approvalResult = await WorkspaceApprovalManager.shared.requestRemoveFolderApproval(
+            clientID: clientID,
+            folderPath: folderPath,
+            workspaceName: target.workspace.name,
+            workspaceID: target.workspace.id,
+            windowID: self.publicWindowID(for: target.runtime.windowID)
+        )
+        guard approvalResult.isApproved else {
+            throw MCPError.invalidRequest("Folder removal was denied by the user.")
+        }
+        await target.runtime.workspaceManager.removeFolder(folderPath, from: target.workspace)
+        await self.propagateCatalogWrite(from: target.runtime)
+        let snapshot = self.currentShellSnapshot
+        let updated = target.runtime.workspaceManager.workspace(withID: target.workspace.id) ?? target.workspace
+        return ManageWorkspacesResponse(action: "remove_folder", workspaces: [self.workspaceSummary(for: updated, snapshot: snapshot)], status: "ok", windowID: shellWindowID, shell: snapshot)
+
+    case "list_tabs":
+        let targetWindow = try await self.resolveTargetRuntime(windowID: requestedWindowID)
+        let connectionID = await self.networkMgr.currentConnectionUUID()
+        guard let workspace = targetWindow.workspaceManager.activeWorkspace else {
+            throw MCPError.invalidParams("No active workspace loaded. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
+        }
+        let activeTabID = workspace.activeComposeTabID
+        let boundTabID = targetWindow.mcpServer.boundTabID(forConnection: connectionID)
+        let windowID = self.publicWindowID(for: targetWindow.windowID)
+        let summaries = workspace.composeTabs.map {
+            self.makeComposeTabSummary(tab: $0, workspace: workspace, windowID: windowID, activeTabID: activeTabID, boundTabID: boundTabID)
+        }
+        return ManageWorkspacesResponse(action: "list_tabs", workspaces: nil, tabs: summaries, status: "ok", windowID: shellWindowID, shell: self.currentShellSnapshot)
+
+    case "select_tab":
+        guard let rawTabParam = args["tab"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawTabParam.isEmpty
+        else {
+            throw MCPError.invalidParams("Missing required 'tab' parameter (UUID or name) for 'select_tab' action.")
+        }
+        let targetWindow = try await self.resolveTargetRuntime(windowID: requestedWindowID)
+        let shouldFocus = args["focus"]?.boolValue ?? false
+        let connectionID = await self.networkMgr.currentConnectionUUID()
+        let clientName = await self.networkMgr.currentClientIdentifier()
+        guard let workspace = targetWindow.workspaceManager.activeWorkspace else {
+            throw MCPError.invalidParams("No active workspace loaded. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
+        }
+        guard let connectionID else {
+            throw MCPError.internalError("No active connection context")
+        }
+        let tab = try self.resolveComposeTab(rawTabParam: rawTabParam, tabs: workspace.composeTabs)
+        try await self.networkMgr.setActiveWindowForCurrentConnection(targetWindow.windowID)
+        try targetWindow.mcpServer.bindTabForConnection(
+            connectionID: connectionID,
+            clientName: clientName,
+            tabID: tab.id,
+            workspaceID: workspace.id,
+            windowID: targetWindow.windowID
+        )
+        if shouldFocus {
+            if self.windowStates.shell != nil {
+                _ = try await self.dispatchShellAction(.select(SelectWorkspacePayload(workspaceID: workspace.id)))
+            }
+            await targetWindow.promptManager.switchComposeTab(tab.id)
+        }
+        return ManageWorkspacesResponse(action: "select_tab", workspaces: nil, status: "ok", windowID: shellWindowID, shell: self.currentShellSnapshot)
+
+    case "create_tab":
+        let targetWindow: WindowState
+        if let workspaceParam, !workspaceParam.isEmpty {
+            let resolved = try await self.resolveWorkspace(rawWorkspaceParam: workspaceParam, action: "create_tab", includeHidden: true)
+            guard !resolved.isSystemWorkspace else {
+                throw MCPError.invalidParams("\"\(resolved.name)\" is the system workspace and cannot hold compose tabs.")
+            }
+            targetWindow = try await self.retainedRuntime(for: resolved)
+        } else {
+            targetWindow = try await self.resolveTargetRuntime(windowID: requestedWindowID)
+            if self.windowStates.shell != nil, targetWindow.workspaceManager.activeWorkspace?.isSystemWorkspace != false {
+                throw MCPError.invalidRequest("No workspace is registered. Create one with action=create first.")
+            }
+        }
+        let connectionID = await self.networkMgr.currentConnectionUUID()
+        let clientName = await self.networkMgr.currentClientIdentifier()
+        let mode = args["mode"]?.stringValue?.lowercased() ?? "blank"
+        let shouldBind = args["bind"]?.boolValue ?? true
+        let shouldFocus = args["focus"]?.boolValue ?? false
+        let requestedName = args["name"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let workspace = targetWindow.workspaceManager.activeWorkspace else {
+            throw MCPError.invalidParams("No active workspace loaded. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
+        }
+        let tabs = workspace.composeTabs
+        let activeTabID = workspace.activeComposeTabID
+        let boundTabID = targetWindow.mcpServer.boundTabID(forConnection: connectionID)
+
+        let newTab: ComposeTabState
+        switch mode {
+        case "blank":
+            guard let created = await targetWindow.promptManager.createBackgroundComposeTab(strategy: .blank, name: requestedName) else {
+                throw MCPError.internalError("Failed to create compose tab")
+            }
+            newTab = created
+        case "fork":
+            let sourceRaw = args["source_tab"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let sourceTab: ComposeTabState
+            if let sourceRaw, !sourceRaw.isEmpty {
+                sourceTab = try self.resolveComposeTab(rawTabParam: sourceRaw, tabs: tabs)
+            } else if let boundTabID, let boundTab = tabs.first(where: { $0.id == boundTabID }) {
+                sourceTab = boundTab
+            } else if let activeTabID, let activeTab = tabs.first(where: { $0.id == activeTabID }) {
+                sourceTab = activeTab
+            } else {
+                throw MCPError.invalidParams("create_tab mode='fork' requires a source tab or an active/bound tab")
+            }
+            guard let created = await targetWindow.promptManager.createBackgroundForkComposeTab(sourceTabID: sourceTab.id, named: requestedName) else {
+                throw MCPError.internalError("Failed to fork compose tab")
+            }
+            newTab = created
+        default:
+            throw MCPError.invalidParams("Unsupported create_tab mode '\(mode)'. Use 'blank' or 'fork'.")
+        }
+
+        try await self.networkMgr.setActiveWindowForCurrentConnection(targetWindow.windowID)
+        if shouldBind, let connectionID {
+            try targetWindow.mcpServer.bindTabForConnection(
+                connectionID: connectionID,
+                clientName: clientName,
+                tabID: newTab.id,
+                workspaceID: workspace.id,
+                windowID: targetWindow.windowID
+            )
+        }
+        if shouldFocus {
+            if self.windowStates.shell != nil {
+                _ = try await self.dispatchShellAction(.select(SelectWorkspacePayload(workspaceID: workspace.id)))
+            }
+            await targetWindow.promptManager.switchComposeTab(newTab.id)
+        }
+        let summary = self.makeComposeTabSummary(
+            tab: newTab,
+            workspace: workspace,
+            windowID: self.publicWindowID(for: targetWindow.windowID),
+            activeTabID: shouldFocus ? newTab.id : activeTabID,
+            boundTabID: shouldBind ? newTab.id : boundTabID
+        )
+        return ManageWorkspacesResponse(action: "create_tab", workspaces: nil, tabs: [summary], status: "ok", windowID: shellWindowID, shell: self.currentShellSnapshot)
+
+    case "close_tab":
+        let rawTabParam = args["tab"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let contextID = try Self.parseContextID(args["context_id"], action: "close_tab")
+        let targetWindow = try await self.resolveTargetRuntime(windowID: requestedWindowID)
+        let allowActive = args["allow_active"]?.boolValue ?? false
+        let connectionID = await self.networkMgr.currentConnectionUUID()
+        guard let workspace = targetWindow.workspaceManager.activeWorkspace, !workspace.composeTabs.isEmpty else {
+            throw MCPError.invalidParams("No active workspace with compose tabs loaded. Use manage_workspaces action='list' to see available workspaces, then action='switch' to load one.")
+        }
+        let tabs = workspace.composeTabs
+        let activeTabID = workspace.activeComposeTabID
+        let boundTabID = targetWindow.mcpServer.boundTabID(forConnection: connectionID)
+        let tab = try self.resolveComposeTab(rawTabParam: rawTabParam, contextID: contextID, tabs: tabs, action: "close_tab")
+        guard tabs.count > 1 else {
+            throw MCPError.invalidParams("Cannot close the last remaining compose tab.")
+        }
+        if activeTabID == tab.id && !allowActive {
+            throw MCPError.invalidParams("Refusing to close the active visible tab. Pass allow_active=true to close it explicitly.")
+        }
+        let liveRunIDs = targetWindow.mcpServer.liveRunIDsBound(toTabID: tab.id)
+        if !liveRunIDs.isEmpty {
+            let joined = liveRunIDs.map(\.uuidString).joined(separator: ", ")
+            throw MCPError.invalidParams("Refusing to close tab '\(tab.name)' because it has live bound runs: \(joined)")
+        }
+        let summary = self.makeComposeTabSummary(
+            tab: tab,
+            workspace: workspace,
+            windowID: self.publicWindowID(for: targetWindow.windowID),
+            activeTabID: activeTabID,
+            boundTabID: boundTabID
+        )
+        await targetWindow.promptManager.closeComposeTab(tab.id)
+        return ManageWorkspacesResponse(action: "close_tab", workspaces: nil, tabs: [summary], status: "ok", windowID: shellWindowID, shell: self.currentShellSnapshot)
+
+    default:
+        throw MCPError.invalidParams("Unsupported action '\(action)'. Use 'list', 'state', 'capture', 'switch', 'create', 'rename', 'reorder', 'hide', 'unhide', 'delete', 'add_folder', 'remove_folder', 'list_tabs', 'select_tab', 'create_tab', or 'close_tab'.")
+    }
     }
     
     // ---------------------------------------------------------------------

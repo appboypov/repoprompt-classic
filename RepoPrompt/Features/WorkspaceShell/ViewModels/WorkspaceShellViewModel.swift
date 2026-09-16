@@ -23,6 +23,8 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	/// Most recent first. Only catalog IDs.
 	private(set) var visibleWorkspaceRecency: [UUID] = []
 	@Published private(set) var snapshot: WorkspaceShellSnapshot = .empty
+	/// The runtime whose content the shell window renders: the visible workspace, or the host on an empty catalog.
+	@Published private(set) var contentRuntime: WindowState?
 	@Published private(set) var preparingWorkspaceIDs: Set<UUID> = []
 	@Published private(set) var isWorkspaceSidebarCollapsed: Bool
 	@Published var isMCPToolsEnabled: Bool {
@@ -36,6 +38,15 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	}
 	@Published var pendingRemoval: RemovalPrompt?
 	private(set) var isStarted = false
+	/// Installed on the host and every runtime's manager so legacy switch calls route through the shell.
+	var switchForwarder: ((WorkspaceModel) async -> WorkspaceSwitchResult)? {
+		didSet {
+			hostRuntime?.workspaceManager.shellSwitchForwarder = switchForwarder
+			for runtime in loadedWorkspaceStates.values {
+				runtime.workspaceManager.shellSwitchForwarder = switchForwarder
+			}
+		}
+	}
 
 	private(set) var catalog: WorkspaceCatalogService?
 	private let windowStatesManager: WindowStatesManager
@@ -128,6 +139,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		}
 		isStarted = false
 		snapshot = .empty
+		contentRuntime = nil
 	}
 
 	/// The restore entry's workspace by id, else by primary root, else by name, else the first catalog entry.
@@ -234,6 +246,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		state.closeCoordinator.impactSnapshotProvider = { [weak self] in
 			self?.makeCloseImpactSnapshot() ?? state.makeCloseImpactSnapshot()
 		}
+		state.workspaceManager.shellSwitchForwarder = switchForwarder
 	}
 
 	private func discard(_ state: WindowState) async {
@@ -281,6 +294,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 			next.attachWindow(nativeWindow, installsDelegateProxy: false)
 		}
 		windowStatesManager.setVisibleWindowState(next)
+		contentRuntime = next
 	}
 
 	func runtime(for id: UUID) -> WindowState? {

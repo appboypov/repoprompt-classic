@@ -56,6 +56,31 @@ final class WorkspaceApprovalManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testAlwaysAllowPolicyStillPromptsForBusyDelete() async {
+		resetManager()
+		defer { resetManager() }
+		let manager = WorkspaceApprovalManager.shared
+		manager.addAutoApproval(clientID: "claude-code", operation: .deleteWorkspace)
+		let request = WorkspaceApprovalRequest(
+			clientID: "claude-code",
+			operation: .deleteWorkspace,
+			workspaceName: "RepoPrompt",
+			workspaceID: UUID(),
+			windowID: 12,
+			hasRunningAgents: true
+		)
+
+		let task = Task { @MainActor in
+			await manager.requestApproval(for: request)
+		}
+		await waitForPendingRequest(id: request.id)
+		XCTAssertEqual(manager.pendingRequest?.id, request.id, "a busy workspace prompts even with an always-allow policy")
+
+		manager.resolveApproval(allow: false)
+		assertDenied(await task.value)
+	}
+
+	@MainActor
 	func testAddingEquivalentClientVariantReusesExistingPolicyBucket() {
 		resetManager()
 		defer { resetManager() }

@@ -7,56 +7,37 @@
 
 import SwiftUI
 
-/// This view holds exactly one @StateObject WindowState, meaning
-/// each new Window/Scene gets its own WindowState.
+/// Renders the runtime the shell currently shows. The shell owns every `WindowState`;
+/// this view only attaches the native window and swaps content when the visible runtime changes.
 struct ContentView_WithState: View {
 	@EnvironmentObject var versionManager: VersionManager
 	@EnvironmentObject var windowStatesManager: WindowStatesManager
+	@EnvironmentObject var shellViewModel: WorkspaceShellViewModel
 	@Environment(\.openWindow) private var openWindow
 	
-	/// The WindowState itself (your big manager of fileManager, promptManager, etc.)
-	@StateObject private var windowState = WindowState()
-	
 	var body: some View {
-		ContentView(windowState: windowState)
-			.environmentObject(windowState) // If your subviews need it
-			.environmentObject(versionManager) // Pass versionManager to ContentView
+		Group {
+			if let runtime = shellViewModel.contentRuntime {
+				ContentView(windowState: runtime)
+					.environmentObject(runtime)
+					.environmentObject(versionManager)
+					.id(runtime.windowID)
+			} else {
+				Color.clear
+			}
+		}
 			.background(
 				WindowAccessor { newWindow in
 					// IMPORTANT: do not mutate SwiftUI @State here.
-					// Attach is internally guarded and safe even if called multiple times.
-					windowState.attachWindow(newWindow)
+					guard let newWindow else { return }
+					shellViewModel.attachNativeWindow(newWindow)
 				}
 			)
-		// Once the view appears, register it with WindowStatesManager
 			.onAppear {
-				windowStatesManager.registerWindowState(windowState)
-				
 				// Install the openWindow action into AppWindowOpener for programmatic window creation
 				AppWindowOpener.shared.install {
 					openWindow(id: "main")
 				}
-			}
-		// Cleanup if the window goes away
-			.onDisappear {
-				SettingsWindowCoordinator.shared.closeIfTargeting(windowState)
-
-				// Stop focus/title side-effects early to avoid SwiftUI observation crashes during teardown.
-				windowState.beginClose()
-
-				// Save the current workspace state before closing, but avoid extra teardown work
-				// or publish-heavy persistence once app termination has begun.
-				if !windowStatesManager.isTerminating {
-					windowState.workspaceManager.pollAndSaveState()
-				}
-
-				guard !windowStatesManager.isTerminating else {
-					windowState.aiQueriesService.cancelQuery()
-					return
-				}
-
-				windowStatesManager.unregisterWindowState(windowState)
-				Task { await windowState.tearDown() }
 			}
 		// Transition notice
 			.sheet(

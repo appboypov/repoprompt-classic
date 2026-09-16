@@ -101,6 +101,8 @@ public struct WorkspaceApprovalRequest: Identifiable, Sendable {
     public let workspaceID: UUID?
     public let folderPath: String?
     public let windowID: Int?
+    /// True when the target workspace's runtime has an active agent run. A busy delete always prompts.
+    public let hasRunningAgents: Bool
     
     /// The target window ID for the operation.
     public var targetWindowID: Int? { windowID }
@@ -112,7 +114,8 @@ public struct WorkspaceApprovalRequest: Identifiable, Sendable {
         workspaceName: String? = nil,
         workspaceID: UUID? = nil,
         folderPath: String? = nil,
-        windowID: Int? = nil
+        windowID: Int? = nil,
+        hasRunningAgents: Bool = false
     ) {
         self.id = id
         self.clientID = clientID
@@ -122,6 +125,7 @@ public struct WorkspaceApprovalRequest: Identifiable, Sendable {
         self.workspaceID = workspaceID
         self.folderPath = folderPath
         self.windowID = windowID
+        self.hasRunningAgents = hasRunningAgents
     }
     
     /// Human-readable summary of what's being requested.

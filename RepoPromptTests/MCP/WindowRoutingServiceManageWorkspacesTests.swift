@@ -32,14 +32,6 @@ final class WindowRoutingServiceManageWorkspacesTests: XCTestCase {
 		XCTAssertNoThrow(try WindowRoutingService.validateAddFolderWorkspace(workspace))
 	}
 
-	func testWorkspaceDeleteCloseAuthorizationBypassesPromptAndBackgroundPreservation() {
-		let authorization = WindowRoutingService.workspaceDeleteCloseAuthorization()
-
-		XCTAssertEqual(authorization.source, .workspaceDelete)
-		XCTAssertTrue(authorization.bypassConfirmation)
-		XCTAssertTrue(authorization.bypassBackgroundPreservation)
-	}
-
 	func testComposeTabSummaryEncodesContextIDWithSnakeCaseKey() throws {
 		let summary = MCPComposeTabSummary(
 			id: UUID(),

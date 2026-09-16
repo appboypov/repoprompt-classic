@@ -342,7 +342,7 @@ struct WorkspaceApprovalOverlayView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .semibold))
-                    Text("Deny")
+                    Text(request.hasRunningAgents ? "Cancel" : "Deny")
                         .font(.subheadline.weight(.medium))
                 }
                 .frame(maxWidth: .infinity)
@@ -355,7 +355,7 @@ struct WorkspaceApprovalOverlayView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
-                    Text(alwaysAllow ? "Always Allow" : "Allow Once")
+                    Text(allowButtonTitle)
                         .font(.subheadline.weight(.medium))
                 }
                 .frame(maxWidth: .infinity)
@@ -365,6 +365,14 @@ struct WorkspaceApprovalOverlayView: View {
             .keyboardShortcut(.defaultAction)
         }
         .padding(20)
+    }
+
+    /// A delete that stops running agents names that consequence instead of a bare Allow.
+    private var allowButtonTitle: String {
+        if request.operation == .deleteWorkspace, request.hasRunningAgents {
+            return "Stop and remove"
+        }
+        return alwaysAllow ? "Always Allow" : "Allow Once"
     }
     
     // MARK: - Actions

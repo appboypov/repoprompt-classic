@@ -30,17 +30,30 @@ struct MCPToolsSettingsView: View {
 					.font(.title2.weight(.semibold))
 			}
 
-			Text("Enable or disable individual MCP tools for this window.")
+			Text("Enable or disable individual MCP tools.")
 				.font(fontPreset.captionFont)
 				.foregroundColor(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
 		}
 	}
 
+	/// App-wide under the shell (one flag fans out to every workspace runtime); per window on the legacy path.
+	private var toolsEnabled: Binding<Bool> {
+		Binding(
+			get: { server.windowToolsEnabled },
+			set: { enabled in
+				if let shell = WindowStatesManager.shared.shell {
+					shell.isMCPToolsEnabled = enabled
+				}
+				server.windowToolsEnabled = enabled
+			}
+		)
+	}
+
 	private var controlsSection: some View {
 		VStack(alignment: .leading, spacing: 12) {
-			Toggle("Enable MCP tools for this window", isOn: $server.windowToolsEnabled)
-				.help("Allow external tools to interact with this window's workspace")
+			Toggle("Enable MCP tools", isOn: toolsEnabled)
+				.help("Allow external tools to interact with your workspaces")
 
 			if !server.windowToolsEnabled {
 				HStack(spacing: 8) {

@@ -73,7 +73,22 @@ struct RepoPromptApp: App {
 		if !AppLaunchConfiguration.current.suppressesWindowRestore {
 			WindowStatesManager.shared.loadWindowRestoreSessionIfNeeded()
 		}
+
+		let shell = WorkspaceShellViewModel()
+		let actionService = WorkspaceShellActionService(viewModel: shell)
+		Self.shellActionService = actionService
+		AppDeepLinkRouter.shared.configure(actionService: actionService)
+		_shellViewModel = StateObject(wrappedValue: shell)
+		Task { @MainActor in
+			await shell.start()
+		}
 	}
+
+	/// The one action service, read by `AppDelegate` when it builds the MCP routing service.
+	@MainActor private(set) static var shellActionService: WorkspaceShellActionService?
+
+	/// The single-window shell: owns every workspace runtime and the one native window.
+	@StateObject private var shellViewModel: WorkspaceShellViewModel
 
 	/// Make sure we define AppDelegate first, so it's available in init
 	@NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -95,6 +110,7 @@ struct RepoPromptApp: App {
 			ContentView_WithState()
 				.environmentObject(versionManager)
 				.environmentObject(windowStatesManager)
+				.environmentObject(shellViewModel)
 				.environmentObject(fontScale)
 				.toolbarRole(.automatic)
 				.frame(minWidth: 948, idealWidth: 1080, minHeight: 600)

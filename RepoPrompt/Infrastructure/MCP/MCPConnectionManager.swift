@@ -5597,13 +5597,27 @@ actor ServerNetworkManager {
 				// ═══════════════════════════════════════════════════════════════
 				// When provided, _windowID always takes precedence, even over
 				// existing connection mappings. This enables explicit window targeting.
-				if !bypassWindowRouting, let requestedWindowID = capturedWindowID {
+				if !bypassWindowRouting, let publicWindowID = capturedWindowID {
+					// Under the shell the public ID maps onto the connection's runtime; the runtime ID is what routes.
+					let requestedWindowID: Int
+					do {
+						requestedWindowID = try await WindowStatesManager.shared.resolveRuntimeWindowID(publicWindowID: publicWindowID, connectionID: connectionID) ?? publicWindowID
+					} catch {
+						return Self.toolErrorResult(
+							rawJSON: capturedRawJSON,
+							message: Self.invalidWindowSelectionGuidance(
+								windowID: publicWindowID,
+								purpose: policy.purpose,
+								restrictedTools: policy.restricted
+							)
+						)
+					}
 					let windowValid = await WindowStatesManager.shared.hasWindowWithMCPEnabled(requestedWindowID)
 					guard windowValid else {
 						return Self.toolErrorResult(
 							rawJSON: capturedRawJSON,
 							message: Self.invalidWindowSelectionGuidance(
-								windowID: requestedWindowID,
+								windowID: publicWindowID,
 								purpose: policy.purpose,
 								restrictedTools: policy.restricted
 							)

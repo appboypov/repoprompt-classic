@@ -73,7 +73,8 @@ class AppDelegate: NSObject, ObservableObject, NSApplicationDelegate {
 		// Register global MCP window-routing helpers
 		self.windowRoutingService = WindowRoutingService(
 			windowStates: WindowStatesManager.shared,
-			networkMgr:   ServerNetworkManager.shared
+			networkMgr:   ServerNetworkManager.shared,
+			shellActionService: RepoPromptApp.shellActionService
 		)
 		
 		if !launchConfiguration.suppressesNonessentialLaunchSideEffects {

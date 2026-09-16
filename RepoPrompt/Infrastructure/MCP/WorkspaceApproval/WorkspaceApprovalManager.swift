@@ -57,8 +57,8 @@ public final class WorkspaceApprovalManager: ObservableObject {
     /// Request approval for a workspace operation.
     /// Returns the user's decision.
     public func requestApproval(for request: WorkspaceApprovalRequest) async -> WorkspaceApprovalResult {
-        // Check if auto-approved
-        if settings.shouldAutoApprove(operation: request.operation, clientID: request.clientID) {
+        // Auto-approval never covers a delete that would stop running agents; that choice reaches the user.
+        if !request.hasRunningAgents, settings.shouldAutoApprove(operation: request.operation, clientID: request.clientID) {
             // Update last used timestamp for the client policy
             updatePolicyLastUsed(clientID: request.clientID)
             return .approved(alwaysAllow: false)
@@ -221,7 +221,7 @@ public final class WorkspaceApprovalManager: ObservableObject {
         let (nextRequest, continuation) = pendingQueue.removeFirst()
         
         // Check if this queued request can now be auto-approved
-        if settings.shouldAutoApprove(operation: nextRequest.operation, clientID: nextRequest.clientID) {
+        if !nextRequest.hasRunningAgents, settings.shouldAutoApprove(operation: nextRequest.operation, clientID: nextRequest.clientID) {
             updatePolicyLastUsed(clientID: nextRequest.clientID)
             continuation.resume(returning: .approved(alwaysAllow: false))
             processNextQueuedRequest()
@@ -302,14 +302,16 @@ extension WorkspaceApprovalManager {
         clientID: String,
         workspaceName: String,
         workspaceID: UUID,
-        windowID: Int?
+        windowID: Int?,
+        hasRunningAgents: Bool = false
     ) async -> WorkspaceApprovalResult {
         let request = WorkspaceApprovalRequest(
             clientID: clientID,
             operation: .deleteWorkspace,
             workspaceName: workspaceName,
             workspaceID: workspaceID,
-            windowID: windowID
+            windowID: windowID,
+            hasRunningAgents: hasRunningAgents
         )
         return await requestApproval(for: request)
     }

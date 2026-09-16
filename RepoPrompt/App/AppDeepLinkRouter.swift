@@ -6,6 +6,8 @@ final class AppDeepLinkRouter {
 	static let shared = AppDeepLinkRouter()
 
 	private let windowStatesManager: WindowStatesManager
+	/// Set once by `RepoPromptApp.init`. Routes dispatch through it once the shell has started.
+	private(set) var actionService: WorkspaceShellActionService?
 
 	private init() {
 		self.windowStatesManager = WindowStatesManager.shared
@@ -13,6 +15,10 @@ final class AppDeepLinkRouter {
 
 	init(windowStatesManager: WindowStatesManager) {
 		self.windowStatesManager = windowStatesManager
+	}
+
+	func configure(actionService: WorkspaceShellActionService) {
+		self.actionService = actionService
 	}
 
 	func route(url: URL) async {
@@ -70,6 +76,9 @@ final class AppDeepLinkRouter {
 	}
 
 	private func legacyTargetWindow(for url: URL) -> WindowState? {
+		if windowStatesManager.shell != nil {
+			return windowStatesManager.visibleWindowState
+		}
 		switch Self.legacyWindowPreference(for: url) {
 		case .earliest:
 			return windowStatesManager.allWindows.first

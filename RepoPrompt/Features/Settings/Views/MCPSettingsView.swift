@@ -29,6 +29,19 @@ struct MCPSettingsView: View {
 		)
 	}
 
+	/// App-wide under the shell (one flag fans out to every workspace runtime); per window on the legacy path.
+	private var toolsEnabledBinding: Binding<Bool> {
+		Binding(
+			get: { vm.windowToolsEnabled },
+			set: { enabled in
+				if let shell = WindowStatesManager.shared.shell {
+					shell.isMCPToolsEnabled = enabled
+				}
+				vm.windowToolsEnabled = enabled
+			}
+		)
+	}
+
 	private var showModelPresetsBinding: Binding<Bool> {
 		Binding(
 			get: { globalSettings.mcpShowModelPresets() },
@@ -168,9 +181,9 @@ struct MCPSettingsView: View {
 					.hoverTooltip("Abort the current tool call")
 				}
 
-				Toggle("", isOn: $vm.windowToolsEnabled)
+				Toggle("", isOn: toolsEnabledBinding)
 					.toggleStyle(SwitchToggleStyle())
-					.hoverTooltip("Enable MCP tools for this window")
+					.hoverTooltip("Enable MCP tools")
 			}
 
 			// Auto-start and connections

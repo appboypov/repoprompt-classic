@@ -6257,18 +6257,26 @@ extension PromptViewModel {
 	}
 	
 	/// Generate MCP metadata block with window and tab binding information.
-	/// Tab info is always included; window info only when multiple windows are open.
+	/// Tab info is always included. Under the shell the block names the shell window and this runtime's
+	/// workspace so an agent knows which workspace it serves; on the legacy path window info appears only
+	/// when multiple windows are open.
 	func generateMCPMetadataBlock(
 		tabOverride: (id: UUID, name: String)? = nil,
 		includeWindowRouting: Bool = true
 	) -> String? {
-		let windows = WindowStatesManager.shared.allWindows
-		let hasMultipleWindows = windows.count > 1
+		let manager = WindowStatesManager.shared
+		let windows = manager.allWindows
+		let hasMultipleWindows = manager.shell == nil && windows.count > 1
 
 		var lines: [String] = []
-		
-		// Add window/workspace info only if multiple windows
-		if hasMultipleWindows {
+
+		if let shellWindowID = manager.shellWindowID {
+			lines.append("window_id: \(shellWindowID)")
+			if let state = windows.first(where: { $0.windowID == self.windowID }) {
+				let displayName = state.workspaceManager.activeWorkspace?.name ?? state.workspaceDisplayName
+				lines.append("workspace_name: \(displayName)")
+			}
+		} else if hasMultipleWindows {
 			lines.append("window_id: \(windowID)")
 			if let state = windows.first(where: { $0.windowID == self.windowID }) {
 				if let instance = state.workspaceInstanceNumber {
