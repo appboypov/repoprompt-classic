@@ -75,8 +75,18 @@ struct WorkspaceApprovalOverlayView: View {
             Divider()
                 .background(Color.primary.opacity(0.1))
             
-            // Actions
-            actionsSection
+            // Actions: a delete presents the same choice the sidebar does
+            if isRemoval {
+                WorkspaceRemoveConfirmationView(
+                    workspaceName: request.workspaceName ?? "",
+                    hasRunningAgents: request.hasRunningAgents,
+                    onConfirm: { Task { await allow() } },
+                    onCancel: { Task { await deny() } }
+                )
+                .frame(maxWidth: .infinity)
+            } else {
+                actionsSection
+            }
         }
         .frame(width: 440)
         .background(cardBackground)
@@ -151,19 +161,27 @@ struct WorkspaceApprovalOverlayView: View {
     
     // MARK: - Content Section
     
+    private var isRemoval: Bool { request.operation == .deleteWorkspace }
+
     private var contentSection: some View {
         VStack(spacing: 20) {
             // Client info card
             clientInfoCard
             
-            // Operation details card
-            operationDetailsCard
+            // Operation details card; a delete states its consequence in the confirmation body instead
+            if !isRemoval {
+                operationDetailsCard
+            }
             
-            // Risk warning
-            riskWarningView
+            // Risk warning; the removal body states the consequence itself
+            if !isRemoval {
+                riskWarningView
+            }
             
-            // Always allow toggle
-            alwaysAllowToggle
+            // Always allow toggle; a busy delete always prompts, so the toggle has nothing to skip
+            if !(isRemoval && request.hasRunningAgents) {
+                alwaysAllowToggle
+            }
         }
         .padding(24)
     }
@@ -367,12 +385,8 @@ struct WorkspaceApprovalOverlayView: View {
         .padding(20)
     }
 
-    /// A delete that stops running agents names that consequence instead of a bare Allow.
     private var allowButtonTitle: String {
-        if request.operation == .deleteWorkspace, request.hasRunningAgents {
-            return "Stop and remove"
-        }
-        return alwaysAllow ? "Always Allow" : "Allow Once"
+        alwaysAllow ? "Always Allow" : "Allow Once"
     }
     
     // MARK: - Actions
@@ -402,7 +416,7 @@ struct WorkspaceApprovalOverlayView: View {
 
 // MARK: - Custom Button Styles
 
-private struct WorkspaceApprovalAllowButtonStyle: ButtonStyle {
+struct WorkspaceApprovalAllowButtonStyle: ButtonStyle {
     let riskLevel: WorkspaceApprovalRiskLevel
     
     private var buttonColor: Color {
@@ -438,7 +452,7 @@ private struct WorkspaceApprovalAllowButtonStyle: ButtonStyle {
     }
 }
 
-private struct WorkspaceApprovalDenyButtonStyle: ButtonStyle {
+struct WorkspaceApprovalDenyButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundColor(.primary)
@@ -482,6 +496,17 @@ struct WorkspaceApprovalOverlayView_Previews: PreviewProvider {
             )
         )
         .previewDisplayName("Delete Workspace")
+
+        WorkspaceApprovalOverlayView(
+            approvalManager: manager,
+            request: WorkspaceApprovalRequest(
+                clientID: "cursor-mcp-client",
+                operation: .deleteWorkspace,
+                workspaceName: "OldProject",
+                hasRunningAgents: true
+            )
+        )
+        .previewDisplayName("Delete Workspace (agent running)")
     }
 }
 #endif

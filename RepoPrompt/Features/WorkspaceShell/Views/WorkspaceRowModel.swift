@@ -21,6 +21,17 @@ struct WorkspaceRowModel: Identifiable, Equatable, Sendable {
 		initials = Self.initials(for: summary.name)
 	}
 
+	/// Fixture initializer for previews and tests.
+	init(id: UUID = UUID(), name: String, rootCount: Int, isVisible: Bool = false, isAvailable: Bool = true, hasRunningAgents: Bool = false) {
+		self.id = id
+		self.name = name
+		self.rootCount = rootCount
+		self.isVisible = isVisible
+		self.isAvailable = isAvailable
+		self.hasRunningAgents = hasRunningAgents
+		initials = Self.initials(for: name)
+	}
+
 	static func initials(for name: String) -> String {
 		let words = name.split(whereSeparator: { $0.isWhitespace }).prefix(2)
 		let letters = words.compactMap { $0.first }.map { String($0).uppercased() }
