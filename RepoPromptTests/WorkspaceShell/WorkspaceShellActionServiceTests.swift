@@ -184,4 +184,9 @@ final class WorkspaceShellActionServiceTests: XCTestCase {
 		let byName = try await service.dispatch(.openRoute(OpenRoutePayload(target: .workspace(id: nil, name: "Nope"))))
 		XCTAssertEqual(byName.visibleWorkspaceID, a)
 	}
+
+	func testEveryActionNameHasAHandler() async {
+		let service = await makeStartedService()
+		XCTAssertEqual(service.registeredActionNames, Set(WorkspaceShellActionName.allCases))
+	}
 }

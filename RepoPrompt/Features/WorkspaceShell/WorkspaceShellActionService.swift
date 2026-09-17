@@ -38,6 +38,9 @@ final class WorkspaceShellActionService {
 		}
 	}
 
+	/// Every action name with a handler; the parity test holds this equal to `WorkspaceShellActionName.allCases`.
+	var registeredActionNames: Set<WorkspaceShellActionName> { Set(registry.keys) }
+
 	// MARK: - Dispatch
 
 	func dispatch(_ name: WorkspaceShellActionName, payload: WorkspaceShellActionPayload) async throws -> WorkspaceShellSnapshot {
