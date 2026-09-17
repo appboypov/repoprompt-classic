@@ -171,6 +171,37 @@ final class WindowCloseCoordinatorTests: XCTestCase {
 		XCTAssertEqual(decision, .allow)
 	}
 
+	func testAggregateCountsInactiveRuntimeSessionsAndAnyEnabledMCP() {
+		let agentItem = { (count: Int) in
+			WorkspaceSwitchSessionItem(id: "agent-mode", count: count, singularLabel: "agent run", pluralLabel: "agent runs")
+		}
+		let snapshot = WindowCloseImpactSnapshot.aggregate(
+			sessionSnapshots: [
+				WorkspaceSwitchSessionSnapshot(items: []),
+				WorkspaceSwitchSessionSnapshot(items: [agentItem(2)]),
+				WorkspaceSwitchSessionSnapshot(items: [agentItem(1), WorkspaceSwitchSessionItem(id: "chat", count: 1, singularLabel: "chat", pluralLabel: "chats")])
+			],
+			mcpStates: [
+				.inactive,
+				.init(toolsEnabled: true, liveConnectionCount: 2, activeExecutionCount: 1, hasIdleLiveConnections: false, activeToolName: nil),
+				.init(toolsEnabled: true, liveConnectionCount: 1, activeExecutionCount: 2, hasIdleLiveConnections: true, activeToolName: "read_file")
+			],
+			isTerminating: false
+		)
+
+		XCTAssertTrue(snapshot.isLastAppWindow)
+		XCTAssertTrue(snapshot.isLastMCPEnabledWindow)
+		XCTAssertEqual(snapshot.activeItems.map(\.id), ["agent-mode", "chat"])
+		XCTAssertEqual(snapshot.activeItems.map(\.count), [3, 1])
+		XCTAssertEqual(snapshot.mcp.liveConnectionCount, 2)
+		XCTAssertEqual(snapshot.mcp.activeExecutionCount, 3)
+		XCTAssertTrue(snapshot.mcp.hasIdleLiveConnections)
+		XCTAssertEqual(snapshot.mcp.activeToolName, "read_file")
+		guard case .confirm = WindowCloseCoordinator.decide(snapshot: snapshot, authorization: nil) else {
+			return XCTFail("aggregate with active work must confirm")
+		}
+	}
+
 	private func makeSnapshot(
 		isTerminating: Bool = false,
 		isLastAppWindow: Bool = false,

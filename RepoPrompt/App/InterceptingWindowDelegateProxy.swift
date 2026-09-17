@@ -4,6 +4,8 @@ import AppKit
 final class InterceptingWindowDelegateProxy: NSObject, NSWindowDelegate {
 	weak var windowState: WindowState?
 	weak var forwardedDelegate: NSWindowDelegate?
+	/// Runs first in `windowWillClose`. The shell flushes every retained runtime here.
+	var willCloseHandler: (() -> Void)?
 
 	init(windowState: WindowState, forwardedDelegate: NSWindowDelegate?) {
 		self.windowState = windowState
@@ -31,20 +33,17 @@ final class InterceptingWindowDelegateProxy: NSObject, NSWindowDelegate {
 	}
 
 	func windowWillClose(_ notification: Notification) {
+		willCloseHandler?()
 		windowState?.closeCoordinator.windowWillClose()
 		// Backstop: ensure beginClose is called even if windowShouldClose was bypassed.
 		windowState?.beginClose()
 
-		if let windowID = windowState?.windowID {
-			MCPBackgroundModeCoordinator.shared.clearIfBackgroundedWindow(windowID: windowID)
-		}
+		MCPBackgroundModeCoordinator.shared.clearIfBackgrounded()
 		forwardedDelegate?.windowWillClose?(notification)
 	}
 
 	func windowDidBecomeKey(_ notification: Notification) {
-		if let windowID = windowState?.windowID {
-			MCPBackgroundModeCoordinator.shared.clearIfBackgroundedWindow(windowID: windowID)
-		}
+		MCPBackgroundModeCoordinator.shared.clearIfBackgrounded()
 		forwardedDelegate?.windowDidBecomeKey?(notification)
 	}
 

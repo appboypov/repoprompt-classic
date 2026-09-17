@@ -26,7 +26,6 @@ extension KeyboardShortcuts.Name {
 	
 	// New shortcuts for saving workspace and presets
 	static let cmdS       = Self("cmdS",       default: .init(.s, modifiers: [.command]))
-	static let cmdShiftS  = Self("cmdShiftS3",  default: .init(.s, modifiers: [.command, .shift]))
 	static let cmdOptionS = Self("cmdOptionS", default: .init(.s, modifiers: [.command, .option]))
 	static let cmdOptionP = Self("cmdOptionP", default: .init(.p, modifiers: [.command, .option]))
 	
@@ -54,4 +53,16 @@ extension KeyboardShortcuts.Name {
 	static let switchToComposeTab7 = Self("swComposeTab7", default: .init(.seven, modifiers: [.command]))
 	static let switchToComposeTab8 = Self("swComposeTab8", default: .init(.eight, modifiers: [.command]))
 	static let switchToComposeTab9 = Self("swComposeTab9", default: .init(.nine, modifiers: [.command]))
+
+	// Workspace shell. Cmd+1..9 belongs to compose tabs, so workspaces use Ctrl+Cmd.
+	static let toggleWorkspaceSidebar = Self("workspaceSidebarToggle", default: .init(.w, modifiers: [.command, .control]))
+	static let switchToWorkspace1 = Self("swWorkspace1", default: .init(.one, modifiers: [.command, .control]))
+	static let switchToWorkspace2 = Self("swWorkspace2", default: .init(.two, modifiers: [.command, .control]))
+	static let switchToWorkspace3 = Self("swWorkspace3", default: .init(.three, modifiers: [.command, .control]))
+	static let switchToWorkspace4 = Self("swWorkspace4", default: .init(.four, modifiers: [.command, .control]))
+	static let switchToWorkspace5 = Self("swWorkspace5", default: .init(.five, modifiers: [.command, .control]))
+	static let switchToWorkspace6 = Self("swWorkspace6", default: .init(.six, modifiers: [.command, .control]))
+	static let switchToWorkspace7 = Self("swWorkspace7", default: .init(.seven, modifiers: [.command, .control]))
+	static let switchToWorkspace8 = Self("swWorkspace8", default: .init(.eight, modifiers: [.command, .control]))
+	static let switchToWorkspace9 = Self("swWorkspace9", default: .init(.nine, modifiers: [.command, .control]))
 }

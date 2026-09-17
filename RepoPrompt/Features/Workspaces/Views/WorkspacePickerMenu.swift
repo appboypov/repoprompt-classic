@@ -13,7 +13,6 @@ struct WorkspacePickerMenu<Label: View>: View {
 	@ObservedObject var workspaceManager: WorkspaceManagerViewModel
 	var query: WorkspaceMenuQuery = .init()
 	var includeSaveActions: Bool = false
-	var includeExitAction: Bool = false
 	var onManageWorkspaces: () -> Void
 	@ViewBuilder var label: () -> Label
 
@@ -65,18 +64,6 @@ struct WorkspacePickerMenu<Label: View>: View {
 				menuRow(title: "Save Workspace (⌘S)", isSelected: false, isDisabled: false) {
 					isPresented = false
 					workspaceManager.pollAndSaveState()
-				}
-				menuRow(title: "Save & Exit Workspace (⇧⌘S)", isSelected: false, isDisabled: false) {
-					isPresented = false
-					Task { await workspaceManager.saveAndExitToFallback() }
-				}
-			} else if includeExitAction,
-				let current = workspaceManager.activeWorkspace,
-				!current.isSystemWorkspace {
-				divider
-				menuRow(title: "Exit Workspace", isSelected: false, isDisabled: false) {
-					isPresented = false
-					Task { await workspaceManager.saveAndExitToFallback() }
 				}
 			}
 		}

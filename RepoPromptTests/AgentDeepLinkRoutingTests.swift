@@ -3,162 +3,85 @@ import XCTest
 
 @MainActor
 final class AgentDeepLinkRoutingTests: XCTestCase {
-	func testAgentSessionRouterPrefersExactSourceWindowBeforeWorkspaceMatch() async throws {
-		let sourceRoot = makeTempDirectory()
-		let workspaceRoot = makeTempDirectory()
-		defer {
-			try? FileManager.default.removeItem(at: sourceRoot)
-			try? FileManager.default.removeItem(at: workspaceRoot)
-		}
-		let sourceTabID = UUID()
-		let workspaceTabID = UUID()
-		let sourceWindow = await makeWindowState(
-			root: sourceRoot,
-			composeTabs: [ComposeTabState(id: sourceTabID, name: "Source", lastModified: Date())],
-			activeComposeTabID: sourceTabID
-		)
-		let workspaceWindow = await makeWindowState(
-			root: workspaceRoot,
-			composeTabs: [ComposeTabState(id: workspaceTabID, name: "Workspace", lastModified: Date())],
-			activeComposeTabID: workspaceTabID
-		)
-		defer {
-			Task { await sourceWindow.tearDown() }
-			Task { await workspaceWindow.tearDown() }
-		}
-		let workspace = try XCTUnwrap(workspaceWindow.workspaceManager.activeWorkspace)
-		let route = AgentSessionDeepLinkRoute(
-			windowID: sourceWindow.windowID,
-			workspaceID: workspace.id,
-			tabID: UUID()
-		)
+	private var storageRoot: URL!
+	private var previousStoragePath: String?
+	private var shell: WorkspaceShellViewModel?
 
-		let target = AppDeepLinkRouter.agentSessionPreferredExistingWindow(
-			for: route,
-			in: [workspaceWindow, sourceWindow]
-		)
-
-		XCTAssertEqual(target?.windowID, sourceWindow.windowID)
+	override func setUp() async throws {
+		try await super.setUp()
+		storageRoot = FileManager.default.temporaryDirectory
+			.appendingPathComponent("AgentDeepLinkRoutingTests-\(UUID().uuidString)", isDirectory: true)
+		try FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
+		previousStoragePath = UserDefaults.standard.string(forKey: "GlobalCustomStorageURL")
+		UserDefaults.standard.set(storageRoot.path, forKey: "GlobalCustomStorageURL")
 	}
 
-	func testAgentSessionRouterFallsBackToWorkspaceMatchingWindowWithoutSource() async throws {
-		let firstRoot = makeTempDirectory()
-		let workspaceRoot = makeTempDirectory()
-		defer {
-			try? FileManager.default.removeItem(at: firstRoot)
-			try? FileManager.default.removeItem(at: workspaceRoot)
+	override func tearDown() async throws {
+		await shell?.stop()
+		shell = nil
+		if let previousStoragePath {
+			UserDefaults.standard.set(previousStoragePath, forKey: "GlobalCustomStorageURL")
+		} else {
+			UserDefaults.standard.removeObject(forKey: "GlobalCustomStorageURL")
 		}
-		let firstTabID = UUID()
-		let workspaceTabID = UUID()
-		let firstWindow = await makeWindowState(
-			root: firstRoot,
-			composeTabs: [ComposeTabState(id: firstTabID, name: "First", lastModified: Date())],
-			activeComposeTabID: firstTabID
-		)
-		let workspaceWindow = await makeWindowState(
-			root: workspaceRoot,
-			composeTabs: [ComposeTabState(id: workspaceTabID, name: "Workspace", lastModified: Date())],
-			activeComposeTabID: workspaceTabID
-		)
-		defer {
-			Task { await firstWindow.tearDown() }
-			Task { await workspaceWindow.tearDown() }
-		}
-		let workspace = try XCTUnwrap(workspaceWindow.workspaceManager.activeWorkspace)
-		let route = AgentSessionDeepLinkRoute(workspaceID: workspace.id, tabID: UUID())
-
-		let target = AppDeepLinkRouter.agentSessionPreferredExistingWindow(
-			for: route,
-			in: [firstWindow, workspaceWindow]
-		)
-
-		XCTAssertEqual(target?.windowID, workspaceWindow.windowID)
+		try? FileManager.default.removeItem(at: storageRoot)
+		try await super.tearDown()
 	}
 
-	func testAgentSessionRouterDoesNotOpenOrQueueWhenNoExistingWindowCanRoute() async throws {
-		let unrelatedRoot = makeTempDirectory()
-		defer { try? FileManager.default.removeItem(at: unrelatedRoot) }
-		let unrelatedTabID = UUID()
-		let unrelatedWindow = await makeWindowState(
-			root: unrelatedRoot,
-			composeTabs: [ComposeTabState(id: unrelatedTabID, name: "Unrelated", lastModified: Date())],
-			activeComposeTabID: unrelatedTabID
-		)
-		defer { Task { await unrelatedWindow.tearDown() } }
-
-		let manager = WindowStatesManager.shared
-		let originalWindows = manager.allWindows
-		let originalPendingURLs = manager.pendingURLs
-		var openerCallCount = 0
-		AppWindowOpener.shared.installForTesting {
-			openerCallCount += 1
-		}
-		defer {
-			manager.allWindows = originalWindows
-			manager.pendingURLs = originalPendingURLs
-			AppWindowOpener.shared.resetForTesting()
-		}
-		manager.allWindows = [unrelatedWindow]
-		manager.pendingURLs = []
-
-		let route = AgentSessionDeepLinkRoute(workspaceID: UUID(), tabID: UUID())
-		await AppDeepLinkRouter(windowStatesManager: manager).route(notificationRoute: route)
-
-		XCTAssertEqual(openerCallCount, 0)
-		XCTAssertEqual(manager.allWindows.map(\.windowID), [unrelatedWindow.windowID])
-		XCTAssertTrue(manager.pendingURLs.isEmpty)
-		XCTAssertNotEqual(unrelatedWindow.workspaceManager.activeWorkspace?.id, route.workspaceID)
+	/// A shell with workspaces A (visible) and B, plus the router wired to its action service.
+	private func makeStartedRouter() async throws -> (router: AppDeepLinkRouter, a: UUID, b: UUID) {
+		let shell = WorkspaceShellViewModel(preparesRemainingInBackground: false)
+		self.shell = shell
+		let service = WorkspaceShellActionService(viewModel: shell)
+		await shell.start()
+		let a = try await shell.add(name: "A", folderPath: makeRoot("a"), makeVisible: true)
+		let b = try await shell.add(name: "B", folderPath: makeRoot("b"), makeVisible: false)
+		let router = AppDeepLinkRouter(windowStatesManager: WindowStatesManager.shared, actionService: service)
+		return (router, a, b)
 	}
 
-	func testAgentSessionRouterUsesExistingResolvableFallbackWindowBeforeGivingUp() async throws {
-		let activeRoot = makeTempDirectory()
-		let targetRoot = makeTempDirectory()
-		defer {
-			try? FileManager.default.removeItem(at: activeRoot)
-			try? FileManager.default.removeItem(at: targetRoot)
-		}
-		let activeTabID = UUID()
-		let targetTabID = UUID()
-		let sessionID = UUID()
-		let windowState = await makeWindowState(
-			activeRoot: activeRoot,
-			activeTab: ComposeTabState(id: activeTabID, name: "Active Workspace", lastModified: Date()),
-			targetRoot: targetRoot,
-			targetTab: ComposeTabState(id: targetTabID, name: "Target Workspace", lastModified: Date(), activeAgentSessionID: sessionID)
-		)
-		defer { Task { await windowState.tearDown() } }
-		let targetWorkspace = try XCTUnwrap(windowState.workspaceManager.workspaces.first(where: { workspace in
-			workspace.composeTabs.contains(where: { $0.id == targetTabID })
-		}))
+	private func makeRoot(_ name: String) throws -> String {
+		let url = storageRoot.appendingPathComponent(name, isDirectory: true)
+		try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+		return url.path
+	}
 
-		let manager = WindowStatesManager.shared
-		let originalWindows = manager.allWindows
-		let originalPendingURLs = manager.pendingURLs
-		var openerCallCount = 0
-		AppWindowOpener.shared.installForTesting {
-			openerCallCount += 1
-		}
-		defer {
-			manager.allWindows = originalWindows
-			manager.pendingURLs = originalPendingURLs
-			AppWindowOpener.shared.resetForTesting()
-		}
-		manager.allWindows = [windowState]
-		manager.pendingURLs = []
+	func testOpenRouteSelectsWorkspaceBeforeRoutingSession() async throws {
+		let (router, a, b) = try await makeStartedRouter()
+		let shell = try XCTUnwrap(shell)
+		XCTAssertEqual(shell.snapshot.visibleWorkspaceID, a)
+		let tabID = try XCTUnwrap(shell.runtime(for: b)?.promptManager.activeComposeTabID)
 
-		await AppDeepLinkRouter(windowStatesManager: manager).route(
-			notificationRoute: AgentSessionDeepLinkRoute(
-				workspaceID: targetWorkspace.id,
-				tabID: targetTabID,
-				sessionID: sessionID
-			)
-		)
+		await router.route(url: AgentSessionDeepLinkRoute(workspaceID: b, tabID: tabID).url)
 
-		XCTAssertEqual(openerCallCount, 0)
-		XCTAssertTrue(manager.pendingURLs.isEmpty)
-		XCTAssertEqual(windowState.workspaceManager.activeWorkspace?.id, targetWorkspace.id)
-		XCTAssertEqual(windowState.promptManager.activeComposeTabID, targetTabID)
-		XCTAssertEqual(windowState.uiMode, .agent)
+		XCTAssertEqual(shell.snapshot.visibleWorkspaceID, b)
+		XCTAssertEqual(shell.runtime(for: b)?.promptManager.activeComposeTabID, tabID)
+		XCTAssertTrue(WindowStatesManager.shared.pendingURLs.isEmpty)
+	}
+
+	func testOpenRouteWithUnknownWorkspaceActivatesAppOnly() async throws {
+		let (router, a, _) = try await makeStartedRouter()
+		let shell = try XCTUnwrap(shell)
+
+		await router.route(url: URL(string: "repoprompt://workspace?id=\(UUID().uuidString)")!)
+
+		XCTAssertEqual(shell.snapshot.visibleWorkspaceID, a)
+		XCTAssertTrue(WindowStatesManager.shared.pendingURLs.isEmpty)
+	}
+
+	func testRouteBeforeShellStartQueuesURLAndStartDrainsIt() async throws {
+		let shell = WorkspaceShellViewModel(preparesRemainingInBackground: false)
+		self.shell = shell
+		let service = WorkspaceShellActionService(viewModel: shell)
+		let router = AppDeepLinkRouter(windowStatesManager: WindowStatesManager.shared, actionService: service)
+		WindowStatesManager.shared.pendingURLs = []
+		let url = URL(string: "repoprompt://workspace?name=Nowhere")!
+
+		await router.route(url: url)
+		XCTAssertEqual(WindowStatesManager.shared.pendingURLs, [url])
+
+		await shell.start()
+		XCTAssertTrue(WindowStatesManager.shared.pendingURLs.isEmpty)
 	}
 
 	func testRouteToAgentSessionSelectsTargetTabAndHydratesMatchingBinding() async throws {

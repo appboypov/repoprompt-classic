@@ -109,14 +109,4 @@ final class AppDeepLinkRouteTests: XCTestCase {
 		XCTAssertEqual(AppDeepLinkRoute.parse(url: malformedSession), .invalidScopedRoute)
 		XCTAssertEqual(AppDeepLinkRoute.parse(url: unsupportedAgentPath), .invalidScopedRoute)
 	}
-
-	func testLegacyWindowPreferenceMatchesPreviousPromptAndOpenRouting() throws {
-		let promptURL = try XCTUnwrap(URL(string: "repoprompt://prompt?title=Hello"))
-		let openURL = try XCTUnwrap(URL(string: "repoprompt://open/~/Documents/Project"))
-		let otherLegacyURL = try XCTUnwrap(URL(string: "repoprompt://workspace/switch?name=RepoPrompt"))
-
-		XCTAssertEqual(AppDeepLinkRouter.legacyWindowPreference(for: promptURL), .earliest)
-		XCTAssertEqual(AppDeepLinkRouter.legacyWindowPreference(for: openURL), .latest)
-		XCTAssertEqual(AppDeepLinkRouter.legacyWindowPreference(for: otherLegacyURL), .latest)
-	}
 }

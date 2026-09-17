@@ -73,7 +73,22 @@ struct RepoPromptApp: App {
 		if !AppLaunchConfiguration.current.suppressesWindowRestore {
 			WindowStatesManager.shared.loadWindowRestoreSessionIfNeeded()
 		}
+
+		let shell = WorkspaceShellViewModel()
+		let actionService = WorkspaceShellActionService(viewModel: shell)
+		Self.shellActionService = actionService
+		AppDeepLinkRouter.shared.configure(actionService: actionService)
+		_shellViewModel = StateObject(wrappedValue: shell)
+		Task { @MainActor in
+			await shell.start()
+		}
 	}
+
+	/// The one action service, read by `AppDelegate` when it builds the MCP routing service.
+	@MainActor private(set) static var shellActionService: WorkspaceShellActionService?
+
+	/// The single-window shell: owns every workspace runtime and the one native window.
+	@StateObject private var shellViewModel: WorkspaceShellViewModel
 
 	/// Make sure we define AppDelegate first, so it's available in init
 	@NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -89,28 +104,32 @@ struct RepoPromptApp: App {
 	
 	// MARK: - Body
 	var body: some Scene {
-		WindowGroup(id: "main") {
-			// IMPORTANT: Each time a new SwiftUI window/scene is created,
-			// we instantiate a fresh ContentView_WithState (and thus a new WindowState)
-			ContentView_WithState()
+		Window("Repo Prompt", id: "main") {
+			WorkspaceShellRootView(shellViewModel: shellViewModel, actionService: Self.shellActionService!)
 				.environmentObject(versionManager)
 				.environmentObject(windowStatesManager)
+				.environmentObject(shellViewModel)
 				.environmentObject(fontScale)
 				.toolbarRole(.automatic)
 				.frame(minWidth: 948, idealWidth: 1080, minHeight: 600)
 				// Override environment font
 				.environment(\.font, fontScale.preset.font)
 				.environment(\.repoPromptFontScalePreset, fontScale.preset)
-				// Advertise URL handling on existing windows so SwiftUI does not create
-				// an extra scene before the global deep-link router can choose the target.
-				.handlesExternalEvents(preferring: ["*"], allowing: ["*"])
-			.onOpenURL { incomingURL in
-				Task { @MainActor in
-					await AppDeepLinkRouter.shared.route(url: incomingURL)
+				.sheet(
+					isPresented: Binding(
+						get: { versionManager.shouldShowTransitionNotice },
+						set: { newValue in
+							if newValue == false {
+								versionManager.dismissTransitionNotice()
+							}
+						}
+					)
+				) {
+					TransitionNoticeView {
+						versionManager.dismissTransitionNotice()
+					}
 				}
-			}
 		}
-		//.windowStyle(.hiddenTitleBar)
 		.windowStyle(.automatic)
 		.windowToolbarStyle(.unified)
 		.commands {
@@ -127,7 +146,9 @@ struct RepoPromptApp: App {
 				.keyboardShortcut(",", modifiers: .command)
 			}
 			
-			// ➜ New File-menu commands (Save Workspace / Exit Workspace)
+			// The shell is the only window; nothing may reintroduce "New Window".
+			CommandGroup(replacing: .newItem) {}
+
 			WorkspaceCommands(windowStatesManager: windowStatesManager)
 
 			CommandGroup(before: .saveItem) {

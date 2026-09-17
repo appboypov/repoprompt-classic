@@ -5597,13 +5597,27 @@ actor ServerNetworkManager {
 				// ═══════════════════════════════════════════════════════════════
 				// When provided, _windowID always takes precedence, even over
 				// existing connection mappings. This enables explicit window targeting.
-				if !bypassWindowRouting, let requestedWindowID = capturedWindowID {
+				if !bypassWindowRouting, let publicWindowID = capturedWindowID {
+					// Under the shell the public ID maps onto the connection's runtime; the runtime ID is what routes.
+					let requestedWindowID: Int
+					do {
+						requestedWindowID = try await WindowStatesManager.shared.resolveRuntimeWindowID(publicWindowID: publicWindowID, connectionID: connectionID) ?? publicWindowID
+					} catch {
+						return Self.toolErrorResult(
+							rawJSON: capturedRawJSON,
+							message: Self.invalidWindowSelectionGuidance(
+								windowID: publicWindowID,
+								purpose: policy.purpose,
+								restrictedTools: policy.restricted
+							)
+						)
+					}
 					let windowValid = await WindowStatesManager.shared.hasWindowWithMCPEnabled(requestedWindowID)
 					guard windowValid else {
 						return Self.toolErrorResult(
 							rawJSON: capturedRawJSON,
 							message: Self.invalidWindowSelectionGuidance(
-								windowID: requestedWindowID,
+								windowID: publicWindowID,
 								purpose: policy.purpose,
 								restrictedTools: policy.restricted
 							)
@@ -5834,12 +5848,17 @@ actor ServerNetworkManager {
 					let effectiveArgs: [String: Value]
 					let effectiveArgsForFormatter: [String: Value]
 					if Self.shouldAutoInjectPublicWindowID(for: toolName) {
-						let routingWindowID: Int? = {
-							if let wsSvc {
-								return capturedWindowID ?? chosenID ?? wsSvc.windowID
-							}
-							return capturedWindowID ?? chosenID
-						}()
+						// Tools see the public window ID; under the shell every runtime answers as the one window.
+						let routingWindowID: Int? = await MainActor.run {
+							let runtimeID: Int? = {
+								if let wsSvc {
+									return capturedWindowID ?? chosenID ?? wsSvc.windowID
+								}
+								return capturedWindowID ?? chosenID
+							}()
+							guard runtimeID != nil, let shellWindowID = WindowStatesManager.shared.shellWindowID else { return runtimeID }
+							return shellWindowID
+						}
 						effectiveArgs = self.injectWindowIDIfNeeded(
 							schema: toolDef.inputSchema,
 							routingWindowID: routingWindowID,

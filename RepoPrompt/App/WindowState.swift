@@ -81,6 +81,20 @@ struct AppCommand {
 	/// When false, skip saving changes to disk/index. If nil or true, persist by default.
 	let persist: Bool?
 	
+	/// The same command aimed at the runtime that already shows the target workspace.
+	func withoutWorkspaceTarget() -> AppCommand {
+		AppCommand(
+			workspaceName: nil,
+			fileList: fileList,
+			promptText: promptText,
+			folderPath: nil,
+			newPrompt: newPrompt,
+			focus: focus,
+			ephemeral: ephemeral,
+			persist: persist
+		)
+	}
+
 	var isEmpty: Bool {
 		return workspaceName == nil
 			&& fileList.isEmpty
@@ -114,6 +128,22 @@ class WindowState: ObservableObject {
 	private var suppressGlobalUIModePersistence = false
 	
 	/// Current UI mode (IDE vs Agent). Captured per window session; `windowUIMode` is only a legacy/default fallback.
+	/// Hosts this runtime's content as its own view graph, so a hidden runtime costs no SwiftUI
+	/// updates. Scene bridging stays off: the shell root owns the window toolbar.
+	lazy var hostingController: NSHostingController<AnyView> = {
+		let controller = NSHostingController(rootView: AnyView(WorkspaceRuntimeRootView(windowState: self)))
+		controller.sceneBridgingOptions = []
+		return controller
+	}()
+
+	/// Recommendation wizard behind the toolbar button; shared by the toolbar and workspace creation.
+	lazy var recommendationWizardViewModel = RecommendationWizardViewModel(
+		engine: AutoRecommendationEngine(settingsStore: GlobalSettingsStore.shared, apiSettingsViewModel: apiSettingsViewModel),
+		settingsStore: GlobalSettingsStore.shared,
+		workspaceManager: workspaceManager,
+		windowID: windowID
+	)
+
 	@Published var uiMode: WindowUIMode = .ide {
 		didSet {
 			if !suppressGlobalUIModePersistence,
@@ -307,12 +337,21 @@ class WindowState: ObservableObject {
 	
 	private var pendingRestoreEntry: WindowSessionEntry?
 	private var deferredGlobalUIModeFallbackOnInit = false
-	private(set) var claimedInitialAgentSystemWorkspaceRefreshDeferralID: UUID?
-	private(set) var claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID: UUID?
 	
 	// MARK: - Initialization
+
+	/// How this state was created. `.shellRuntime` retains one catalog workspace under the shell and
+	/// defers its first activation to the shell; `.shellHost` is the shell's always-on system runtime.
+	enum Launch {
+		case standalone
+		case shellHost
+		case shellRuntime
+	}
+
+	let launch: Launch
 	
-	init() {
+	init(launch: Launch = .standalone) {
+		self.launch = launch
 		#if DEBUG
 		let initStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 		let initialGlobalUIMode = UserDefaults.standard.string(forKey: "windowUIMode") ?? "nil"
@@ -327,10 +366,6 @@ class WindowState: ObservableObject {
 		// Load persisted UI mode
 		let savedMode = UserDefaults.standard.string(forKey: "windowUIMode")
 		let deferredGlobalFallbackForRestore = manager.shouldDeferGlobalUIModeFallbackForNewWindow
-		let claimedInitialAgentSystemWorkspaceRefreshDeferral = manager.claimInitialAgentSystemWorkspaceRefreshDeferralForNewWindow()
-		let deferredInitialAgentSystemWorkspaceRefresh = claimedInitialAgentSystemWorkspaceRefreshDeferral != nil
-		self.claimedInitialAgentSystemWorkspaceRefreshDeferralID = claimedInitialAgentSystemWorkspaceRefreshDeferral?.id
-		self.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID = claimedInitialAgentSystemWorkspaceRefreshDeferral?.waiterID
 		self.deferredGlobalUIModeFallbackOnInit = deferredGlobalFallbackForRestore
 		self.uiMode = WindowInitialUIModeResolver.resolve(
 			forcedMode: AppLaunchConfiguration.current.forcedWindowUIMode,
@@ -380,7 +415,8 @@ class WindowState: ObservableObject {
 		#endif
 		self.workspaceManager = WorkspaceManagerViewModel(
 			fileManager: self.fileManager,
-			promptViewModel: self.promptManager
+			promptViewModel: self.promptManager,
+			initialActivation: launch == .shellRuntime ? .deferred : .defaultWorkspace
 		)
 		#if DEBUG
 		if let workspaceManagerInitStartMS {
@@ -436,9 +472,6 @@ class WindowState: ObservableObject {
 			chatViewModel: self.chatViewModel,
 			applyEditsApprovalStore: applyEditsApprovalStore
 		)
-		if deferredInitialAgentSystemWorkspaceRefresh {
-			self.agentModeViewModel.deferInitialSystemWorkspaceSessionListRefresh(reason: "programmaticNewWindowWorkspaceSwitch")
-		}
 		#if DEBUG
 		if let stressConfiguration = AppLaunchConfiguration.current.agentChatStress {
 			let agentModeViewModel = self.agentModeViewModel
@@ -558,7 +591,7 @@ class WindowState: ObservableObject {
 		if let initStartMS {
 			let workspaceManagerDuration = workspaceManagerInitDurationMS.map(WorkspaceRestorePerfLog.formatMS) ?? "notMeasured"
 			WorkspaceRestorePerfLog.log(
-				"window.init windowID=\(windowID) initialMode=\(uiMode.rawValue) globalUIMode=\(initialGlobalUIMode) forcedUIMode=\(forcedInitialUIMode) deferredGlobalFallbackForRestore=\(deferredGlobalFallbackForRestore) deferredInitialAgentSystemWorkspaceRefresh=\(deferredInitialAgentSystemWorkspaceRefresh) claimedInitialAgentDeferralID=\(claimedInitialAgentSystemWorkspaceRefreshDeferralID?.uuidString.prefix(8).description ?? "nil") claimedInitialAgentDeferralWaiterID=\(claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID?.uuidString.prefix(8).description ?? "nil") workspaceManagerInit=\(workspaceManagerDuration) total=\(WorkspaceRestorePerfLog.formatElapsedMS(since: initStartMS))"
+				"window.init windowID=\(windowID) initialMode=\(uiMode.rawValue) globalUIMode=\(initialGlobalUIMode) forcedUIMode=\(forcedInitialUIMode) deferredGlobalFallbackForRestore=\(deferredGlobalFallbackForRestore) workspaceManagerInit=\(workspaceManagerDuration) total=\(WorkspaceRestorePerfLog.formatElapsedMS(since: initStartMS))"
 			)
 		}
 		#endif
@@ -632,7 +665,8 @@ class WindowState: ObservableObject {
 	/// Attaches the NSWindow to this state and updates the title.
 	/// Uses deferred title update to avoid triggering layout during window lifecycle events
 	/// (REPOPROMPT-1K4 fix).
-	func attachWindow(_ window: NSWindow?) {
+	/// `installsDelegateProxy: false` is the shell path: the shell owns the window's single delegate proxy.
+	func attachWindow(_ window: NSWindow?, installsDelegateProxy: Bool = true) {
 		// Detach path (always do the cleanup even if both are nil)
 		if window == nil {
 			let oldWindow = nsWindow
@@ -650,7 +684,9 @@ class WindowState: ObservableObject {
 
 		if nsWindow === window {
 			configureWindowChrome(for: window)
-			ensureWindowDelegateProxy(for: window)
+			if installsDelegateProxy {
+				ensureWindowDelegateProxy(for: window)
+			}
 			scheduleFocusUpdate(from: window)
 			requestWindowTitleUpdate(reason: .windowAttached)
 			applyAgentTitlebarAccessoryIfPossible()
@@ -670,7 +706,9 @@ class WindowState: ObservableObject {
 		configureWindowChrome(for: window)
 		installFocusObservers(for: window)
 		scheduleFocusUpdate(from: window)
-		ensureWindowDelegateProxy(for: window)
+		if installsDelegateProxy {
+			ensureWindowDelegateProxy(for: window)
+		}
 		// Use deferred update to avoid recursive layout issues
 		requestWindowTitleUpdate(reason: .windowAttached)
 		// Install Agent mode titlebar accessory if requested before window was attached
@@ -1390,20 +1428,24 @@ class WindowState: ObservableObject {
 					}
 				}
 				
-				// If focus == true, attempt to bring up an existing window
-				if command.focus == true {
-					if let wsManager = self.windowStatesManager,
-						let existingWindow = wsManager.findWindowState(showing: existingWorkspace.id) {
-						NSApplication.shared.activate(ignoringOtherApps: true)
-						existingWindow.focusWindowIfPossible()
-						return
-					}
+				if existingWorkspace.id != workspaceManager.activeWorkspaceID,
+					let shell = WindowStatesManager.shared.shell {
+					await forwardThroughShell(shell, command, to: existingWorkspace.id)
+					return
 				}
 				
 				// Switch to the existing workspace in this window
 				requestedWorkspaceSwitch = true
 				let result = await workspaceManager.requestWorkspaceSwitch(to: existingWorkspace, saveState: true)
 				didSwitchWorkspace = result.didSwitch
+			} else if let shell = WindowStatesManager.shared.shell {
+				let nameGuess = folderURL.lastPathComponent
+				let workspaceName = workspaceManager.uniqueWorkspaceName(baseName: nameGuess)
+				guard let created = try? await shell.requestAdd(name: workspaceName, folderPath: folderURL.path, makeVisible: true) else {
+					return
+				}
+				await forwardThroughShell(shell, command, to: created)
+				return
 			} else {
 				// Create a brand-new workspace
 				let nameGuess = folderURL.lastPathComponent
@@ -1430,19 +1472,21 @@ class WindowState: ObservableObject {
 					}
 				}
 				
-				// If focus == true, attempt to bring up existing window
-				if command.focus == true {
-					if let wsManager = self.windowStatesManager,
-						let existingWindow = wsManager.findWindowState(showing: existing.id) {
-						NSApplication.shared.activate(ignoringOtherApps: true)
-						existingWindow.focusWindowIfPossible()
-						return
-					}
+				if existing.id != workspaceManager.activeWorkspaceID,
+					let shell = WindowStatesManager.shared.shell {
+					await forwardThroughShell(shell, command, to: existing.id)
+					return
 				}
 				
 				requestedWorkspaceSwitch = true
 				let result = await workspaceManager.requestWorkspaceSwitch(to: existing, saveState: true)
 				didSwitchWorkspace = result.didSwitch
+			} else if let shell = WindowStatesManager.shared.shell {
+				guard let created = try? await shell.requestAdd(name: workspaceName, folderPath: nil, makeVisible: true) else {
+					return
+				}
+				await forwardThroughShell(shell, command, to: created)
+				return
 			} else {
 				// Create a new workspace by name
 				let newWS = workspaceManager.createWorkspace(
@@ -1479,7 +1523,20 @@ class WindowState: ObservableObject {
 		}
 	}
 	
-	// Previous helper methods were refactored into the comprehensive handleCommand method
+	/// Shows the target workspace in the shell and hands the rest of the command to its runtime.
+	private func forwardThroughShell(_ shell: any WorkspaceShellCoordinating, _ command: AppCommand, to workspaceID: UUID) async {
+		do {
+			try await shell.requestSelect(workspaceID)
+		} catch {
+			return
+		}
+		let remainder = command.withoutWorkspaceTarget()
+		if command.focus == true {
+			NSApplication.shared.activate(ignoringOtherApps: true)
+		}
+		guard !remainder.isEmpty, let runtime = shell.runtime(for: workspaceID) else { return }
+		runtime.enqueueCommand(remainder)
+	}
 	
 	// MARK: - Window ID Management
 	

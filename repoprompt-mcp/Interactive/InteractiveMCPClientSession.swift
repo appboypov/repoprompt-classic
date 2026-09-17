@@ -231,12 +231,11 @@ actor InteractiveMCPClientSession {
 
 		// Inject hidden parameters if we have window selection
 		var args = arguments ?? [:]
-		let suppressWindowInjection = shouldSuppressWindowInjection(toolName: name, args: args)
-		let suppressContextInjection = shouldSuppressContextInjection(toolName: name)
-		if let windowID = selectedWindowID, !suppressWindowInjection {
+		let suppressInjection = shouldSuppressInjection(toolName: name)
+		if let windowID = selectedWindowID, !suppressInjection {
 			args["_windowID"] = .int(windowID)
 		}
-		if let selectedContextID, args["context_id"] == nil, !suppressContextInjection {
+		if let selectedContextID, args["context_id"] == nil, !suppressInjection {
 			args["context_id"] = .string(selectedContextID)
 		}
 
@@ -247,31 +246,12 @@ actor InteractiveMCPClientSession {
 
 		logger.debug("Calling tool: \(name)")
 		let result = try await client.callTool(name: name, arguments: args.isEmpty ? nil : args)
-
-		if result.isError != true, shouldClearWindowSelectionAfterCall(toolName: name, args: args) {
-			selectedWindowID = nil
-			logger.debug("Cleared window selection after open-in-new-window switch")
-		}
-
 		return CallTool.Result(content: result.content, isError: result.isError)
 	}
 
-	private func shouldSuppressWindowInjection(toolName: String, args: [String: Value]) -> Bool {
-		guard toolName != "bind_context" else { return true }
-		guard toolName != "app_settings" else { return true }
-		guard toolName == "manage_workspaces" else { return false }
-		let action = args["action"]?.stringValue?.lowercased()
-		guard action == "switch" || action == "create" else { return false }
-		return args["open_in_new_window"]?.boolValue ?? false
-	}
-
-	private func shouldSuppressContextInjection(toolName: String) -> Bool {
+	/// Binding and settings calls never carry the session's window or context.
+	private func shouldSuppressInjection(toolName: String) -> Bool {
 		toolName == "bind_context" || toolName == "app_settings"
-	}
-	
-	private func shouldClearWindowSelectionAfterCall(toolName: String, args: [String: Value]) -> Bool {
-		guard toolName == "manage_workspaces" else { return false }
-		return shouldSuppressWindowInjection(toolName: toolName, args: args)
 	}
 
 	func setSelectedContextID(_ contextID: String?) {

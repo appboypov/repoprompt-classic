@@ -42,6 +42,28 @@ class AppDelegate: NSObject, ObservableObject, NSApplicationDelegate {
 	
 	// MARK: - NSApplicationDelegate
 	
+	/// URLs reach the app through this AppKit handler instead of SwiftUI's `onOpenURL`:
+	/// SwiftUI routes an external event by closing and reopening the scene window, which
+	/// with one window trips "terminate after last window closed".
+	func applicationWillFinishLaunching(_ notification: Notification) {
+		NSAppleEventManager.shared().setEventHandler(
+			self,
+			andSelector: #selector(handleGetURLEvent(_:withReplyEvent:)),
+			forEventClass: AEEventClass(kInternetEventClass),
+			andEventID: AEEventID(kAEGetURL)
+		)
+	}
+
+	@objc private func handleGetURLEvent(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
+		guard let string = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
+			let url = URL(string: string) else {
+			return
+		}
+		Task { @MainActor in
+			await AppDeepLinkRouter.shared.route(url: url)
+		}
+	}
+
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		let launchConfiguration = AppLaunchConfiguration.current
 		ProcessTermination.resetAppTerminationFastPath()
@@ -73,7 +95,8 @@ class AppDelegate: NSObject, ObservableObject, NSApplicationDelegate {
 		// Register global MCP window-routing helpers
 		self.windowRoutingService = WindowRoutingService(
 			windowStates: WindowStatesManager.shared,
-			networkMgr:   ServerNetworkManager.shared
+			networkMgr:   ServerNetworkManager.shared,
+			shellActionService: RepoPromptApp.shellActionService
 		)
 		
 		if !launchConfiguration.suppressesNonessentialLaunchSideEffects {

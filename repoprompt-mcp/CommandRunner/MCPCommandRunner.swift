@@ -650,20 +650,22 @@ actor MCPCommandRunner {
                                           Same, but create a new workspace if no match
           windows                         Shorthand: bind_context op=list
           use <id>                        Shorthand: bind_context op=bind window_id=<id>
-          manage_workspaces (workspace)   Manage workspaces and compose-tab lifecycle
+          manage_workspaces (workspace)   Manage workspaces and compose-tab lifecycle (single window)
             workspace list                List visible workspaces
             workspace list --include-hidden  Include recoverable hidden workspaces
+            workspace state               Shell state: visible workspace, sidebar, every workspace
             workspace hide <name>         Hide from default lists (non-destructive)
             workspace unhide <name>       Restore to default lists
-            workspace switch <name>       Switch to workspace in current window
+            workspace switch <name>       Make a workspace visible
             workspace switch <name> --include-hidden  Switch hidden workspace by name
-            workspace switch <name> --new-window  Open workspace in NEW window
-            workspace create <name> --switch       Create workspace and switch to it
+            workspace create <name> --switch       Create workspace and make it visible
             workspace create <name> --folder-path <path>  Create workspace with a root folder
-            workspace delete <name>       Delete workspace
+            workspace rename <name> --name <new>   Rename a workspace
+            workspace capture --output-path <file.png>  Save a PNG of the window
+            workspace delete <name>       Delete workspace (prompts when an agent is running)
             workspace delete <name> --include-hidden  Delete hidden workspace by name
-            workspace delete <name> --close-window  Delete workspace and close its window
           tabs create|close               manage_workspaces create_tab / close_tab lifecycle
+            tabs create <name> --workspace <ws>  Create a tab in another workspace without switching
 
         Agent Control:
           agent_run                       Control Agent Mode runs

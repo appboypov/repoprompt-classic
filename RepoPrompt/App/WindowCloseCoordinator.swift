@@ -38,6 +38,51 @@ struct WindowCloseImpactSnapshot: Equatable {
 	let isLastMCPEnabledWindow: Bool
 	let activeItems: [WindowCloseActivityItem]
 	let mcp: WindowMCPCloseSafetyState
+
+	/// Close impact of the single shell window over every retained runtime.
+	/// Items merge by id (counts summed); MCP state is any-enabled, max connections, summed executions.
+	static func aggregate(
+		sessionSnapshots: [WorkspaceSwitchSessionSnapshot],
+		mcpStates: [WindowMCPCloseSafetyState],
+		isTerminating: Bool
+	) -> WindowCloseImpactSnapshot {
+		var order: [String] = []
+		var merged: [String: WindowCloseActivityItem] = [:]
+		for snapshot in sessionSnapshots {
+			for item in snapshot.items {
+				if let existing = merged[item.id] {
+					merged[item.id] = WindowCloseActivityItem(
+						id: item.id,
+						count: existing.count + item.count,
+						singularLabel: existing.singularLabel,
+						pluralLabel: existing.pluralLabel
+					)
+				} else {
+					order.append(item.id)
+					merged[item.id] = WindowCloseActivityItem(
+						id: item.id,
+						count: item.count,
+						singularLabel: item.singularLabel,
+						pluralLabel: item.pluralLabel
+					)
+				}
+			}
+		}
+		let mcp = WindowMCPCloseSafetyState(
+			toolsEnabled: mcpStates.contains(where: \.toolsEnabled),
+			liveConnectionCount: mcpStates.map(\.liveConnectionCount).max() ?? 0,
+			activeExecutionCount: mcpStates.reduce(0) { $0 + $1.activeExecutionCount },
+			hasIdleLiveConnections: mcpStates.contains(where: \.hasIdleLiveConnections),
+			activeToolName: mcpStates.compactMap(\.activeToolName).first
+		)
+		return WindowCloseImpactSnapshot(
+			isTerminating: isTerminating,
+			isLastAppWindow: true,
+			isLastMCPEnabledWindow: mcp.toolsEnabled,
+			activeItems: order.compactMap { merged[$0] },
+			mcp: mcp
+		)
+	}
 }
 
 enum WindowCloseSecondaryAction: Equatable {
@@ -60,6 +105,8 @@ final class WindowCloseCoordinator {
 	}
 
 	weak var windowState: WindowState?
+	/// Installed by the shell so a close attempt weighs every retained runtime, not only this one.
+	var impactSnapshotProvider: (() -> WindowCloseImpactSnapshot)?
 	private var pendingAuthorization: WindowCloseAuthorization?
 	private var pendingConfirmation: PendingCloseAttempt?
 	private var presentedAlert: NSAlert?
@@ -84,7 +131,7 @@ final class WindowCloseCoordinator {
 		}
 
 		let authorization = consumeAuthorization()
-		let snapshot = windowState.makeCloseImpactSnapshot()
+		let snapshot = impactSnapshotProvider?() ?? windowState.makeCloseImpactSnapshot()
 		let decision = Self.decide(snapshot: snapshot, authorization: authorization)
 
 		switch decision {

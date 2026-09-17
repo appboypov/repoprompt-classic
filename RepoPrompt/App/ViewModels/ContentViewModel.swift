@@ -95,17 +95,6 @@ class ContentViewModel: ObservableObject {
 	}
 	
 	/// Binding for UI mode toggle that syncs back to WindowState
-	var uiModeBinding: Binding<WindowUIMode> {
-		Binding(
-			get: { self.uiMode },
-			set: { [weak self] newValue in
-				guard let self else { return }
-				self.uiMode = newValue
-				self.state.uiMode = newValue
-			}
-		)
-	}
-	
 	// MARK: - Route Management
 	
 	/// Whether the active workspace is the system fallback (i.e. no real workspace selected).
