@@ -137,4 +137,51 @@ final class WorkspaceShellActionServiceTests: XCTestCase {
 		}
 		XCTAssertEqual(shell.visibleWorkspaceID, a)
 	}
+
+	func testSetSidebarCollapsedPersistsPreference() async throws {
+		let key = WorkspaceShellViewModel.sidebarCollapsedDefaultsKey
+		let previous = UserDefaults.standard.object(forKey: key)
+		defer {
+			if let previous { UserDefaults.standard.set(previous, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+		}
+		UserDefaults.standard.removeObject(forKey: key)
+		let service = await makeStartedService()
+
+		let collapsed = try await service.dispatch(.setSidebarCollapsed(SetSidebarCollapsedPayload(isCollapsed: true)))
+		XCTAssertTrue(collapsed.isWorkspaceSidebarCollapsed)
+		XCTAssertTrue(UserDefaults.standard.bool(forKey: key))
+		XCTAssertTrue(WorkspaceShellViewModel(preparesRemainingInBackground: false).isWorkspaceSidebarCollapsed)
+
+		let expanded = try await service.dispatch(.setSidebarCollapsed(SetSidebarCollapsedPayload(isCollapsed: false)))
+		XCTAssertFalse(expanded.isWorkspaceSidebarCollapsed)
+		XCTAssertFalse(UserDefaults.standard.bool(forKey: key))
+	}
+
+	func testCaptureRejectsRelativePathAndMissingDirectory() throws {
+		XCTAssertThrowsError(try WorkspaceShellActionService.validateCaptureOutputPath("shot.png")) { error in
+			guard case WorkspaceShellError.invalidOutputPath = error else { return XCTFail("unexpected \(error)") }
+		}
+		let missing = storageRoot.appendingPathComponent("missing", isDirectory: true).appendingPathComponent("shot.png").path
+		XCTAssertThrowsError(try WorkspaceShellActionService.validateCaptureOutputPath(missing)) { error in
+			guard case WorkspaceShellError.invalidOutputPath = error else { return XCTFail("unexpected \(error)") }
+		}
+		XCTAssertThrowsError(try WorkspaceShellActionService.validateCaptureOutputPath(storageRoot.appendingPathComponent("shot.jpg").path))
+		XCTAssertEqual(
+			try WorkspaceShellActionService.validateCaptureOutputPath(storageRoot.appendingPathComponent("shot.png").path).lastPathComponent,
+			"shot.png"
+		)
+	}
+
+	func testOpenRouteWithUnknownWorkspaceLeavesVisibleUnchanged() async throws {
+		let service = await makeStartedService()
+		let shell = service.viewModel
+		let a = try await shell.add(name: "A", folderPath: try makeRoot("a"), makeVisible: true)
+		_ = try await shell.add(name: "B", folderPath: try makeRoot("b"), makeVisible: false)
+
+		let byID = try await service.dispatch(.openRoute(OpenRoutePayload(target: .workspace(id: UUID(), name: nil))))
+		XCTAssertEqual(byID.visibleWorkspaceID, a)
+
+		let byName = try await service.dispatch(.openRoute(OpenRoutePayload(target: .workspace(id: nil, name: "Nope"))))
+		XCTAssertEqual(byName.visibleWorkspaceID, a)
+	}
 }
