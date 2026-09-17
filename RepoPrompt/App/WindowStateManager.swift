@@ -35,11 +35,6 @@ struct WindowSessionCaptureCandidate: Sendable {
 	let entry: WindowSessionEntry?
 }
 
-struct WindowInitialAgentSystemWorkspaceRefreshDeferral: Equatable, Sendable {
-	let id: UUID
-	let waiterID: UUID
-}
-
 enum WindowSessionSnapshotBuilder {
 	static func build(
 		version: Int,
@@ -224,21 +219,6 @@ class WindowStatesManager: ObservableObject {
 	/// These are migrating from v1 and will be assigned numbers starting at 1 on first use.
 	private var workspaceIDsMissingNumbersInSnapshot: Set<UUID> = []
 	
-	/// Waiters for programmatic window creation.
-	/// Each waiter is waiting for a new window to be registered that wasn't in the excluded set.
-	private struct WindowOpenWaiter {
-		let id: UUID
-		let excludeWindowIDs: Set<Int>
-		let expectedInitialAgentSystemWorkspaceRefreshDeferralID: UUID?
-		let continuation: CheckedContinuation<WindowState, Error>
-
-		var defersInitialAgentSystemWorkspaceRefresh: Bool {
-			expectedInitialAgentSystemWorkspaceRefreshDeferralID != nil
-		}
-	}
-	private var windowOpenWaiters: [WindowOpenWaiter] = []
-	private var pendingInitialAgentSystemWorkspaceRefreshDeferrals: [WindowInitialAgentSystemWorkspaceRefreshDeferral] = []
-	
 	private let windowSessionWriter = WindowSessionDiskWriter(
 		fileURL: WindowSessionStore.sessionFileURL()
 	)
@@ -246,29 +226,12 @@ class WindowStatesManager: ObservableObject {
 	private var restoreQueue: [WindowSessionEntry] = []
 	private var hasLoadedRestoreSession = false
 	private var isRestoreSessionLoadPending = false
+	private var restoreSessionLoad: Task<Void, Never>?
 
 	var shouldDeferGlobalUIModeFallbackForNewWindow: Bool {
 		autoRestoreWorkspacesEnabled && (isRestoreSessionLoadPending || !restoreQueue.isEmpty)
 	}
 
-	func claimInitialAgentSystemWorkspaceRefreshDeferralForNewWindow() -> WindowInitialAgentSystemWorkspaceRefreshDeferral? {
-		guard !pendingInitialAgentSystemWorkspaceRefreshDeferrals.isEmpty else { return nil }
-		return pendingInitialAgentSystemWorkspaceRefreshDeferrals.removeFirst()
-	}
-
-	private func clearPendingInitialAgentSystemWorkspaceRefreshDeferral(waiterID: UUID) {
-		pendingInitialAgentSystemWorkspaceRefreshDeferrals.removeAll { $0.waiterID == waiterID }
-	}
-
-	nonisolated static func initialAgentSystemWorkspaceRefreshDeferralClaimMatches(
-		waiterID: UUID,
-		expectedDeferralID: UUID?,
-		claimedWaiterID: UUID?,
-		claimedDeferralID: UUID?
-	) -> Bool {
-		guard let expectedDeferralID else { return true }
-		return claimedWaiterID == waiterID && claimedDeferralID == expectedDeferralID
-	}
 	// MARK: - Workspace shell
 
 	/// The single-window shell once `RepoPromptApp` starts it. Nil on the legacy per-window path.
@@ -305,8 +268,10 @@ class WindowStatesManager: ObservableObject {
 		return visibleWindowState?.windowID ?? shellWindowID
 	}
 
-	/// Hands the restore entry to the shell. Empties the queue so no runtime consumes it.
-	func takeShellRestoreEntry() -> WindowSessionEntry? {
+	/// Hands the restore entry to the shell once the session file has loaded. Empties the queue so
+	/// no runtime consumes it.
+	func takeShellRestoreEntry() async -> WindowSessionEntry? {
+		await restoreSessionLoad?.value
 		guard !restoreQueue.isEmpty else { return nil }
 		let entry = restoreQueue.removeFirst()
 		restoreQueue.removeAll()
@@ -346,7 +311,7 @@ class WindowStatesManager: ObservableObject {
 		let loadStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 		#endif
 		isRestoreSessionLoadPending = true
-		Task { [weak self] in
+		restoreSessionLoad = Task { [weak self] in
 			guard let self = self else { return }
 			let snapshot = await windowSessionWriter.load()
 			await MainActor.run {
@@ -432,79 +397,6 @@ class WindowStatesManager: ObservableObject {
 		}
 	}
 	
-	// MARK: - Programmatic Window Creation
-	
-	/// Opens a new main window and waits for it to be registered.
-	///
-	/// This method uses `AppWindowOpener` to trigger SwiftUI's `openWindow(id: "main")`,
-	/// then waits for the new window to appear in `allWindows`.
-	///
-	/// - Returns: The newly created `WindowState`
-	/// - Throws: `WindowOpenError.openerUnavailable` if no opener is installed
-	func openNewMainWindow(deferringInitialAgentSystemWorkspaceRefresh: Bool = false) async throws -> WindowState {
-		// Capture existing window IDs to identify the new one
-		let excludeWindowIDs = Set(allWindows.map(\.windowID))
-		let waiterID = UUID()
-		let refreshDeferral = deferringInitialAgentSystemWorkspaceRefresh
-			? WindowInitialAgentSystemWorkspaceRefreshDeferral(id: UUID(), waiterID: waiterID)
-			: nil
-		if let refreshDeferral {
-			pendingInitialAgentSystemWorkspaceRefreshDeferrals.append(refreshDeferral)
-		}
-		
-		// Wait for the new window to be registered
-		return try await withTaskCancellationHandler {
-			try await withCheckedThrowingContinuation { continuation in
-				// Add waiter
-				windowOpenWaiters.append(WindowOpenWaiter(
-					id: waiterID,
-					excludeWindowIDs: excludeWindowIDs,
-					expectedInitialAgentSystemWorkspaceRefreshDeferralID: refreshDeferral?.id,
-					continuation: continuation
-				))
-				
-				// Trigger window creation via SwiftUI
-				do {
-					try AppWindowOpener.shared.openMainWindow()
-				} catch {
-					self.cancelWindowOpenWaiter(id: waiterID, error: error)
-					return
-				}
-			}
-		} onCancel: { [weak self] in
-			Task { @MainActor in
-				self?.cancelWindowOpenWaiter(id: waiterID, error: CancellationError())
-			}
-		}
-	}
-
-	private func cancelWindowOpenWaiter(id waiterID: UUID, error: Error) {
-		guard let index = windowOpenWaiters.firstIndex(where: { $0.id == waiterID }) else {
-			// If the waiter is already gone, it may have been fulfilled and resumed; do not clear a
-			// routed window's claimed deferral from a late cancellation handler.
-			clearPendingInitialAgentSystemWorkspaceRefreshDeferral(waiterID: waiterID)
-			return
-		}
-		let waiter = windowOpenWaiters.remove(at: index)
-		if waiter.defersInitialAgentSystemWorkspaceRefresh {
-			cleanupInitialAgentSystemWorkspaceRefreshDeferral(waiterID: waiter.id, reason: "waiterCancelled")
-		}
-		waiter.continuation.resume(throwing: error)
-	}
-
-	private func cleanupInitialAgentSystemWorkspaceRefreshDeferral(waiterID: UUID, reason: String) {
-		clearPendingInitialAgentSystemWorkspaceRefreshDeferral(waiterID: waiterID)
-		let claimedWindows = allWindows.filter { $0.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID == waiterID }
-		for window in claimedWindows {
-			#if DEBUG
-			WorkspaceRestorePerfLog.log(
-				"agentSessionIndex.initialSystemRefreshDeferral cleanup windowID=\(window.windowID) waiterID=\(waiterID.uuidString.prefix(8)) deferralID=\(window.claimedInitialAgentSystemWorkspaceRefreshDeferralID?.uuidString.prefix(8).description ?? "nil") reason=\(reason)"
-			)
-			#endif
-			window.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral(refreshIfStillSystem: true)
-		}
-	}
-
 	// MARK: - Programmatic Window Close
 
 	func requestCloseWindow(windowID: Int, authorization: WindowCloseAuthorization? = nil) throws {
@@ -516,76 +408,6 @@ class WindowStatesManager: ObservableObject {
 			)
 		}
 		state.requestClose(authorization: authorization)
-	}
-	
-	/// Notifies waiters when a new window is registered.
-	private func notifyWindowOpenWaiters(newState: WindowState) {
-		guard let index = windowOpenWaiterIndex(for: newState) else { return }
-
-		let waiter = windowOpenWaiters.remove(at: index)
-		if waiter.defersInitialAgentSystemWorkspaceRefresh {
-			verifyInitialAgentSystemWorkspaceRefreshDeferralClaim(waiter: waiter, newState: newState)
-		}
-		waiter.continuation.resume(returning: newState)
-	}
-
-	private func windowOpenWaiterIndex(for newState: WindowState) -> Int? {
-		if let claimedWaiterID = newState.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID,
-			let claimedDeferralID = newState.claimedInitialAgentSystemWorkspaceRefreshDeferralID {
-			if let claimedWaiterIndex = windowOpenWaiters.firstIndex(where: { waiter in
-				waiter.id == claimedWaiterID
-					&& waiter.expectedInitialAgentSystemWorkspaceRefreshDeferralID == claimedDeferralID
-					&& !waiter.excludeWindowIDs.contains(newState.windowID)
-			}) {
-				return claimedWaiterIndex
-			}
-
-			cleanupClaimedInitialAgentSystemWorkspaceRefreshDeferral(
-				for: newState,
-				reason: "noMatchingClaimedWindowOpenWaiter"
-			)
-			return windowOpenWaiters.firstIndex(where: { waiter in
-				!waiter.defersInitialAgentSystemWorkspaceRefresh
-					&& !waiter.excludeWindowIDs.contains(newState.windowID)
-			})
-		}
-
-		return windowOpenWaiters.firstIndex(where: { waiter in
-			!waiter.defersInitialAgentSystemWorkspaceRefresh
-				&& !waiter.excludeWindowIDs.contains(newState.windowID)
-		})
-	}
-
-	private func verifyInitialAgentSystemWorkspaceRefreshDeferralClaim(waiter: WindowOpenWaiter, newState: WindowState) {
-		clearPendingInitialAgentSystemWorkspaceRefreshDeferral(waiterID: waiter.id)
-		let matches = Self.initialAgentSystemWorkspaceRefreshDeferralClaimMatches(
-			waiterID: waiter.id,
-			expectedDeferralID: waiter.expectedInitialAgentSystemWorkspaceRefreshDeferralID,
-			claimedWaiterID: newState.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID,
-			claimedDeferralID: newState.claimedInitialAgentSystemWorkspaceRefreshDeferralID
-		)
-		guard !matches else { return }
-
-		#if DEBUG
-		WorkspaceRestorePerfLog.log(
-			"agentSessionIndex.initialSystemRefreshDeferral attributionMismatch routedWindowID=\(newState.windowID) waiterID=\(waiter.id.uuidString.prefix(8)) expectedDeferralID=\(waiter.expectedInitialAgentSystemWorkspaceRefreshDeferralID?.uuidString.prefix(8).description ?? "nil") claimedWaiterID=\(newState.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID?.uuidString.prefix(8).description ?? "nil") claimedDeferralID=\(newState.claimedInitialAgentSystemWorkspaceRefreshDeferralID?.uuidString.prefix(8).description ?? "nil")"
-		)
-		assertionFailure("Programmatic new-window Agent refresh deferral was claimed by a different window than the routed waiter.")
-		#endif
-
-		for window in allWindows where window !== newState && window.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID == waiter.id {
-			window.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral(refreshIfStillSystem: true)
-		}
-	}
-
-	private func cleanupClaimedInitialAgentSystemWorkspaceRefreshDeferral(for state: WindowState, reason: String) {
-		guard let waiterID = state.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID else { return }
-		#if DEBUG
-		WorkspaceRestorePerfLog.log(
-			"agentSessionIndex.initialSystemRefreshDeferral unmatchedClaim windowID=\(state.windowID) waiterID=\(waiterID.uuidString.prefix(8)) deferralID=\(state.claimedInitialAgentSystemWorkspaceRefreshDeferralID?.uuidString.prefix(8).description ?? "nil") reason=\(reason)"
-		)
-		#endif
-		state.agentModeViewModel.finishInitialSystemWorkspaceSessionListRefreshDeferral(refreshIfStillSystem: true)
 	}
 	
 	private func applyNextRestoreEntryIfAvailable(to state: WindowState) {
@@ -601,7 +423,8 @@ class WindowStatesManager: ObservableObject {
 	
 	/// Attempt to apply restore entries to any already-registered windows.
 	private func applyRestoreEntriesIfPossible() {
-		guard !restoreQueue.isEmpty else { return }
+		// The shell takes the entry itself; runtimes never restore on their own.
+		guard shell == nil, !restoreQueue.isEmpty else { return }
 		for state in allWindows where !restoreQueue.isEmpty {
 			applyNextRestoreEntryIfAvailable(to: state)
 		}
@@ -630,9 +453,6 @@ class WindowStatesManager: ObservableObject {
 		
 		// Notify that window count changed
 		NotificationCenter.default.post(name: .windowCountDidChange, object: nil)
-		
-		// Notify any waiters for programmatic window creation
-		notifyWindowOpenWaiters(newState: state)
 		
 		// Listen for focus changes in the window state:
 		state.onFocusChanged = { [weak self] isFocused in

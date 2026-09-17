@@ -56,10 +56,25 @@ enum KeyboardShortcutCatalog {
 	private static var workspaceAndPresetBindings: [KeyboardShortcutCatalogBinding] {
 		var rows: [KeyboardShortcutCatalogBinding] = [
 			.init(id: "save-ws", title: "Save workspace", detail: nil, name: .cmdS),
-			.init(id: "save-exit", title: "Save workspace and switch to system workspace", detail: nil, name: .cmdShiftS),
 			.init(id: "save-preset-or-create", title: "Save current preset (or create preset if none)", detail: nil, name: .cmdOptionS),
 			.init(id: "create-preset", title: "Create new preset", detail: nil, name: .cmdOptionP)
 		]
+		rows.append(.init(id: "workspace-sidebar", title: "Toggle workspace sidebar", detail: nil, name: .toggleWorkspaceSidebar))
+		let workspaceNames: [KeyboardShortcuts.Name] = [
+			.switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3, .switchToWorkspace4, .switchToWorkspace5,
+			.switchToWorkspace6, .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9
+		]
+		for index in 0..<9 {
+			let n = index + 1
+			rows.append(
+				KeyboardShortcutCatalogBinding(
+					id: "workspace-\(n)",
+					title: "Switch to workspace \(n)",
+					detail: nil,
+					name: workspaceNames[index]
+				)
+			)
+		}
 		let presetNames: [KeyboardShortcuts.Name] = [
 			.switchToPreset1, .switchToPreset2, .switchToPreset3, .switchToPreset4, .switchToPreset5,
 			.switchToPreset6, .switchToPreset7, .switchToPreset8, .switchToPreset9

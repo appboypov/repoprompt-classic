@@ -78,7 +78,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 
 	func start() async {
 		guard !isStarted, hostRuntime == nil else { return }
-		let restoreEntry = windowStatesManager.takeShellRestoreEntry()
+		let restoreEntry = await windowStatesManager.takeShellRestoreEntry()
 		let host = WindowState(launch: .shellHost)
 		hostRuntime = host
 		windowStatesManager.shellWindowID = host.windowID
@@ -101,7 +101,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		if let initialID {
 			await show(initialID)
 		} else {
-			showRuntime(host)
+			await showRuntime(host)
 		}
 		if preparesRemainingInBackground {
 			startBackgroundPreparation()
@@ -230,6 +230,9 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	private func activate(_ state: WindowState, on model: WorkspaceModel) async -> WindowState {
 		bindRuntime(state)
 		_ = await state.workspaceManager.requestWorkspaceSwitch(to: model, saveState: false, reason: "shellPreparation", origin: .shell)
+		if visibleWorkspaceID != model.id {
+			await state.workspaceManager.pausePeriodicWork()
+		}
 		loadedWorkspaceStates[model.id] = state
 		publish()
 		return state
@@ -278,17 +281,19 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		guard visibleWorkspaceID == id else { return }
 		visibleWorkspaceRecency.removeAll { $0 == id }
 		visibleWorkspaceRecency.insert(id, at: 0)
-		showRuntime(next)
+		await showRuntime(next)
 		windowStatesManager.persistWindowSession(reason: "shellSelect")
 		publish()
 	}
 
 	/// Points the window, its delegate proxy and the manager's visible runtime at `next`.
-	private func showRuntime(_ next: WindowState) {
+	private func showRuntime(_ next: WindowState) async {
 		let previous = windowStatesManager.visibleWindowState
 		if previous !== next {
 			previous?.attachWindow(nil)
+			await previous?.workspaceManager.pausePeriodicWork()
 		}
+		next.workspaceManager.resumePeriodicWork()
 		windowDelegateProxy?.windowState = next
 		if let nativeWindow {
 			next.attachWindow(nativeWindow, installsDelegateProxy: false)
@@ -380,7 +385,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 			if let fallback {
 				await show(fallback)
 			} else if let hostRuntime {
-				showRuntime(hostRuntime)
+				await showRuntime(hostRuntime)
 			}
 		}
 		windowStatesManager.persistWindowSession(reason: "shellDispose")

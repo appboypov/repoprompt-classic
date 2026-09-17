@@ -4,7 +4,7 @@ import Combine
 // MARK: - ContentView
 struct ContentView: View {
 	@StateObject private var viewModel: ContentViewModel
-	@StateObject private var workspaceApprovalManager = WorkspaceApprovalManager.shared
+	@ObservedObject private var workspaceApprovalManager = WorkspaceApprovalManager.shared
 	
 	// Existing states
 	@State private var showWorkspaceSetup = false
@@ -21,17 +21,12 @@ struct ContentView: View {
 	// Sheet for naming a brand-new preset
 	@State private var showCreatePresetSheet = false
 
-	// Stable state for toolbar popovers so they survive toolbar re-evaluation
-	@State private var showMCPServerPopover = false
 	@State private var showMCPStatusSheet = false
-	@State private var showRecommendationsPopover = false
 	@State private var showWorkspaceSwitchOverlay = false
-	
-	// Recommendation wizard view model (lazy initialized)
-	@State private var recommendationWizardViewModel: RecommendationWizardViewModel?
 
 	/// Initialize with a single WindowState,
-	/// then build a ContentViewModel from it.
+	/// then build a ContentViewModel from it. The window toolbar belongs to the shell root,
+	/// which renders `WorkspaceRuntimeToolbar` for the shown runtime.
 	init(windowState: WindowState) {
 		_viewModel = StateObject(wrappedValue: ContentViewModel(state: windowState))
 	}
@@ -81,29 +76,7 @@ struct ContentView: View {
 				workspaceSwitchLoadingOverlay
 					.zIndex(999)
 			}
-			
-			// MCP Client Approval Overlay
-			if let clientID = viewModel.state.mcpServer.pendingClientID,
-			viewModel.state.mcpServer.isApprovalOverlayVisible {
-				MCPApprovalOverlayView(clientID: clientID)
-					.environmentObject(viewModel.state.mcpServer)
-					.transition(.opacity.combined(with: .scale(scale: 0.95)))
-					.zIndex(1000)
-			}
-			
-			// Workspace Operation Approval Overlay
-			if let request = workspaceApprovalManager.pendingRequest,
-				workspaceApprovalManager.isApprovalOverlayVisible {
-				WorkspaceApprovalOverlayView(
-					approvalManager: workspaceApprovalManager,
-					request: request
-				)
-				.transition(.opacity.combined(with: .scale(scale: 0.95)))
-				.zIndex(1001)
-			}
 		}
-	.toolbar { toolbarContent }
-
 		.onAppear {
 			appearCounter += 1
 			showWorkspaceSwitchOverlay = viewModel.workspaceManager.isWorkspaceSwitchOverlayVisible
@@ -113,20 +86,6 @@ struct ContentView: View {
 
 			// Keep visibility in sync with legacy collapsed flag for first render
 			columnVisibility = viewModel.isSidebarCollapsed ? .detailOnly : .all
-			// Initialize recommendation wizard view model
-			if recommendationWizardViewModel == nil {
-				let engine = AutoRecommendationEngine(
-					settingsStore: GlobalSettingsStore.shared,
-					apiSettingsViewModel: viewModel.apiSettingsViewModel
-				)
-				recommendationWizardViewModel = RecommendationWizardViewModel(
-					engine: engine,
-					settingsStore: GlobalSettingsStore.shared,
-					workspaceManager: viewModel.workspaceManager,
-					windowID: viewModel.state.windowID
-				)
-			}
-			
 		}
 		.sheet(isPresented: $showWorkspaceSetup) {
 			WorkspaceSetupView(
@@ -142,9 +101,8 @@ struct ContentView: View {
 						}
 						// Auto-apply recommendations for the newly created workspace
 						// Use activeWorkspaceID since createAndActivateWorkspace generates a new UUID
-						if let wizardVM = recommendationWizardViewModel,
-						   let actualWorkspaceID = viewModel.workspaceManager.activeWorkspaceID {
-							wizardVM.autoApplyForNewWorkspace(workspaceID: actualWorkspaceID)
+						if let actualWorkspaceID = viewModel.workspaceManager.activeWorkspaceID {
+							viewModel.state.recommendationWizardViewModel.autoApplyForNewWorkspace(workspaceID: actualWorkspaceID)
 						}
 					}
 				}
@@ -224,10 +182,9 @@ struct ContentView: View {
 		.sheet(isPresented: $showMCPStatusSheet) {
 			MCPStatusView(server: viewModel.state.mcpServer)
 		}
-		.modifier(WizardAndMCPNotificationHandler(
-			onShowWizard: { viewModel.presentSetupGuide() },
-			onShowMCPPopover: { handleShowMCPServerPopover($0) }
-		))
+		.onReceive(NotificationCenter.default.publisher(for: .showAgentOnboardingWizard)) { _ in
+			viewModel.presentSetupGuide()
+		}
 		.modifier(SettingsNotificationHandler(
 			windowState: viewModel.state,
 			legacyShowSettings: $viewModel.showSettings
@@ -239,17 +196,6 @@ struct ContentView: View {
 			if let id = note.userInfo?["windowID"] as? Int,
 			id == viewModel.state.windowID {
 				showMCPStatusSheet = true
-			}
-		}
-		// Listen for notifications to open recommendation wizard
-		.onReceive(
-			NotificationCenter.default.publisher(for: .showRecommendationWizard)
-		) { note in
-			if let id = note.userInfo?["windowID"] as? Int,
-			id == viewModel.state.windowID {
-				// Refresh wizard state and open popover
-				recommendationWizardViewModel?.refresh(navigation: .resetToIntro)
-				showRecommendationsPopover = true
 			}
 		}
 		// Close all sheets when a connection approval request comes in
@@ -356,29 +302,6 @@ extension ContentView {
 
 // MARK: - Toolbar Content
 extension ContentView {
-	@ToolbarContentBuilder
-	private var toolbarContent: some ToolbarContent {
-		// Agent/IDE mode toggle
-		ToolbarItem(placement: .automatic) {
-			AgentModeToggle(mode: viewModel.uiModeBinding)
-		}
-
-		// Recommendation wizard button
-		ToolbarItem(placement: .automatic) {
-			if let wizardVM = recommendationWizardViewModel {
-				RecommendationToolbarButtonView(
-					viewModel: wizardVM,
-					showPopover: $showRecommendationsPopover
-				)
-			}
-		}
-
-		// TOOLBAR POPOVER FIX: Pass bindings to prevent state loss during toolbar re-evaluation
-		ToolbarItem(placement: .automatic) {
-			MCPServerToggleView(windowState: viewModel.state, showPopover: $showMCPServerPopover)
-		}
-	}
-	
 	private func toggleSidebar() {
 		withAnimation(.easeInOut(duration: 0.2)) {
 			if columnVisibility == .detailOnly {
@@ -392,14 +315,6 @@ extension ContentView {
 	}
 	
 	
-	private func handleShowMCPServerPopover(_ note: Notification) {
-		if let id = note.userInfo?["windowID"] as? Int,
-		id != viewModel.state.windowID {
-			return
-		}
-		showMCPServerPopover = true
-	}
-
 	private func closeAllSheets() {
 		withAnimation {
 			showWorkspaceSetup = false
@@ -413,22 +328,6 @@ extension ContentView {
 }
 
 // MARK: - Notification Handler Modifier
-
-/// Extracted to reduce type-checker load on ContentView.body
-private struct WizardAndMCPNotificationHandler: ViewModifier {
-	let onShowWizard: () -> Void
-	let onShowMCPPopover: (Notification) -> Void
-	
-	func body(content: Content) -> some View {
-		content
-			.onReceive(NotificationCenter.default.publisher(for: .showAgentOnboardingWizard)) { _ in
-				onShowWizard()
-			}
-			.onReceive(NotificationCenter.default.publisher(for: .showMCPServerPopover)) { note in
-				onShowMCPPopover(note)
-			}
-	}
-}
 
 /// Extracted to reduce type-checker load on ContentView.body
 private struct SettingsNotificationHandler: ViewModifier {
@@ -578,7 +477,7 @@ private struct SidebarVisibilitySyncHandler: ViewModifier {
 }
 
 // MARK: - AgentModeToggle
-private struct AgentModeToggle: View {
+struct AgentModeToggle: View {
 	@Binding var mode: WindowUIMode
 
 	var body: some View {

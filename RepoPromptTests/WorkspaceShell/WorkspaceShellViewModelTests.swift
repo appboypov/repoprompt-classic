@@ -190,6 +190,26 @@ final class WorkspaceShellViewModelTests: XCTestCase {
 		XCTAssertEqual(shell.hostRuntime?.workspaceManager.activeWorkspace?.isSystemWorkspace, true)
 	}
 
+	func testAttachNativeWindowAttachesVisibleRuntimeAndDetachesPrevious() async throws {
+		let shell = await makeStartedShell()
+		let a = try await shell.add(name: "A", folderPath: try makeRoot("a"), makeVisible: true)
+		let b = try await shell.add(name: "B", folderPath: try makeRoot("b"), makeVisible: false)
+		let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+
+		shell.attachNativeWindow(window)
+		XCTAssertTrue(shell.runtime(for: a)?.nsWindow === window)
+		XCTAssertTrue(WindowStatesManager.shared.visibleWindowState === shell.runtime(for: a))
+		XCTAssertTrue(shell.contentRuntime === shell.runtime(for: a))
+
+		try await shell.select(b)
+		XCTAssertNil(shell.runtime(for: a)?.nsWindow, "the previous runtime lets go of the window")
+		XCTAssertTrue(shell.runtime(for: b)?.nsWindow === window)
+		XCTAssertTrue(WindowStatesManager.shared.visibleWindowState === shell.runtime(for: b))
+		XCTAssertTrue(shell.contentRuntime === shell.runtime(for: b))
+		XCTAssertNotNil(shell.installedWindowDelegateProxy?.willCloseHandler)
+		window.delegate = nil
+	}
+
 	func testAttachABAKeepsSingleProxyWithNonProxyForwardedDelegate() async throws {
 		final class OriginalDelegate: NSObject, NSWindowDelegate {}
 		let shell = await makeStartedShell()

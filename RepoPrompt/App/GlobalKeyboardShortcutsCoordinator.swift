@@ -16,6 +16,7 @@ final class GlobalKeyboardShortcutsCoordinator {
 
 		registerPresetShortcuts()
 		registerWorkspaceShortcuts()
+		registerWorkspaceShellShortcuts()
 		registerComposeTabShortcuts()
 		registerFontScaleShortcuts()
 		registerFileTreeShortcuts()
@@ -69,7 +70,6 @@ final class GlobalKeyboardShortcutsCoordinator {
 
 	private func registerWorkspaceShortcuts() {
 		register(.cmdS) { [weak self] in self?.saveWorkspace() }
-		register(.cmdShiftS) { [weak self] in self?.saveAndExitWorkspace() }
 		register(.cmdOptionS) { [weak self] in self?.saveCurrentPresetOrPromptCreate() }
 		register(.cmdOptionP) { [weak self] in self?.createPreset() }
 	}
@@ -79,13 +79,30 @@ final class GlobalKeyboardShortcutsCoordinator {
 		win.workspaceManager.pollAndSaveState()
 	}
 
-	private func saveAndExitWorkspace() {
-		guard let win = guardedFocusedWindowState() else { return }
-		guard let fallback = win.workspaceManager.workspaces.first(where: { $0.isSystemWorkspace }) else { return }
-		Task {
-			win.workspaceManager.pollAndSaveState()
-			_ = await win.workspaceManager.requestWorkspaceSwitch(to: fallback)
+	// MARK: - Workspace shell
+
+	private func registerWorkspaceShellShortcuts() {
+		register(.toggleWorkspaceSidebar) { [weak self] in self?.toggleWorkspaceSidebar() }
+		let names: [KeyboardShortcuts.Name] = [
+			.switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3, .switchToWorkspace4, .switchToWorkspace5,
+			.switchToWorkspace6, .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9
+		]
+		for (index, name) in names.enumerated() {
+			register(name) { [weak self] in self?.switchToWorkspace(index) }
 		}
+	}
+
+	private func toggleWorkspaceSidebar() {
+		guard NSApplication.shared.isActive, let service = RepoPromptApp.shellActionService else { return }
+		let collapsed = service.viewModel.snapshot.isWorkspaceSidebarCollapsed
+		Task { _ = try? await service.dispatch(.setSidebarCollapsed(SetSidebarCollapsedPayload(isCollapsed: !collapsed))) }
+	}
+
+	/// Selects the workspace at `index` in catalog order.
+	private func switchToWorkspace(_ index: Int) {
+		guard NSApplication.shared.isActive, let service = RepoPromptApp.shellActionService else { return }
+		guard let id = service.catalogIndex(index) else { return }
+		Task { _ = try? await service.dispatch(.select(SelectWorkspacePayload(workspaceID: id))) }
 	}
 
 	private func saveCurrentPresetOrPromptCreate() {

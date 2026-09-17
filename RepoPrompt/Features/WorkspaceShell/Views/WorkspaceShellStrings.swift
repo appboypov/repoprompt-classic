@@ -25,6 +25,15 @@ enum WorkspaceShellStrings {
 	static let cancel = "Cancel"
 	static let stopAndRemove = "Stop and remove"
 
+	static let add = "Add"
+	static let save = "Save"
+	static let addNamePlaceholder = "Workspace name"
+	static let chooseFolder = "Choose folder"
+	static let chooseFolderMessage = "Pick the first folder of the new workspace"
+	static let noFolderChosen = "No folder chosen"
+	static let renameTitle = "Rename Workspace"
+	static let renamePlaceholder = "New name"
+
 	static func folderCount(_ count: Int) -> String {
 		count == 1 ? "1 folder" : "\(count) folders"
 	}

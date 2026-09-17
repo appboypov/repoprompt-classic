@@ -66,10 +66,6 @@ struct AgentWorkspaceRootsSectionView: View {
 		return name.count > 16 ? String(name.prefix(16)) + "…" : name
 	}
 
-	private var isExitDisabled: Bool {
-		workspaceManager.activeWorkspace?.isSystemWorkspace ?? true
-	}
-
 	private var estimatedFolderListHeight: CGFloat {
 		guard !roots.isEmpty else { return 0 }
 		return CGFloat(roots.count) * estimatedFolderRowHeight
@@ -138,19 +134,6 @@ struct AgentWorkspaceRootsSectionView: View {
 			HStack(spacing: headerButtonSpacing) {
 				workspaceDropdown
 
-				Button(action: {
-					Task { await workspaceManager.saveAndExitToFallback() }
-				}) {
-					HStack(spacing: fontPreset.scaledClamped(4, max: 6)) {
-						Image(systemName: "rectangle.portrait.and.arrow.right")
-						Text("Exit")
-							.font(fontPreset.swiftUIFont(sizeAtNormal: 12))
-					}
-				}
-				.buttonStyle(CustomButtonStyle(verticalPadding: 0, horizontalPadding: 8, height: 26))
-				.hoverTooltip("Exit Workspace", .top)
-				.disabled(isExitDisabled)
-				.opacity(isExitDisabled ? 0.5 : 1)
 
 				Spacer()
 			}

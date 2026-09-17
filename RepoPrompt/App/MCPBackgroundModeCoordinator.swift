@@ -5,42 +5,35 @@ final class MCPBackgroundModeCoordinator: NSObject {
 	static let shared = MCPBackgroundModeCoordinator()
 
 	private var statusItem: NSStatusItem?
-	private(set) var backgroundedWindowID: Int?
+	private(set) var isBackgrounded = false
 
-	var isBackgrounded: Bool {
-		backgroundedWindowID != nil
-	}
-
+	/// Hides the shell window without tearing down its scene. `windowState` names the menu.
 	func background(windowState: WindowState) {
-		guard let window = windowState.nsWindow else { return }
-		backgroundedWindowID = windowState.windowID
+		guard let window = WindowStatesManager.shared.shellNSWindow else { return }
+		isBackgrounded = true
 		installStatusItemIfNeeded()
 		updateStatusMenu(with: windowState)
-		// Hide the window without tearing down its SwiftUI scene.
 		window.orderOut(nil)
 	}
 
 	func restore() {
-		let windowID = backgroundedWindowID
-		backgroundedWindowID = nil
+		let wasBackgrounded = isBackgrounded
+		isBackgrounded = false
 		removeStatusItem()
 
-		guard let windowID else { return }
-		let state = WindowStatesManager.shared.window(withID: windowID)
-		if let window = state?.nsWindow {
-			NSApplication.shared.activate(ignoringOtherApps: true)
-			window.makeKeyAndOrderFront(nil)
-		}
+		guard wasBackgrounded, let window = WindowStatesManager.shared.shellNSWindow else { return }
+		NSApplication.shared.activate(ignoringOtherApps: true)
+		window.makeKeyAndOrderFront(nil)
 	}
 
-	func clearIfBackgroundedWindow(windowID: Int) {
-		guard backgroundedWindowID == windowID else { return }
-		backgroundedWindowID = nil
+	func clearIfBackgrounded() {
+		guard isBackgrounded else { return }
+		isBackgrounded = false
 		removeStatusItem()
 	}
 
 	func resetForTermination() {
-		backgroundedWindowID = nil
+		isBackgrounded = false
 		removeStatusItem()
 	}
 

@@ -297,23 +297,6 @@ struct FileTreeView: View {
 			.hoverTooltip("Clear Selection", .top)
 			.layoutPriority(-1)
 
-			// Exit workspace button (always visible, disabled when in system workspace)
-			Button(action: {
-				if let activeWS = workspaceViewModel.activeWorkspace, !activeWS.isSystemWorkspace {
-					Task { await workspaceViewModel.saveAndExitToFallback() }
-				}
-			}) {
-				HStack {
-					Image(systemName: "rectangle.portrait.and.arrow.right")
-					Text("Exit")
-						.font(fontPreset.font)
-						.lineLimit(1)
-				}
-			}
-			.buttonStyle(CustomButtonStyle(verticalPadding: 0, horizontalPadding: 8, height: 28))
-			.disabled(workspaceViewModel.activeWorkspace?.isSystemWorkspace ?? true)
-			.hoverTooltip("Exit Workspace", .top)
-			.layoutPriority(2)
 			//.fixedSize(horizontal: true, vertical: false)
 
 			Spacer()

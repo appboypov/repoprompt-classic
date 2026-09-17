@@ -994,8 +994,37 @@ class WorkspaceManagerViewModel: ObservableObject {
 	
 	// MARK: - Private Timer Control
 	
+	// MARK: - Shell visibility
+
+	/// True while the shell keeps this runtime hidden. State and views stay; the timers that
+	/// recount tokens and autosave stop, so hidden runtimes cost the main thread nothing.
+	private(set) var isPeriodicWorkPaused = false
+
+	@MainActor
+	func pausePeriodicWork() async {
+		isPeriodicWorkPaused = true
+		stopPollTimer()
+		fileManager.isAutoCodemapSyncPaused = true
+		await promptViewModel.stopTokenCountUpdateTimer()
+	}
+
+	@MainActor
+	func resumePeriodicWork() {
+		guard isPeriodicWorkPaused else { return }
+		isPeriodicWorkPaused = false
+		startPollTimer()
+		promptViewModel.startTokenCountUpdateTimer()
+		fileManager.isAutoCodemapSyncPaused = false
+	}
+
+	private func startTokenCountUpdateTimerUnlessPaused() {
+		guard !isPeriodicWorkPaused else { return }
+		promptViewModel.startTokenCountUpdateTimer()
+	}
+
 	private func startPollTimer() {
 		pollTimer?.invalidate()
+		guard !isPeriodicWorkPaused else { return }
 		pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
 			guard let self = self else { return }
 			Task { @MainActor [weak self] in
@@ -1589,7 +1618,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 			let shouldReturnToSystem = shouldReturnToSystemAfterSwitchCancellation
 			shouldReturnToSystemAfterSwitchCancellation = false
 			hideWorkspaceSwitchOverlay(reason: "switch defer cleanup")
-			promptViewModel.startTokenCountUpdateTimer()
+			startTokenCountUpdateTimerUnlessPaused()
 			isSwitchingWorkspace = false
 			drainPendingRepoPathSyncIfNeeded()
 			startPollTimer()
@@ -4564,7 +4593,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 			isRefreshing = false
 			drainPendingRepoPathSyncIfNeeded()
 			startPollTimer()
-			promptViewModel.startTokenCountUpdateTimer()
+			startTokenCountUpdateTimerUnlessPaused()
 		}
 
 		await promptViewModel.stopTokenCountUpdateTimer()
@@ -5235,15 +5264,6 @@ class WorkspaceManagerViewModel: ObservableObject {
 		return ws
 	}
 	
-	@MainActor
-	func saveAndExitToFallback() async {
-		let signpost = WorkspaceExitPerf.begin("saveAndExitToFallback")
-		defer { WorkspaceExitPerf.end("saveAndExitToFallback", signpost) }
-		if let fallback = workspaces.first(where: { $0.isSystemWorkspace }) {
-			_ = await requestWorkspaceSwitch(to: fallback)
-		}
-	}
-
 	func checkIfActivePresetIsDirty(with newSelection: [FileViewModel]) {
 		guard let ws = activeWorkspace,
 			let pid = ws.activePresetID,

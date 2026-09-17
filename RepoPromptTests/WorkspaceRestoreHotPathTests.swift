@@ -323,36 +323,6 @@ final class WorkspaceRestoreHotPathTests: XCTestCase {
 		))
 	}
 
-	func testInitialAgentSystemRefreshDeferralAttributionRequiresMatchingWaiterAndToken() {
-		let waiterID = UUID()
-		let deferralID = UUID()
-
-		XCTAssertTrue(WindowStatesManager.initialAgentSystemWorkspaceRefreshDeferralClaimMatches(
-			waiterID: waiterID,
-			expectedDeferralID: nil,
-			claimedWaiterID: nil,
-			claimedDeferralID: nil
-		))
-		XCTAssertTrue(WindowStatesManager.initialAgentSystemWorkspaceRefreshDeferralClaimMatches(
-			waiterID: waiterID,
-			expectedDeferralID: deferralID,
-			claimedWaiterID: waiterID,
-			claimedDeferralID: deferralID
-		))
-		XCTAssertFalse(WindowStatesManager.initialAgentSystemWorkspaceRefreshDeferralClaimMatches(
-			waiterID: waiterID,
-			expectedDeferralID: deferralID,
-			claimedWaiterID: UUID(),
-			claimedDeferralID: deferralID
-		))
-		XCTAssertFalse(WindowStatesManager.initialAgentSystemWorkspaceRefreshDeferralClaimMatches(
-			waiterID: waiterID,
-			expectedDeferralID: deferralID,
-			claimedWaiterID: waiterID,
-			claimedDeferralID: UUID()
-		))
-	}
-
 	private func makeTemporaryDirectory() throws -> URL {
 		let directory = FileManager.default.temporaryDirectory
 			.appendingPathComponent("RepoPrompt-WorkspaceRestoreHotPathTests-\(UUID().uuidString)", isDirectory: true)

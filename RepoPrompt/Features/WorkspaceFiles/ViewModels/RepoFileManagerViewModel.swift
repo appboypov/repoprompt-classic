@@ -620,6 +620,16 @@ class RepoFileManagerViewModel: ObservableObject {
 		}
 	}
 	private var autoCodemapSyncTask: Task<Void, Never>?
+	/// Set while the shell hides this runtime: sync requests are remembered and run once on resume,
+	/// so hidden workspaces never resolve code maps on the main thread.
+	var isAutoCodemapSyncPaused = false {
+		didSet {
+			guard isAutoCodemapSyncPaused != oldValue, !isAutoCodemapSyncPaused, pendingAutoCodemapSync else { return }
+			pendingAutoCodemapSync = false
+			scheduleAutoCodemapSync()
+		}
+	}
+	private var pendingAutoCodemapSync = false
 	/// Tracks which paths currently have a cached FileAPI to avoid scanning all FileViewModels.
 	private var codemapCapableAPIsByFullPath: [String: FileAPI] = [:]
 	
@@ -12024,6 +12034,10 @@ extension RepoFileManagerViewModel {
 	@MainActor
 	private func scheduleAutoCodemapSync() {
 		guard codemapAutoEnabled else { return }
+		if isAutoCodemapSyncPaused {
+			pendingAutoCodemapSync = true
+			return
+		}
 		autoCodemapSyncTask?.cancel()
 		autoCodemapSyncTask = Task(priority: .utility) { [weak self] in
 			// Debounce to coalesce rapid selection churn without blocking the main actor
@@ -12032,6 +12046,10 @@ extension RepoFileManagerViewModel {
 			defer { self.autoCodemapSyncTask = nil }
 			guard !Task.isCancelled else { return }
 			guard self.codemapAutoEnabled else { return }
+			if self.isAutoCodemapSyncPaused {
+				self.pendingAutoCodemapSync = true
+				return
+			}
 			self.syncAutoCodemaps()
 		}
 	}

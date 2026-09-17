@@ -474,7 +474,7 @@ struct ManageWorkspacesView: View {
 								toggleHiddenState(for: ws)
 							},
 							onDelete: {
-								workspaceManager.deleteWorkspace(ws)
+								dispatchShellAction(.remove(RemoveWorkspacePayload(workspaceID: ws.id, source: .user)))
 							}
 						)
 					}
@@ -484,6 +484,20 @@ struct ManageWorkspacesView: View {
 	}
 	
 	
+	/// Rename and remove go through the shell so every retained runtime and the sidebar stay in step.
+	private func dispatchShellAction(_ payload: WorkspaceShellActionPayload) {
+		guard let service = RepoPromptApp.shellActionService else { return }
+		Task { @MainActor in
+			do {
+				_ = try await service.dispatch(payload)
+			} catch WorkspaceShellError.cancelled {
+				// The user backed out of the confirmation.
+			} catch {
+				print("Manage workspaces \(payload.actionName.rawValue) failed: \(error)")
+			}
+		}
+	}
+
 	private func toggleHiddenState(for ws: WorkspaceModel) {
 		workspaceManager.setWorkspaceHidden(ws, hidden: !ws.isHiddenInMenus)
 	}
@@ -581,7 +595,7 @@ struct ManageWorkspacesView: View {
 				Button("Save") {
 					let finalName = renameField.trimmingCharacters(in: .whitespaces)
 					guard !finalName.isEmpty else { return }
-					workspaceManager.renameWorkspace(workspace, newName: finalName)
+					dispatchShellAction(.rename(RenameWorkspacePayload(workspaceID: workspace.id, name: finalName)))
 					workspaceBeingRenamed = nil
 				}
 			}

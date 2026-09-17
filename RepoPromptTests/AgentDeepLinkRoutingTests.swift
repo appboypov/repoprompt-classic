@@ -89,14 +89,9 @@ final class AgentDeepLinkRoutingTests: XCTestCase {
 		let manager = WindowStatesManager.shared
 		let originalWindows = manager.allWindows
 		let originalPendingURLs = manager.pendingURLs
-		var openerCallCount = 0
-		AppWindowOpener.shared.installForTesting {
-			openerCallCount += 1
-		}
 		defer {
 			manager.allWindows = originalWindows
 			manager.pendingURLs = originalPendingURLs
-			AppWindowOpener.shared.resetForTesting()
 		}
 		manager.allWindows = [unrelatedWindow]
 		manager.pendingURLs = []
@@ -104,7 +99,6 @@ final class AgentDeepLinkRoutingTests: XCTestCase {
 		let route = AgentSessionDeepLinkRoute(workspaceID: UUID(), tabID: UUID())
 		await AppDeepLinkRouter(windowStatesManager: manager).route(notificationRoute: route)
 
-		XCTAssertEqual(openerCallCount, 0)
 		XCTAssertEqual(manager.allWindows.map(\.windowID), [unrelatedWindow.windowID])
 		XCTAssertTrue(manager.pendingURLs.isEmpty)
 		XCTAssertNotEqual(unrelatedWindow.workspaceManager.activeWorkspace?.id, route.workspaceID)
@@ -134,14 +128,9 @@ final class AgentDeepLinkRoutingTests: XCTestCase {
 		let manager = WindowStatesManager.shared
 		let originalWindows = manager.allWindows
 		let originalPendingURLs = manager.pendingURLs
-		var openerCallCount = 0
-		AppWindowOpener.shared.installForTesting {
-			openerCallCount += 1
-		}
 		defer {
 			manager.allWindows = originalWindows
 			manager.pendingURLs = originalPendingURLs
-			AppWindowOpener.shared.resetForTesting()
 		}
 		manager.allWindows = [windowState]
 		manager.pendingURLs = []
@@ -154,7 +143,6 @@ final class AgentDeepLinkRoutingTests: XCTestCase {
 			)
 		)
 
-		XCTAssertEqual(openerCallCount, 0)
 		XCTAssertTrue(manager.pendingURLs.isEmpty)
 		XCTAssertEqual(windowState.workspaceManager.activeWorkspace?.id, targetWorkspace.id)
 		XCTAssertEqual(windowState.promptManager.activeComposeTabID, targetTabID)

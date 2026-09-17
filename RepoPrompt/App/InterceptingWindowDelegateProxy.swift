@@ -38,16 +38,12 @@ final class InterceptingWindowDelegateProxy: NSObject, NSWindowDelegate {
 		// Backstop: ensure beginClose is called even if windowShouldClose was bypassed.
 		windowState?.beginClose()
 
-		if let windowID = windowState?.windowID {
-			MCPBackgroundModeCoordinator.shared.clearIfBackgroundedWindow(windowID: windowID)
-		}
+		MCPBackgroundModeCoordinator.shared.clearIfBackgrounded()
 		forwardedDelegate?.windowWillClose?(notification)
 	}
 
 	func windowDidBecomeKey(_ notification: Notification) {
-		if let windowID = windowState?.windowID {
-			MCPBackgroundModeCoordinator.shared.clearIfBackgroundedWindow(windowID: windowID)
-		}
+		MCPBackgroundModeCoordinator.shared.clearIfBackgrounded()
 		forwardedDelegate?.windowDidBecomeKey?(notification)
 	}
 

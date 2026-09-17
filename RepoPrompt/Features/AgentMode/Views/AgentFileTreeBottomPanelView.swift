@@ -67,22 +67,9 @@ struct AgentFileTreeBottomPanelView: View {
 			.contentShape(Rectangle())
 			.onTapGesture { toggle() }
 			
-			// Row 2: Workspace dropdown + Exit
+			// Row 2: Workspace dropdown
 			HStack(spacing: headerRowButtonSpacing) {
 				workspaceDropdown
-				
-				Button(action: {
-					Task { await workspaceManager.saveAndExitToFallback() }
-				}) {
-					HStack(spacing: workspaceDropdownSpacing) {
-						Image(systemName: "rectangle.portrait.and.arrow.right")
-						Text("Exit")
-							.font(fontPreset.swiftUIFont(sizeAtNormal: 12))
-					}
-				}
-				.buttonStyle(CustomButtonStyle(verticalPadding: 0, horizontalPadding: 8, height: 26))
-				.hoverTooltip("Exit Workspace", .top)
-				
 				Spacer()
 			}
 		}

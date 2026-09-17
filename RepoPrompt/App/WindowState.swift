@@ -114,6 +114,22 @@ class WindowState: ObservableObject {
 	private var suppressGlobalUIModePersistence = false
 	
 	/// Current UI mode (IDE vs Agent). Captured per window session; `windowUIMode` is only a legacy/default fallback.
+	/// Hosts this runtime's content as its own view graph, so a hidden runtime costs no SwiftUI
+	/// updates. Scene bridging stays off: the shell root owns the window toolbar.
+	lazy var hostingController: NSHostingController<AnyView> = {
+		let controller = NSHostingController(rootView: AnyView(WorkspaceRuntimeRootView(windowState: self)))
+		controller.sceneBridgingOptions = []
+		return controller
+	}()
+
+	/// Recommendation wizard behind the toolbar button; shared by the toolbar and workspace creation.
+	lazy var recommendationWizardViewModel = RecommendationWizardViewModel(
+		engine: AutoRecommendationEngine(settingsStore: GlobalSettingsStore.shared, apiSettingsViewModel: apiSettingsViewModel),
+		settingsStore: GlobalSettingsStore.shared,
+		workspaceManager: workspaceManager,
+		windowID: windowID
+	)
+
 	@Published var uiMode: WindowUIMode = .ide {
 		didSet {
 			if !suppressGlobalUIModePersistence,
@@ -307,8 +323,6 @@ class WindowState: ObservableObject {
 	
 	private var pendingRestoreEntry: WindowSessionEntry?
 	private var deferredGlobalUIModeFallbackOnInit = false
-	private(set) var claimedInitialAgentSystemWorkspaceRefreshDeferralID: UUID?
-	private(set) var claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID: UUID?
 	
 	// MARK: - Initialization
 
@@ -338,10 +352,6 @@ class WindowState: ObservableObject {
 		// Load persisted UI mode
 		let savedMode = UserDefaults.standard.string(forKey: "windowUIMode")
 		let deferredGlobalFallbackForRestore = manager.shouldDeferGlobalUIModeFallbackForNewWindow
-		let claimedInitialAgentSystemWorkspaceRefreshDeferral = manager.claimInitialAgentSystemWorkspaceRefreshDeferralForNewWindow()
-		let deferredInitialAgentSystemWorkspaceRefresh = claimedInitialAgentSystemWorkspaceRefreshDeferral != nil
-		self.claimedInitialAgentSystemWorkspaceRefreshDeferralID = claimedInitialAgentSystemWorkspaceRefreshDeferral?.id
-		self.claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID = claimedInitialAgentSystemWorkspaceRefreshDeferral?.waiterID
 		self.deferredGlobalUIModeFallbackOnInit = deferredGlobalFallbackForRestore
 		self.uiMode = WindowInitialUIModeResolver.resolve(
 			forcedMode: AppLaunchConfiguration.current.forcedWindowUIMode,
@@ -448,9 +458,6 @@ class WindowState: ObservableObject {
 			chatViewModel: self.chatViewModel,
 			applyEditsApprovalStore: applyEditsApprovalStore
 		)
-		if deferredInitialAgentSystemWorkspaceRefresh {
-			self.agentModeViewModel.deferInitialSystemWorkspaceSessionListRefresh(reason: "programmaticNewWindowWorkspaceSwitch")
-		}
 		#if DEBUG
 		if let stressConfiguration = AppLaunchConfiguration.current.agentChatStress {
 			let agentModeViewModel = self.agentModeViewModel
@@ -570,7 +577,7 @@ class WindowState: ObservableObject {
 		if let initStartMS {
 			let workspaceManagerDuration = workspaceManagerInitDurationMS.map(WorkspaceRestorePerfLog.formatMS) ?? "notMeasured"
 			WorkspaceRestorePerfLog.log(
-				"window.init windowID=\(windowID) initialMode=\(uiMode.rawValue) globalUIMode=\(initialGlobalUIMode) forcedUIMode=\(forcedInitialUIMode) deferredGlobalFallbackForRestore=\(deferredGlobalFallbackForRestore) deferredInitialAgentSystemWorkspaceRefresh=\(deferredInitialAgentSystemWorkspaceRefresh) claimedInitialAgentDeferralID=\(claimedInitialAgentSystemWorkspaceRefreshDeferralID?.uuidString.prefix(8).description ?? "nil") claimedInitialAgentDeferralWaiterID=\(claimedInitialAgentSystemWorkspaceRefreshDeferralWaiterID?.uuidString.prefix(8).description ?? "nil") workspaceManagerInit=\(workspaceManagerDuration) total=\(WorkspaceRestorePerfLog.formatElapsedMS(since: initStartMS))"
+				"window.init windowID=\(windowID) initialMode=\(uiMode.rawValue) globalUIMode=\(initialGlobalUIMode) forcedUIMode=\(forcedInitialUIMode) deferredGlobalFallbackForRestore=\(deferredGlobalFallbackForRestore) workspaceManagerInit=\(workspaceManagerDuration) total=\(WorkspaceRestorePerfLog.formatElapsedMS(since: initStartMS))"
 			)
 		}
 		#endif
