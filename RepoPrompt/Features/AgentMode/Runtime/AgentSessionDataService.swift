@@ -1364,8 +1364,7 @@ actor AgentSessionDataService {
 		if let customURL = workspace.customStoragePath {
 			return customURL
 		} else {
-			let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-			let root = supportDir.appendingPathComponent("RepoPrompt/Workspaces")
+			let root = WorkspaceStoragePaths.currentRoot
 			if !FileManager.default.fileExists(atPath: root.path) {
 				try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 			}

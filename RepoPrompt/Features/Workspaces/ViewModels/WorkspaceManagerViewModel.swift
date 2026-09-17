@@ -31,7 +31,7 @@ private enum WorkspaceExitPerf {
 	#endif
 }
 
-private enum WorkspaceStoragePaths {
+enum WorkspaceStoragePaths {
 	static let defaultRoot: URL = {
 		let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
 		return home
@@ -39,6 +39,28 @@ private enum WorkspaceStoragePaths {
 			.appendingPathComponent("Application Support", isDirectory: true)
 			.appendingPathComponent("RepoPrompt", isDirectory: true)
 			.appendingPathComponent("Workspaces", isDirectory: true)
+	}()
+
+	/// The `GlobalCustomStorageURL` setting when set. A test process without the setting gets a
+	/// temporary root, so tests never reach the real catalog.
+	static var customRoot: URL? {
+		if let path = UserDefaults.standard.string(forKey: "GlobalCustomStorageURL") {
+			return URL(fileURLWithPath: path)
+		}
+		if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+			return testRoot
+		}
+		return nil
+	}
+
+	/// The catalog root every store writes under: the setting, or the default folder.
+	static var currentRoot: URL { customRoot ?? defaultRoot }
+
+	private static let testRoot: URL = {
+		let url = FileManager.default.temporaryDirectory
+			.appendingPathComponent("RepoPromptTests-catalog-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+		try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+		return url
 	}()
 }
 
@@ -721,9 +743,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 		self.promptViewModel = promptViewModel
 		self.promptViewModel.attachWorkspaceManager(self)
 		
-		if let path = UserDefaults.standard.string(forKey: "GlobalCustomStorageURL") {
-			self.globalCustomStorageURL = URL(fileURLWithPath: path)
-		}
+		self.globalCustomStorageURL = WorkspaceStoragePaths.customRoot
 		
 		do {
 			try migrateLegacyAggregatorIfNeeded()

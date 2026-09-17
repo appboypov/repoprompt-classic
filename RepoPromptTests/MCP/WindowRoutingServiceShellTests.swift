@@ -6,7 +6,6 @@ import XCTest
 @MainActor
 final class WindowRoutingServiceShellTests: XCTestCase {
 	private var storageRoot: URL!
-	private var previousStoragePath: String?
 	private var viewModel: WorkspaceShellViewModel?
 	private var routing: WindowRoutingService?
 
@@ -15,7 +14,6 @@ final class WindowRoutingServiceShellTests: XCTestCase {
 		storageRoot = FileManager.default.temporaryDirectory
 			.appendingPathComponent("WindowRoutingServiceShellTests-\(UUID().uuidString)", isDirectory: true)
 		try FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
-		previousStoragePath = UserDefaults.standard.string(forKey: "GlobalCustomStorageURL")
 		UserDefaults.standard.set(storageRoot.path, forKey: "GlobalCustomStorageURL")
 	}
 
@@ -26,11 +24,7 @@ final class WindowRoutingServiceShellTests: XCTestCase {
 		routing = nil
 		await viewModel?.stop()
 		viewModel = nil
-		if let previousStoragePath {
-			UserDefaults.standard.set(previousStoragePath, forKey: "GlobalCustomStorageURL")
-		} else {
-			UserDefaults.standard.removeObject(forKey: "GlobalCustomStorageURL")
-		}
+		UserDefaults.standard.removeObject(forKey: "GlobalCustomStorageURL")
 		try? FileManager.default.removeItem(at: storageRoot)
 		try await super.tearDown()
 	}

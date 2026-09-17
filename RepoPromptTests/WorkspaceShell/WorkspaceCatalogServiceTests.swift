@@ -4,7 +4,6 @@ import XCTest
 @MainActor
 final class WorkspaceCatalogServiceTests: XCTestCase {
 	private var storageRoot: URL!
-	private var previousStoragePath: String?
 	private var shell: WorkspaceShellViewModel?
 
 	override func setUp() async throws {
@@ -12,18 +11,13 @@ final class WorkspaceCatalogServiceTests: XCTestCase {
 		storageRoot = FileManager.default.temporaryDirectory
 			.appendingPathComponent("WorkspaceCatalogServiceTests-\(UUID().uuidString)", isDirectory: true)
 		try FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
-		previousStoragePath = UserDefaults.standard.string(forKey: "GlobalCustomStorageURL")
 		UserDefaults.standard.set(storageRoot.path, forKey: "GlobalCustomStorageURL")
 	}
 
 	override func tearDown() async throws {
 		await shell?.stop()
 		shell = nil
-		if let previousStoragePath {
-			UserDefaults.standard.set(previousStoragePath, forKey: "GlobalCustomStorageURL")
-		} else {
-			UserDefaults.standard.removeObject(forKey: "GlobalCustomStorageURL")
-		}
+		UserDefaults.standard.removeObject(forKey: "GlobalCustomStorageURL")
 		try? FileManager.default.removeItem(at: storageRoot)
 		try await super.tearDown()
 	}
