@@ -68,7 +68,7 @@ enum ClaudeCodeCommands {
 	/// Version 61: rp-deep-plan — adds explicit halt-on-`ask_user`-timeout handling for involvement-mode checkpoints. When the user has actively picked a mode that promises a pause (Up front → Phase 1.5, Mid-flow → Phase 5) and a downstream `ask_user` returns `timed_out: true`, the workflow halts at that checkpoint instead of proceeding with assumed answers — resuming from the same prompt when the user replies. The Phase 1 involvement-mode prompt itself is exempt: a timeout there means "no signal" and falls through to Hands-off (same as `skipped: true`), so the workflow doesn't stall before any direction has been given. Adds a Core principle, a Phase 1 "Handling the answer" sub-section that distinguishes the three result shapes, halt reminders at the end of Phase 1.5 / Phase 5, and a matching anti-pattern.
 	/// Version 62: rp-deep-plan — reworks the `context_builder` export handoff. Phase 4 now treats the export as the plan *draft*: its content is copied into the plan file faithfully (the scaffold's `Goal` and per-item `Done when` framing preserved), without the orchestrator second-guessing how much implementation detail to keep — if the export framed the approach and work items well, that framing is design output worth keeping. The export survives Phase 4 as a reference input to the Phase 6 design critique, which becomes the arbiter of specificity: it compares plan vs. export and flags both over-specified tactical choices the implementation agent should own and under-specified or dropped framing. The export is deleted only after the critique is folded in. Retunes the "concise" core principle and Phase 7 polish framing so specificity is the critique's call, not a by-hand directive.
 	/// Version 63: rp-deep-plan — preserves Phase 2 explore-agent findings as durable context. Phase 2 gains an explicit "capture the findings" step — curate the load-bearing evidence (distill, don't dump raw agent output); Phase 3's `## Background` is now populated substantively at scaffold time (distilled evidence, not draft prose or transcripts) rather than a one-line placeholder; Phase 4 stops re-typing a two-bullet findings summary into the `context_builder` prompt and instead points the builder at the plan's `## Background`. Adds matching anti-patterns against both losing the findings and dumping raw explore output.
-	static let skillsVersion = 63
+	static let skillsVersion = 64
 
 	/// Variant for tool invocation examples in prompts.
 	enum ToolVariant {
@@ -201,35 +201,37 @@ Before any \(beforeAction), bind to the target codebase using its working direct
 ```json
 {"tool":"bind_context","args":{"op":"bind","working_dirs":["/absolute/path/to/project"]}}
 ```
-This auto-resolves to the window containing your project. No need to list windows first.
+This auto-resolves to the workspace containing your project. No need to list workspaces first.
 """,
 	cli: """
 ```bash
-# First, list available windows to find the right one
-rp-cli -e 'windows'
+# First, list workspaces (all are open in the single window) and find yours by root
+rp-cli -e 'workspace list'
 
-# Then check roots in a specific window (REQUIRED - CLI cannot auto-bind)
-rp-cli -w <window_id> -e 'tree --type roots'
+# Then work in a dedicated tab of that workspace without switching what the user sees
+rp-cli -e 'tabs create "<task name>" --workspace "<workspace_name>"'
+rp-cli --context-id <context_id> -e 'tree --type roots'
 ```
 """))
 
 \(variant == .mcp ? """
 **If binding succeeds** → proceed to \(nextStep)
-**If no match** → the codebase isn't loaded. Find and open the workspace:
+**If no match** → the codebase isn't loaded. Find the workspace and bind to a dedicated tab in it; every workspace is open in the single window, so nothing is switched:
 ```json
 {"tool":"manage_workspaces","args":{"action":"list"}}
-{"tool":"manage_workspaces","args":{"action":"switch","workspace":"<workspace_name>","open_in_new_window":true}}
+{"tool":"manage_workspaces","args":{"action":"create_tab","name":"<task name>","workspace":"<workspace_name>"}}
+{"tool":"bind_context","args":{"op":"bind","context_id":"<context_id from create_tab>"}}
 ```
-Then retry the `working_dirs` bind.
+If no workspace holds the project, create one: `{"tool":"manage_workspaces","args":{"action":"create","name":"<name>","folder_path":"/absolute/path/to/project"}}`, then create the tab.
 """ : """
 **Check the output:**
-- If your target root appears in a window → note the window ID and proceed to \(nextStep)
-- If not → the codebase isn't loaded in any window
+- If your target root appears under a workspace → create your tab there and proceed to \(nextStep)
+- If not → create the workspace: `rp-cli -e 'workspace create "<name>" --folder-path /absolute/path/to/project'`, then create the tab
 
-**CLI Window Routing:**
-- CLI invocations are stateless—you MUST pass `-w <window_id>` to target the correct window
-- Use `rp-cli -e 'windows'` to list all open windows and their workspaces
-- Always include `-w <window_id>` in ALL subsequent commands\(beforeAction == "exploration" ? "\n- Without `-w`, commands may target the wrong workspace" : "")
+**CLI Context Routing:**
+- One window holds every workspace; nothing is opened or switched for your work
+- CLI invocations are stateless—pass `--context-id <context_id>` from `tabs create` on every command so work lands in your tab
+- `workspace switch` changes what the user sees; use it only when the user asks for it\(beforeAction == "exploration" ? "\n- Without `--context-id`, commands land in the user's visible tab" : "")
 """)
 
 ---
@@ -274,7 +276,7 @@ To check which model is powering a role:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_manage op=list_agents roles_only=true'
+rp-cli --context-id <context_id> -e 'agent_manage op=list_agents roles_only=true'
 ```
 """))
 
@@ -314,14 +316,14 @@ Then pass `session_ids` (array) to `agent_run op=wait` to block until the **firs
 	cli: """
 ```bash
 # Dispatch both concurrently
-rp-cli -w <window_id> -e 'agent_run op=start model_id=\(defaultRole) session_name="1/N: <goal A>" message="<brief A>" detach=true'
-rp-cli -w <window_id> -e 'agent_run op=start model_id=\(defaultRole) session_name="2/N: <goal B>" message="<brief B>" detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=\(defaultRole) session_name="1/N: <goal A>" message="<brief A>" detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=\(defaultRole) session_name="2/N: <goal B>" message="<brief B>" detach=true'
 
 # Then wait for the first session that needs attention
-rp-cli -w <window_id> -e 'agent_run op=wait session_ids=["<uuid1>","<uuid2>"] timeout=60'
+rp-cli --context-id <context_id> -e 'agent_run op=wait session_ids=["<uuid1>","<uuid2>"] timeout=60'
 
 # Or poll all current snapshots without blocking
-rp-cli -w <window_id> -e 'agent_run op=poll session_ids=["<uuid1>","<uuid2>"]'
+rp-cli --context-id <context_id> -e 'agent_run op=poll session_ids=["<uuid1>","<uuid2>"]'
 ```
 """))
 
@@ -391,7 +393,7 @@ As each agent completes:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=steer session_id="<session_id>" message="The goal was X but Y appears missing." wait=true'
+rp-cli --context-id <context_id> -e 'agent_run op=steer session_id="<session_id>" message="The goal was X but Y appears missing." wait=true'
 ```
 """))
 3. **Summarize to the user**: Brief status update — what completed, what's still running.
@@ -413,7 +415,7 @@ Sessions persist after agents finish — useful when you might revisit output, b
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_manage op=cleanup_sessions session_ids=["<session_id>"]'
+rp-cli --context-id <context_id> -e 'agent_manage op=cleanup_sessions session_ids=["<session_id>"]'
 ```
 """))
 
@@ -444,7 +446,7 @@ Plan and review exports generated during orchestration (via `export_response:tru
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'call file_actions {"action":"delete","path":"/absolute/path/to/repo/prompt-exports/<stale-export>.md"}'
+rp-cli --context-id <context_id> -e 'call file_actions {"action":"delete","path":"/absolute/path/to/repo/prompt-exports/<stale-export>.md"}'
 ```
 """))
 """
@@ -521,7 +523,7 @@ Start by getting a lay of the land with the file tree:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'tree'
+rp-cli --context-id <context_id> -e 'tree'
 ```
 """))
 
@@ -535,8 +537,8 @@ Then use targeted searches to understand how the task maps to the codebase:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'search "<key term from task>"'
-rp-cli -w <window_id> -e 'structure RootName/likely/relevant/area/'
+rp-cli --context-id <context_id> -e 'search "<key term from task>"'
+rp-cli --context-id <context_id> -e 'structure RootName/likely/relevant/area/'
 ```
 """))
 
@@ -561,7 +563,7 @@ Call \(builderName) with your informed prompt. Use `response_type: "plan"` to ge
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<reformulated prompt with codebase context>" --response-type plan'
+rp-cli --context-id <context_id> -e 'builder "<reformulated prompt with codebase context>" --response-type plan'
 ```
 """))
 
@@ -649,16 +651,16 @@ Implement the plan directly. Don't use \(chatName) with `mode:"edit"` — you im
 	cli: """
 ```bash
 # Modify existing files (search/replace) - JSON format required
-rp-cli -w <window_id> -e 'call apply_edits {"path":"Root/File.swift","search":"old","replace":"new"}'
+rp-cli --context-id <context_id> -e 'call apply_edits {"path":"Root/File.swift","search":"old","replace":"new"}'
 
 # Multiline edits
-rp-cli -w <window_id> -e 'call apply_edits {"path":"Root/File.swift","search":"old\\ntext","replace":"new\\ntext"}'
+rp-cli --context-id <context_id> -e 'call apply_edits {"path":"Root/File.swift","search":"old\\ntext","replace":"new\\ntext"}'
 
 # Create new files
-rp-cli -w <window_id> -e 'file create Root/NewFile.swift "content..."'
+rp-cli --context-id <context_id> -e 'file create Root/NewFile.swift "content..."'
 
 # Read specific sections during implementation
-rp-cli -w <window_id> -e 'read Root/File.swift --start-line 50 --limit 30'
+rp-cli --context-id <context_id> -e 'read Root/File.swift --start-line 50 --limit 30'
 ```
 """))
 
@@ -676,7 +678,7 @@ rp-cli -w <window_id> -e 'read Root/File.swift --start-line 50 --limit 30'
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -t '<tab_id>' -e 'chat "I'\''m implementing X. The plan does not fully explain Y, and reading the selected files still leaves a gap. What pattern or connection am I missing here?" --mode chat'
+rp-cli --context-id <context_id> -e 'chat "I'\''m implementing X. The plan does not fully explain Y, and reading the selected files still leaves a gap. What pattern or connection am I missing here?" --mode chat'
 ```
 """))
 
@@ -708,7 +710,7 @@ rp-cli -w <window_id> -t '<tab_id>' -e 'chat "I'\''m implementing X. The plan do
 - 🚫 Exceeding ~160k tokens – use slices if needed
 - 🚫 Extended reading before calling \(builderName) – a quick skim is fine; let the builder do the heavy lifting
 - 🚫 Reading full file contents during Phase 1 – save that for after \(builderName) builds context
-- 🚫 Convincing yourself you understand enough to skip \(builderName) – you don't\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `-w <window_id>` – CLI invocations are stateless and require explicit window targeting" : "")
+- 🚫 Convincing yourself you understand enough to skip \(builderName) – you don't\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `--context-id <context_id>` – CLI invocations are stateless and require explicit tab targeting" : "")
 
 ---
 
@@ -739,7 +741,7 @@ This workflow is read-only. Output lands in the investigation report; no source 
 
 ### How File Selection Drives the Workflow
 
-**The pair's and explores' file reads don't populate your file selection** — they run in their own sessions. Selection curation is **your** job: the \(chatLabel) only sees what's in the selection in your window.
+**The pair's and explores' file reads don't populate your file selection** — they run in their own sessions. Selection curation is **your** job: the \(chatLabel) only sees what's in the selection of your tab.
 
 1. \(builderName) seeds the selection during Phase 2
 2. After the pair returns, refresh the selection to match what the investigation surfaced — add files the pair referenced, add slices of large files where only a region is relevant, remove fully unrelated files
@@ -784,7 +786,7 @@ Dispatch explore agents in parallel for external facts. As each returns, write a
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="<kind>: <question>" message="<question>. Report commits/links and summary." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="<kind>: <question>" message="<question>. Report commits/links and summary." detach=true'
 ```
 """))
 
@@ -821,7 +823,7 @@ mcp__RepoPrompt__context_builder:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>Investigate: specific issue</task>
+rp-cli --context-id <context_id> -e 'builder "<task>Investigate: specific issue</task>
 
 <context>
 See investigation report at <absolute/path/to/investigation-report.md> for symptoms, hypotheses, and prior research.
@@ -872,7 +874,7 @@ Its brief should include:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Investigate: <hypothesis>" message="Investigate <hypothesis>. See <report-path> for context. Trace <flow>. Fan out explore agents; candidate checks: <check 1>, <check 2>, <check 3>. Append findings to ## Investigator Findings in the report." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=pair session_name="Investigate: <hypothesis>" message="Investigate <hypothesis>. See <report-path> for context. Trace <flow>. Fan out explore agents; candidate checks: <check 1>, <check 2>, <check 3>. Append findings to ## Investigator Findings in the report." detach=true'
 ```
 """))
 
@@ -888,7 +890,7 @@ rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Investi
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=wait session_id=<pair_uuid> timeout=60'
+rp-cli --context-id <context_id> -e 'agent_run op=wait session_id=<pair_uuid> timeout=60'
 ```
 """))
 
@@ -935,10 +937,10 @@ mcp__RepoPrompt__\(chatTool):
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'select add <files surfaced by the pair>'
-rp-cli -w <window_id> -e 'select add Root/large/file.swift:100-250'
+rp-cli --context-id <context_id> -e 'select add <files surfaced by the pair>'
+rp-cli --context-id <context_id> -e 'select add Root/large/file.swift:100-250'
 
-rp-cli -w <window_id> -t '<tab_id>' -e 'chat "Here is what the pair found:
+rp-cli --context-id <context_id> -e 'chat "Here is what the pair found:
 - <evidence 1 with file:line>
 - <evidence 2 with file:line>
 
@@ -1043,11 +1045,11 @@ Create a findings report as you investigate:
 - 🚫 **Parallel pair investigators on overlapping hypotheses** — only parallelize for genuinely disjoint paths; each pair gets its own `## Investigator Findings: <path>` sub-section
 - 🚫 Dispatching the pair without the report path — it should append findings directly
 - 🚫 Wrong tool for the job — explore agents for complex multi-step in-workspace investigation (use the pair), or broad prompts like "investigate the auth system" to explores (one specific check each)
-- 🚫 Forgetting to poll dispatched agents — they may block on permission approvals\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting `-w <window_id>` — stateless invocations need explicit window targeting" : "")
+- 🚫 Forgetting to poll dispatched agents — they may block on permission approvals\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting `--context-id <context_id>` — stateless invocations need explicit tab targeting" : "")
 
 ---
 
-Now begin. \(variant == .cli ? "First run `rp-cli -e 'windows'` to find the correct window. " : "")Follow the phases above: assess → (if needed) gather external facts → \(builderName) → pair investigator → refresh selection → \(chatLabel) synthesis → report. You orchestrate, they investigate.
+Now begin. \(variant == .cli ? "First run `rp-cli -e 'workspace list'`, create your tab with `tabs create --workspace`, and pass its `--context-id` everywhere. " : "")Follow the phases above: assess → (if needed) gather external facts → \(builderName) → pair investigator → refresh selection → \(chatLabel) synthesis → report. You orchestrate, they investigate.
 """
 	}
 
@@ -1144,7 +1146,7 @@ Before any exploration, ask the user how involved they want to be. This is the *
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'call ask_user {"question":"How involved would you like to be while I shape this plan?","options":["Up front — I want to clarify the prompt before exploration begins.","Mid-flow — check in with me before the design agent reviews the draft.","Hands-off — surface the plan when it is ready, then we can refine it interactively."],"context":"This decides where I pause for your input. The default if you skip or don'\''t reply is hands-off.","timeout_seconds":120}'
+rp-cli --context-id <context_id> -e 'call ask_user {"question":"How involved would you like to be while I shape this plan?","options":["Up front — I want to clarify the prompt before exploration begins.","Mid-flow — check in with me before the design agent reviews the draft.","Hands-off — surface the plan when it is ready, then we can refine it interactively."],"context":"This decides where I pause for your input. The default if you skip or don'\''t reply is hands-off.","timeout_seconds":120}'
 ```
 """))
 
@@ -1184,7 +1186,7 @@ Don't jump to questions. Dispatch 1–2 narrow explore agents first, **scoped to
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Ambiguity scout: <area>" message="What existing patterns or conventions in <area> might apply to <user task>? Report 2–3 concrete patterns with file:line refs and a one-sentence description. Don'\\''t propose solutions." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Ambiguity scout: <area>" message="What existing patterns or conventions in <area> might apply to <user task>? Report 2–3 concrete patterns with file:line refs and a one-sentence description. Don'\\''t propose solutions." detach=true'
 ```
 """))
 
@@ -1238,9 +1240,9 @@ Each explore gets ONE narrow question. Spawn with `detach: true`, then wait on t
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Seams: <area>" message="How does <subsystem> connect to <adjacent area>? Key types, extension points, file:line refs." detach=true'
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="External: <topic>" message="Look up <library/API/RFC>. Report current behavior, version notes, and 2–3 links." detach=true'
-rp-cli -w <window_id> -e 'agent_run op=wait session_ids=["<id1>","<id2>"] timeout=120'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Seams: <area>" message="How does <subsystem> connect to <adjacent area>? Key types, extension points, file:line refs." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="External: <topic>" message="Look up <library/API/RFC>. Report current behavior, version notes, and 2–3 links." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=wait session_ids=["<id1>","<id2>"] timeout=120'
 ```
 """))
 
@@ -1268,7 +1270,7 @@ Create `docs/plans/<topic>-<YYYY-MM-DD>.md`. Seed it with a **lightweight scaffo
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'file create docs/plans/<topic>-<YYYY-MM-DD>.md "# <Topic>: Plan
+rp-cli --context-id <context_id> -e 'file create docs/plans/<topic>-<YYYY-MM-DD>.md "# <Topic>: Plan
 
 ## Goal
 <1–2 sentence restatement in the codebase'\\''s actual terms>
@@ -1305,7 +1307,7 @@ Call \(builderName) in plan mode with `export_response: true`. Pass the plan pat
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task><user task, restated in the codebase'\\''s terms></task>
+rp-cli --context-id <context_id> -e 'builder "<task><user task, restated in the codebase'\\''s terms></task>
 
 <context>See the in-progress plan at docs/plans/<topic>-<YYYY-MM-DD>.md — its ## Background section holds the curated explore-agent findings (seams, file:line refs, prior art, external research), plus the goal and open questions gathered so far. Build on that context rather than re-deriving it.
 
@@ -1336,8 +1338,8 @@ _(Keep `<oracle_export_path>` for Phase 6 — do not delete it here.)_
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'read <oracle_export_path>'
-rp-cli -w <window_id> -e 'call apply_edits {"path":"docs/plans/<topic>-<YYYY-MM-DD>.md","search":"## Open Questions","replace":"## Approach\\n<the export'\\''s approach, edited into your voice — keep the detail>\\n\\n## Work Items\\n### Item 1 — <name>\\n**Goal:** <...>\\n**Done when:** <...>\\n**Key files:** <file:line refs>\\n\\n## Open Questions"}'
+rp-cli --context-id <context_id> -e 'read <oracle_export_path>'
+rp-cli --context-id <context_id> -e 'call apply_edits {"path":"docs/plans/<topic>-<YYYY-MM-DD>.md","search":"## Open Questions","replace":"## Approach\\n<the export'\\''s approach, edited into your voice — keep the detail>\\n\\n## Work Items\\n### Item 1 — <name>\\n**Goal:** <...>\\n**Done when:** <...>\\n**Key files:** <file:line refs>\\n\\n## Open Questions"}'
 # Keep <oracle_export_path> for Phase 6 — do not delete it here.
 ```
 """))
@@ -1372,7 +1374,7 @@ Dispatch a design agent — **once**, with tight scope — to spot-check the pla
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=design session_name="Plan critique: <topic>" message="Read the plan at docs/plans/<topic>-<YYYY-MM-DD>.md and the original context_builder export at <oracle_export_path>. Produce a max-1-page critique under docs/reviews/. Cover ONLY: top 3 under-specified seams an implementer would have to guess (with file:line if applicable); specificity balance — work items that over-specify tactical choices the implementer should own, or that dropped useful framing the export had (compare plan vs export); contradictions or missing dependencies; risk of over-planning (sections to cut or simplify); questions whose answers would change implementation order. Do NOT expand scope, rewrite the plan, or do broad exploration." wait=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=design session_name="Plan critique: <topic>" message="Read the plan at docs/plans/<topic>-<YYYY-MM-DD>.md and the original context_builder export at <oracle_export_path>. Produce a max-1-page critique under docs/reviews/. Cover ONLY: top 3 under-specified seams an implementer would have to guess (with file:line if applicable); specificity balance — work items that over-specify tactical choices the implementer should own, or that dropped useful framing the export had (compare plan vs export); contradictions or missing dependencies; risk of over-planning (sections to cut or simplify); questions whose answers would change implementation order. Do NOT expand scope, rewrite the plan, or do broad exploration." wait=true'
 ```
 """))
 
@@ -1388,7 +1390,7 @@ Once the critique is folded in, the \(builderName) export has served its purpose
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'call file_actions {"action":"delete","path":"<oracle_export_path>"}'
+rp-cli --context-id <context_id> -e 'call file_actions {"action":"delete","path":"<oracle_export_path>"}'
 ```
 """))
 
@@ -1443,11 +1445,11 @@ For **all** modes, report:
 - 🚫 Dispatching external/web research when the plan only depends on in-repo facts — the trigger is real external dependency
 - 🚫 Doing broad codebase reading yourself instead of dispatching an explore agent — keep your context lean for writing
 - 🚫 Forgetting to poll dispatched agents — they may block on permission approvals
-- 🚫 Silently demoting an Up-front / Mid-flow user to Hands-off when their checkpoint `ask_user` times out — they asked to be involved; honor it. Halt and resume when they reply. (Phase 1's involvement-mode prompt is the one exception: a timeout there is treated as "no signal" and falls through to the Hands-off default.)\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `-w <window_id>` — CLI invocations are stateless and require explicit window targeting" : "")
+- 🚫 Silently demoting an Up-front / Mid-flow user to Hands-off when their checkpoint `ask_user` times out — they asked to be involved; honor it. Halt and resume when they reply. (Phase 1's involvement-mode prompt is the one exception: a timeout there is treated as "no signal" and falls through to the Hands-off default.)\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `--context-id <context_id>` — CLI invocations are stateless and require explicit tab targeting" : "")
 
 ---
 
-Now begin with Phase 0.\(variant == .cli ? " First run `rp-cli -e 'windows'` to find the correct window." : "")
+Now begin with Phase 0.\(variant == .cli ? " First run `rp-cli -e 'workspace list'`, create your tab with `tabs create --workspace`, and pass its `--context-id` everywhere." : "")
 """
 	}
 
@@ -1517,6 +1519,10 @@ Dispatch a sub-agent when a side investigation or delegated chunk of work would 
 \(example(variant,
 	mcp: """
 ```json
+// Workspace discovery · your own tab (one window holds every workspace)
+{"tool":"manage_workspaces","args":{"action":"list"}}
+{"tool":"manage_workspaces","args":{"action":"create_tab","name":"<task name>","workspace":"<workspace_name>"}}
+
 // Search · Read · Edit · File ops
 {"tool":"file_search","args":{"pattern":"keyword","mode":"auto"}}
 {"tool":"read_file","args":{"path":"Root/file.swift","start_line":50,"limit":30}}
@@ -1537,22 +1543,26 @@ Dispatch a sub-agent when a side investigation or delegated chunk of work would 
 """,
 	cli: """
 ```bash
+# Workspace discovery · your own tab (one window holds every workspace)
+rp-cli -e 'workspace list'
+rp-cli -e 'tabs create "<task name>" --workspace "<workspace_name>"'   # returns context_id
+
 # Search · Read · Edit · File ops
-rp-cli -w <window_id> -e 'search "keyword"'
-rp-cli -w <window_id> -e 'read Root/file.swift --start-line 50 --limit 30'
-rp-cli -w <window_id> -e 'call apply_edits {"path":"Root/file.swift","search":"old","replace":"new"}'
-rp-cli -w <window_id> -e 'file create Root/new.swift "content..."'
+rp-cli --context-id <context_id> -e 'search "keyword"'
+rp-cli --context-id <context_id> -e 'read Root/file.swift --start-line 50 --limit 30'
+rp-cli --context-id <context_id> -e 'call apply_edits {"path":"Root/file.swift","search":"old","replace":"new"}'
+rp-cli --context-id <context_id> -e 'file create Root/new.swift "content..."'
 
 # Selection · Builder · Oracle
-rp-cli -w <window_id> -e 'select add Root/path/file.swift'
-rp-cli -w <window_id> -e 'builder "<task>" --response-type plan'
-rp-cli -w <window_id> -e 'chat "..." --mode plan'
+rp-cli --context-id <context_id> -e 'select add Root/path/file.swift'
+rp-cli --context-id <context_id> -e 'builder "<task>" --response-type plan'
+rp-cli --context-id <context_id> -e 'chat "..." --mode plan'
 
 # Delegate · Fan-out · Steer · Cleanup
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Probe: X" message="<question>" detach=true'
-rp-cli -w <window_id> -e 'agent_run op=wait session_ids=["<uuid1>","<uuid2>"] timeout=60'
-rp-cli -w <window_id> -e 'agent_run op=steer session_id="<uuid>" message="now do Y" wait=true'
-rp-cli -w <window_id> -e 'agent_manage op=cleanup_sessions session_ids=["<uuid>"]'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Probe: X" message="<question>" detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=wait session_ids=["<uuid1>","<uuid2>"] timeout=60'
+rp-cli --context-id <context_id> -e 'agent_run op=steer session_id="<uuid>" message="now do Y" wait=true'
+rp-cli --context-id <context_id> -e 'agent_manage op=cleanup_sessions session_ids=["<uuid>"]'
 ```
 """))
 
@@ -1699,8 +1709,8 @@ Start by checking git state:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'git status'
-rp-cli -w <window_id> -e 'git diff --detail files'
+rp-cli --context-id <context_id> -e 'git status'
+rp-cli --context-id <context_id> -e 'git diff --detail files'
 ```
 """))
 
@@ -1732,8 +1742,8 @@ Use the fast path only when the request is already small and obvious:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'search "<key term>"'
-rp-cli -w <window_id> -e 'select add RootName/path/to/FileA.swift RootName/path/to/FileB.swift'
+rp-cli --context-id <context_id> -e 'search "<key term>"'
+rp-cli --context-id <context_id> -e 'select add RootName/path/to/FileA.swift RootName/path/to/FileB.swift'
 ```
 """))
 
@@ -1758,10 +1768,10 @@ Otherwise use `context_builder`:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>The actual problem to solve — not about exporting or prompting</task>
+rp-cli --context-id <context_id> -e 'builder "<task>The actual problem to solve — not about exporting or prompting</task>
 <context>Scope: <what you found>.</context>" --response-type clarify'
 
-rp-cli -w <window_id> -e 'builder "<task>Code review of changes against <confirmed_scope>.</task>
+rp-cli --context-id <context_id> -e 'builder "<task>Code review of changes against <confirmed_scope>.</task>
 <context>Intent: code review. Branch: <branch_name>.</context>" --response-type clarify'
 ```
 """))
@@ -1783,8 +1793,8 @@ rp-cli -w <window_id> -e 'builder "<task>Code review of changes against <confirm
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'select get'
-rp-cli -w <window_id> -e 'prompt get'
+rp-cli --context-id <context_id> -e 'select get'
+rp-cli --context-id <context_id> -e 'prompt get'
 ```
 """))
 
@@ -1797,7 +1807,7 @@ If available in this surface, the fast path may also inspect token state:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'context --include selection,tokens'
+rp-cli --context-id <context_id> -e 'context --include selection,tokens'
 ```
 """))
 
@@ -1827,7 +1837,7 @@ Preset mapping:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'prompt export "prompt-exports/<unique filename>.md" --copy-preset <standard|plan|codeReview>'
+rp-cli --context-id <context_id> -e 'prompt export "prompt-exports/<unique filename>.md" --copy-preset <standard|plan|codeReview>'
 ```
 """))
 
@@ -1888,7 +1898,7 @@ You are a **Code Reviewer** using \(toolDesc). Your workflow: understand the sco
 
 		return """
 ## Protocol
-\(isAgent ? "" : "\n0. **Verify workspace** – Confirm the target codebase is loaded\(variant == .cli ? " and identify the correct window" : "").")
+\(isAgent ? "" : "\n0. **Verify workspace** – Confirm the target codebase is loaded\(variant == .cli ? " and create your tab in its workspace" : "").")
 1. **Survey changes** – Check git state and recent commits to understand what's changed.
 2. **Determine scope** – Infer the comparison scope from the user's request. Only ask for clarification if the scope is ambiguous or unspecified.
 3. **Deep review** – Run \(builderName) with `response_type: "review"`, explicitly specifying the confirmed comparison scope.
@@ -1907,9 +1917,9 @@ You are a **Code Reviewer** using \(toolDesc). Your workflow: understand the sco
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'git status'
-rp-cli -w <window_id> -e 'git log --count 10'
-rp-cli -w <window_id> -e 'git diff --detail files'
+rp-cli --context-id <context_id> -e 'git status'
+rp-cli --context-id <context_id> -e 'git log --count 10'
+rp-cli --context-id <context_id> -e 'git diff --detail files'
 ```
 """))
 
@@ -1933,7 +1943,7 @@ Use XML tags to structure the instructions:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>Review changes comparing <current_branch> against <confirmed_comparison_target>. Focus on correctness, security, API changes, error handling.</task>
+rp-cli --context-id <context_id> -e 'builder "<task>Review changes comparing <current_branch> against <confirmed_comparison_target>. Focus on correctness, security, API changes, error handling.</task>
 
 <context>Comparison: <confirmed_scope> (e.g., uncommitted, main, staged)
 Current branch: <branch_name>
@@ -1959,10 +1969,10 @@ After receiving review findings, you can ask clarifying questions in the same ch
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -t '<tab_id>' -e 'chat "Can you explain the security concern in more detail? What'\\''s the attack vector?" --mode chat'
+rp-cli --context-id <context_id> -e 'chat "Can you explain the security concern in more detail? What'\\''s the attack vector?" --mode chat'
 ```
 
-> Pass `-w <window_id>` to target the correct window and `-t <tab_id>` to target the same tab from the builder response.
+> Pass `--context-id <context_id>` to keep working in your own tab.
 """))
 
 ## Step 4: Fill Gaps
@@ -1979,7 +1989,7 @@ If the review omitted significant areas, run a focused follow-up. **Explicitly d
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>Review <specific area> in depth.</task>
+rp-cli --context-id <context_id> -e 'builder "<task>Review <specific area> in depth.</task>
 
 <context>Previous review covered: <list files/areas reviewed>.
 Not yet reviewed: <list files/areas to review now>.</context>
@@ -1998,7 +2008,7 @@ Not yet reviewed: <list files/areas to review now>.</context>
 - 🚫 Doing extensive file reading before calling \(builderName) – git status/log/diff is sufficient for Step 1
 - 🚫 Providing review feedback without first calling \(builderName) with `response_type: "review"`
 - 🚫 Assuming the git diff alone is sufficient context for a thorough review
-- 🚫 Reading changed files manually instead of letting \(builderName) build proper review context\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `-w <window_id>` – CLI invocations are stateless and require explicit window targeting" : "")
+- 🚫 Reading changed files manually instead of letting \(builderName) build proper review context\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `--context-id <context_id>` – CLI invocations are stateless and require explicit tab targeting" : "")
 
 ---
 
@@ -2089,7 +2099,7 @@ Analyze code for redundancies and complexity, then orchestrate agents to impleme
 ---
 
 ## Protocol
-\(isAgent ? "" : "\n0. **Verify workspace** – Confirm the target codebase is loaded\(variant == .cli ? " and identify the correct window" : "").")
+\(isAgent ? "" : "\n0. **Verify workspace** – Confirm the target codebase is loaded\(variant == .cli ? " and create your tab in its workspace" : "").")
 1. **Scope & Analyze** – Scout target areas with explore agents, then use \(builderName) with `response_type: "review"` informed by their findings.
 2. **Plan** – Use \(builderName) with `response_type: "plan"` and `export_response: true` to generate and export a refactoring plan.
 3. **Decompose & Dispatch** – Break the plan into ordered work items and dispatch agents to implement.
@@ -2128,9 +2138,9 @@ Before calling \(builderName), dispatch explore agents to map the areas the user
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'tree'
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Scout: <area 1>" message="Map <area>: key types, responsibilities, interactions. Note duplication." detach=true'
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Scout: <area 2>" message="Check <area> — patterns, relationship to <area 1>, shared logic." detach=true'
+rp-cli --context-id <context_id> -e 'tree'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Scout: <area 1>" message="Map <area>: key types, responsibilities, interactions. Note duplication." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Scout: <area 2>" message="Check <area> — patterns, relationship to <area 1>, shared logic." detach=true'
 ```
 """))
 
@@ -2146,7 +2156,7 @@ Collect results before proceeding:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=wait session_ids=["<id_1>","<id_2>"] timeout=60'
+rp-cli --context-id <context_id> -e 'agent_run op=wait session_ids=["<id_1>","<id_2>"] timeout=60'
 ```
 """))
 
@@ -2167,7 +2177,7 @@ Not every refactor needs explore agents. If the user's request already names spe
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>Analyze for refactoring opportunities. Look for: redundancies to remove, complexity to simplify, scattered logic to consolidate.</task>
+rp-cli --context-id <context_id> -e 'builder "<task>Analyze for refactoring opportunities. Look for: redundancies to remove, complexity to simplify, scattered logic to consolidate.</task>
 
 <context>Target: <files, directory, or recent changes>.
 Goal: Preserve behavior while improving code organization.
@@ -2201,10 +2211,10 @@ After receiving analysis findings, you can ask clarifying questions in the same 
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -t '<tab_id>' -e 'chat "For the duplicate logic you identified, which location should be the canonical one?" --mode chat'
+rp-cli --context-id <context_id> -e 'chat "For the duplicate logic you identified, which location should be the canonical one?" --mode chat'
 ```
 
-> Pass `-w <window_id>` to target the correct window and `-t <tab_id>` to target the same tab from the builder response.
+> Pass `--context-id <context_id>` to keep working in your own tab.
 """))
 
 ## Step 2: Plan the Refactorings (via \(builderName) - REQUIRED)
@@ -2223,7 +2233,7 @@ Once you have a clear list of refactoring opportunities, use \(builderName) with
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>Plan these refactorings in order:</task>
+rp-cli --context-id <context_id> -e 'builder "<task>Plan these refactorings in order:</task>
 
 <context>Refactorings to apply:
 1. <specific refactoring with file references>
@@ -2282,14 +2292,14 @@ Start a single agent and feed it work **one item at a time**. Refactorings usual
 	cli: """
 ```bash
 # 1. Start with the first refactoring item
-rp-cli -w <window_id> -e 'agent_run op=start model_id=engineer session_name="Refactor: <goal>" message="Read the refactoring plan at <plan path> with read_file first. Implement item 1: <brief>. Preserve existing behavior."'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=engineer session_name="Refactor: <goal>" message="Read the refactoring plan at <plan path> with read_file first. Implement item 1: <brief>. Preserve existing behavior."'
 
 # 2. Verify, then steer the next item
-rp-cli -w <window_id> -e 'read "<key file from item 1>"'
-rp-cli -w <window_id> -e 'agent_run op=steer session_id="<session_id>" message="Item 1 looks good. Item 2: <brief>" wait=true'
+rp-cli --context-id <context_id> -e 'read "<key file from item 1>"'
+rp-cli --context-id <context_id> -e 'agent_run op=steer session_id="<session_id>" message="Item 1 looks good. Item 2: <brief>" wait=true'
 
 # 3. If something's off, steer a correction
-rp-cli -w <window_id> -e 'agent_run op=steer session_id="<session_id>" message="Item 1 missed <gap>. Fix first." wait=true'
+rp-cli --context-id <context_id> -e 'agent_run op=steer session_id="<session_id>" message="Item 1 missed <gap>. Fix first." wait=true'
 ```
 """))
 
@@ -2332,7 +2342,7 @@ Only parallelize when items have **zero file overlap**. When in doubt, run seque
 - 🚫 Dispatching all items at once without verifying each one — refactorings compound; verify before proceeding
 - 🚫 Parallelizing items that share files — sequential is safer for dependent refactorings
 - 🚫 Forgetting to check on dispatched agents — they may block on permission approvals; poll periodically to keep them unblocked
-- 🚫 Assuming you understand the code structure without \(builderName)'s architectural analysis\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `-w <window_id>` – CLI invocations are stateless and require explicit window targeting" : "")
+- 🚫 Assuming you understand the code structure without \(builderName)'s architectural analysis\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `--context-id <context_id>` – CLI invocations are stateless and require explicit tab targeting" : "")
 """
 	}
 
@@ -2407,9 +2417,9 @@ Then:
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'tree'
-rp-cli -w <window_id> -e 'search "<key term>"'
-rp-cli -w <window_id> -e 'builder "<contextualized task>" --response-type plan --export'
+rp-cli --context-id <context_id> -e 'tree'
+rp-cli --context-id <context_id> -e 'search "<key term>"'
+rp-cli --context-id <context_id> -e 'builder "<contextualized task>" --response-type plan --export'
 ```
 """))
 
@@ -2428,7 +2438,7 @@ If you can't disambiguate from a quick scan, dispatch a narrow explore agent fir
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Explore: <area>" message="Check <specific thing>"'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Explore: <area>" message="Check <specific thing>"'
 ```
 """))
 
@@ -2477,8 +2487,8 @@ The tool returns `oracle_export_path` and `oracle_export_instruction`. Include `
 	cli: """
 ```bash
 # Generate and export the plan, then reference the returned path in agent_run message.
-rp-cli -w <window_id> -e 'builder "<task description>" --response-type plan --export'
-rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Orchestrate: <goal>" message="Read the plan at <plan path> with read_file first. Implement <work item>."'
+rp-cli --context-id <context_id> -e 'builder "<task description>" --response-type plan --export'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=pair session_name="Orchestrate: <goal>" message="Read the plan at <plan path> with read_file first. Implement <work item>."'
 ```
 """))
 
@@ -2542,16 +2552,16 @@ Do **not** fire-and-forget the full list. Catching drift early — before the ne
 	cli: """
 ```bash
 # 1. Dispatch item 1 as a fresh agent
-rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Orchestrate 1/N: <goal>" message="Read the plan at <plan path> with read_file first. Your job is item 1: <brief>."'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=pair session_name="Orchestrate 1/N: <goal>" message="Read the plan at <plan path> with read_file first. Your job is item 1: <brief>."'
 
 # 2. Verify output, spot-check key files
-rp-cli -w <window_id> -e 'read "<key file from item 1>"'
+rp-cli --context-id <context_id> -e 'read "<key file from item 1>"'
 
 # 3. Update plan file to record progress
-rp-cli -w <window_id> -e 'call apply_edits {"path":"<plan path>","search":"- [ ] Item 1:","replace":"- [x] Item 1:"}'
+rp-cli --context-id <context_id> -e 'call apply_edits {"path":"<plan path>","search":"- [ ] Item 1:","replace":"- [x] Item 1:"}'
 
 # 4. Dispatch item 2 as a new fresh agent
-rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Orchestrate 2/N: <goal>" message="Read the plan at <plan path> with read_file first. Item 1 is complete. Your job is item 2: <brief>."'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=pair session_name="Orchestrate 2/N: <goal>" message="Read the plan at <plan path> with read_file first. Item 1 is complete. Your job is item 2: <brief>."'
 ```
 """))
 
@@ -2580,7 +2590,7 @@ When steering, the loop is the same but step 5 becomes `agent_run op=steer` on t
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=steer session_id="<session_id>" message="Item 1 looks good. Moving on to item 2: <brief>" wait=true'
+rp-cli --context-id <context_id> -e 'agent_run op=steer session_id="<session_id>" message="Item 1 looks good. Moving on to item 2: <brief>" wait=true'
 ```
 """))
 
@@ -2773,10 +2783,10 @@ Use `detach:true` so they run concurrently:
 	cli: """
 ```bash
 # The Bottleneck candidates explore — full prose, since this is the heart of Phase 1
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Bottleneck candidates: <area>" message="Scout for performance bottlenecks around <translated target>. Look at the target AND surrounding context: callers, data dependencies, adjacent operations, shared infrastructure. Hunt for tight loops with per-iteration allocations, redundant computation, locking, expensive transformations, sync I/O on hot paths, O(n²), unbatched updates. Report 2–3 ranked candidates with file:line and one-sentence rationale per candidate. No fixes yet." detach=true'
-rp-cli -w <window_id> -e 'agent_run op=start model_id=explore session_name="Conventions: AGENTS.md" message="Read AGENTS.md. Report how to run unit tests, benchmarks, debug harness, sanctioned measurement commands. Quote exact commands." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Bottleneck candidates: <area>" message="Scout for performance bottlenecks around <translated target>. Look at the target AND surrounding context: callers, data dependencies, adjacent operations, shared infrastructure. Hunt for tight loops with per-iteration allocations, redundant computation, locking, expensive transformations, sync I/O on hot paths, O(n²), unbatched updates. Report 2–3 ranked candidates with file:line and one-sentence rationale per candidate. No fixes yet." detach=true'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=explore session_name="Conventions: AGENTS.md" message="Read AGENTS.md. Report how to run unit tests, benchmarks, debug harness, sanctioned measurement commands. Quote exact commands." detach=true'
 # Repeat the same shape for the remaining 3 explores in the table above (Target & call graph, Prior perf work, Scope), each with detach=true.
-rp-cli -w <window_id> -e 'agent_run op=wait session_ids=["<id1>","<id2>","<id3>","<id4>","<id5>"] timeout=180'
+rp-cli --context-id <context_id> -e 'agent_run op=wait session_ids=["<id1>","<id2>","<id3>","<id4>","<id5>"] timeout=180'
 ```
 """))
 
@@ -2821,7 +2831,7 @@ Now that the surface is mapped and bottleneck candidates are in hand, route the 
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'builder "<task>Design the setup for an iterative optimization loop targeting <metric> on <scope>.
+rp-cli --context-id <context_id> -e 'builder "<task>Design the setup for an iterative optimization loop targeting <metric> on <scope>.
 
 Return an actionable plan with:
 1. Instrumentation strategy: which file to add/extend (must be a test/support file, not production code), the debug-build gate matching this repo, and the smallest hook the production code needs to expose.
@@ -2867,7 +2877,7 @@ You don't run measurements. Dispatch a single `pair` agent to execute the setup 
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Optimize setup" message="Read the setup plan at <plan path> with read_file first. Execute the setup phase only: land instrumentation in a test/support file gated behind the debug build flag; verify release builds strip it; capture 3–5 baseline samples per AGENTS.md; create prompt-exports/optimize-<slug>-runs.md and fill the baseline row (median, p95, variance, env, commit). Report files touched, command used, baseline numbers, variance, and any reliability concerns. Do not optimize anything yet."'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=pair session_name="Optimize setup" message="Read the setup plan at <plan path> with read_file first. Execute the setup phase only: land instrumentation in a test/support file gated behind the debug build flag; verify release builds strip it; capture 3–5 baseline samples per AGENTS.md; create prompt-exports/optimize-<slug>-runs.md and fill the baseline row (median, p95, variance, env, commit). Report files touched, command used, baseline numbers, variance, and any reliability concerns. Do not optimize anything yet."'
 ```
 """))
 
@@ -2907,8 +2917,8 @@ The Phase 2 plan listed first-pass candidates. For iteration 1, pick the top-ran
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'select set <target source files> <benchmark or test> prompt-exports/optimize-<slug>-runs.md <setup plan path>'
-rp-cli -w <window_id> -e 'builder "<task>Propose the single next optimization to pursue for <metric>. One change, not a list. Include the change, why it moves the metric, risks, and how to verify no regressions.</task>
+rp-cli --context-id <context_id> -e 'select set <target source files> <benchmark or test> prompt-exports/optimize-<slug>-runs.md <setup plan path>'
+rp-cli --context-id <context_id> -e 'builder "<task>Propose the single next optimization to pursue for <metric>. One change, not a list. Include the change, why it moves the metric, risks, and how to verify no regressions.</task>
 
 <context>Baseline and prior runs in prompt-exports/optimize-<slug>-runs.md. Setup plan with first-pass candidates at <setup plan path>. Target: <threshold>. Scope: <modules>.</context>" --response-type plan --export'
 ```
@@ -2933,7 +2943,7 @@ Dispatch **one `pair` agent** for the selected change. The brief covers landing 
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'agent_run op=start model_id=pair session_name="Optimize <N>: <change summary>" message="Read the plan at <plan path> with read_file first. Implement the change in <files>; run the project test command per AGENTS.md and fix breaks; re-run the baseline measurement command with matching sample count and append a new row to prompt-exports/optimize-<slug>-runs.md; if regressed, revert or iterate once to fix; then report changes, new metric value, updated tests, and concerns. Stay inside <scope>. Skip oracle review."'
+rp-cli --context-id <context_id> -e 'agent_run op=start model_id=pair session_name="Optimize <N>: <change summary>" message="Read the plan at <plan path> with read_file first. Implement the change in <files>; run the project test command per AGENTS.md and fix breaks; re-run the baseline measurement command with matching sample count and append a new row to prompt-exports/optimize-<slug>-runs.md; if regressed, revert or iterate once to fix; then report changes, new metric value, updated tests, and concerns. Stay inside <scope>. Skip oracle review."'
 ```
 """))
 
@@ -2970,8 +2980,8 @@ After a successful iteration, refresh the selection and ask the oracle both ques
 """,
 	cli: """
 ```bash
-rp-cli -w <window_id> -e 'select set <files changed this iteration> <benchmark or test> prompt-exports/optimize-<slug>-runs.md'
-rp-cli -w <window_id> -e 'chat "Plan: We just landed <change summary>. Metric moved from <baseline> to <new>. Scoreboard is in the selection. Given the stop criterion (<criterion>), should we run another iteration? If yes, what is the single best next optimization. If no, explain why we have hit diminishing returns or the target." --mode plan'
+rp-cli --context-id <context_id> -e 'select set <files changed this iteration> <benchmark or test> prompt-exports/optimize-<slug>-runs.md'
+rp-cli --context-id <context_id> -e 'chat "Plan: We just landed <change summary>. Metric moved from <baseline> to <new>. Scoreboard is in the selection. Given the stop criterion (<criterion>), should we run another iteration? If yes, what is the single best next optimization. If no, explain why we have hit diminishing returns or the target." --mode plan'
 ```
 """))
 
@@ -3056,11 +3066,11 @@ agent_run op=steer  session_id="..."         wait=true         # correct
 - 🚫 Running multiple optimizations in one loop iteration — you'll never know which change produced which delta
 - 🚫 Forgetting to re-run tests after the optimization — speed without correctness isn't a win
 - 🚫 Skipping the oracle check and looping on your own judgment — the oracle sees the whole scoreboard; use it
-- 🚫 Overwriting scoreboard rows instead of appending — historical data is how you spot regressions and dead ends\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `-w <window_id>` — CLI invocations are stateless and require explicit window targeting" : "")
+- 🚫 Overwriting scoreboard rows instead of appending — historical data is how you spot regressions and dead ends\(variant == .cli ? "\n- 🚫 **CLI:** Forgetting to pass `--context-id <context_id>` — CLI invocations are stateless and require explicit tab targeting" : "")
 
 ---
 
-Now begin with Phase 0.\(variant == .cli ? " First run `rp-cli -e 'windows'` to find the correct window." : "")
+Now begin with Phase 0.\(variant == .cli ? " First run `rp-cli -e 'workspace list'`, create your tab with `tabs create --workspace`, and pass its `--context-id` everywhere." : "")
 """
 	}
 
