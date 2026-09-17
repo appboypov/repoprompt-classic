@@ -91,8 +91,13 @@ final class AppDeepLinkRouter {
 	}
 
 	func route(notificationRoute route: AgentSessionDeepLinkRoute?) async {
-		guard let route, let service = startedService else {
+		guard let route else {
 			NSApp.activate(ignoringOtherApps: true)
+			return
+		}
+		guard let service = startedService else {
+			logger.debug("shell not started; queued notification route for tab \(route.tabID.uuidString, privacy: .public)")
+			windowStatesManager.pendingURLs.append(route.url)
 			return
 		}
 		await openRoute(.agentSession(route), service: service)

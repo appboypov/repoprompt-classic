@@ -1441,7 +1441,7 @@ class WindowState: ObservableObject {
 			} else if let shell = WindowStatesManager.shared.shell {
 				let nameGuess = folderURL.lastPathComponent
 				let workspaceName = workspaceManager.uniqueWorkspaceName(baseName: nameGuess)
-				guard let created = try? await shell.add(name: workspaceName, folderPath: folderURL.path, makeVisible: true) else {
+				guard let created = try? await shell.requestAdd(name: workspaceName, folderPath: folderURL.path, makeVisible: true) else {
 					return
 				}
 				await forwardThroughShell(shell, command, to: created)
@@ -1482,7 +1482,7 @@ class WindowState: ObservableObject {
 				let result = await workspaceManager.requestWorkspaceSwitch(to: existing, saveState: true)
 				didSwitchWorkspace = result.didSwitch
 			} else if let shell = WindowStatesManager.shared.shell {
-				guard let created = try? await shell.add(name: workspaceName, folderPath: nil, makeVisible: true) else {
+				guard let created = try? await shell.requestAdd(name: workspaceName, folderPath: nil, makeVisible: true) else {
 					return
 				}
 				await forwardThroughShell(shell, command, to: created)
@@ -1526,7 +1526,7 @@ class WindowState: ObservableObject {
 	/// Shows the target workspace in the shell and hands the rest of the command to its runtime.
 	private func forwardThroughShell(_ shell: any WorkspaceShellCoordinating, _ command: AppCommand, to workspaceID: UUID) async {
 		do {
-			try await shell.select(workspaceID)
+			try await shell.requestSelect(workspaceID)
 		} catch {
 			return
 		}

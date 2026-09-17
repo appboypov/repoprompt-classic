@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import os
 
 /// The user-facing remove confirmation. The root view answers through `resume`.
 struct RemovalPrompt: Identifiable {
@@ -37,6 +38,8 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		}
 	}
 	@Published var pendingRemoval: RemovalPrompt?
+	private var mutationQueue: Task<Void, Never>?
+	private let logger = Logger(subsystem: "com.repoprompt.workspace", category: "shell")
 	private(set) var isStarted = false
 	/// Installed on the host and every runtime's manager so legacy switch calls route through the shell.
 	var switchForwarder: ((WorkspaceModel) async -> WorkspaceSwitchResult)? {
@@ -268,6 +271,60 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		windowStatesManager.unregisterWindowState(state)
 	}
 
+	// MARK: - Mutation queue
+
+	/// Serializes catalog and runtime mutations from every entry point: action service, incoming
+	/// URLs and agent commands. A failed step never blocks the next one.
+	func serialized<T: Sendable>(_ work: @escaping @MainActor () async throws -> T) async throws -> T {
+		let previous = mutationQueue
+		let task = Task<T, Error> { @MainActor in
+			await previous?.value
+			return try await work()
+		}
+		mutationQueue = Task { _ = try? await task.value }
+		return try await task.value
+	}
+
+	func requestSelect(_ id: UUID) async throws {
+		try await serialized { [self] in try await select(id) }
+	}
+
+	func requestAdd(name: String, folderPath: String?, makeVisible: Bool) async throws -> UUID {
+		try await serialized { [self] in try await add(name: name, folderPath: folderPath, makeVisible: makeVisible) }
+	}
+
+	/// Removes a catalog entry that never got a runtime: an in-flight preparation is cancelled
+	/// first, then the host runtime's manager performs the catalog write.
+	private func removeUnpreparedWorkspace(_ id: UUID) async {
+		guard let catalog, let hostRuntime else { return }
+		if let inflight = runtimePreparations[id] {
+			inflight.cancel()
+			if let prepared = await inflight.value {
+				await discard(prepared)
+				loadedWorkspaceStates[id] = nil
+			}
+		}
+		preparationQueue.removeAll { $0 == id }
+		preparingWorkspaceIDs.remove(id)
+		do {
+			try await catalog.remove(id: id, runtime: hostRuntime, runtimes: Array(loadedWorkspaceStates.values))
+		} catch {
+			logger.error("remove failed workspaceID=\(id.uuidString, privacy: .public) error=\(String(describing: error), privacy: .public)")
+		}
+		visibleWorkspaceRecency.removeAll { $0 == id }
+		if visibleWorkspaceID == id {
+			visibleWorkspaceID = nil
+			let catalogIDs = catalog.loadEntries().map(\.id)
+			let fallback = visibleWorkspaceRecency.first(where: { catalogIDs.contains($0) }) ?? catalogIDs.first
+			if let fallback {
+				await show(fallback)
+			} else {
+				await showRuntime(hostRuntime)
+			}
+		}
+		publish()
+	}
+
 	// MARK: - Selection
 
 	func select(_ id: UUID) async throws {
@@ -349,6 +406,8 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		publish()
 		if makeVisible {
 			await show(created.id)
+		} else {
+			await state.workspaceManager.pausePeriodicWork()
 		}
 		return created.id
 	}
@@ -376,14 +435,19 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	/// Stops the runtime's agents, deletes the catalog entry for `.removal`, tears the runtime down and
 	/// moves the visible workspace to the most recent other runtime, else the first catalog entry, else none.
 	func disposeRuntime(for id: UUID, reason: RuntimeDisposalReason) async {
-		guard let runtime = loadedWorkspaceStates[id] else { return }
+		guard let runtime = loadedWorkspaceStates[id] else {
+			if reason == .removal {
+				await removeUnpreparedWorkspace(id)
+			}
+			return
+		}
 		await runtime.workspaceManager.cancelActiveSessions()
 		await runtime.agentModeViewModel.prepareForWindowClose()
 		if reason == .removal, let catalog {
 			do {
 				try await catalog.remove(id: id, runtime: runtime, runtimes: Array(loadedWorkspaceStates.values.filter { $0 !== runtime }))
 			} catch {
-				print("Workspace shell remove failed for \(id): \(error)")
+				logger.error("remove failed workspaceID=\(id.uuidString, privacy: .public) error=\(String(describing: error), privacy: .public)")
 			}
 		}
 		SettingsWindowCoordinator.shared.closeIfTargeting(runtime)

@@ -3,7 +3,7 @@ import Foundation
 import os
 
 /// The single handler per shell action. UI, CLI, MCP and deep links all reach the same code here.
-/// Mutating actions run one after another on `mutationQueue`; reads answer at once.
+/// Mutating actions run one after another on the view model's mutation queue; reads answer at once.
 @MainActor
 final class WorkspaceShellActionService {
 	let viewModel: WorkspaceShellViewModel
@@ -11,7 +11,6 @@ final class WorkspaceShellActionService {
 	private let approvalManager: WorkspaceApprovalManager
 	private let logger = Logger(subsystem: "com.repoprompt.workspace", category: "shell")
 	private var registry: [WorkspaceShellActionName: (WorkspaceShellActionPayload) async throws -> WorkspaceShellSnapshot] = [:]
-	private var mutationQueue: Task<Void, Never>?
 
 	init(
 		viewModel: WorkspaceShellViewModel,
@@ -58,15 +57,8 @@ final class WorkspaceShellActionService {
 		try await dispatch(payload.actionName, payload: payload)
 	}
 
-	/// Serializes catalog and runtime mutations. A failed step never blocks the next one.
 	private func enqueue<T: Sendable>(_ work: @escaping @MainActor () async throws -> T) async throws -> T {
-		let previous = mutationQueue
-		let task = Task<T, Error> { @MainActor in
-			await previous?.value
-			return try await work()
-		}
-		mutationQueue = Task { _ = try? await task.value }
-		return try await task.value
+		try await viewModel.serialized(work)
 	}
 
 	// MARK: - Handlers
@@ -115,12 +107,11 @@ final class WorkspaceShellActionService {
 	private func handleRemove(_ payload: WorkspaceShellActionPayload) async throws -> WorkspaceShellSnapshot {
 		guard case .remove(let remove) = payload else { preconditionFailure() }
 		let id = remove.workspaceID
-		guard let runtime = viewModel.runtime(for: id) else {
+		guard let summary = viewModel.snapshot.workspaces.first(where: { $0.id == id }) else {
 			throw WorkspaceShellError.unknownWorkspace(id)
 		}
-		let summary = viewModel.snapshot.workspaces.first { $0.id == id }
-		let workspaceName = summary?.name ?? runtime.workspaceManager.activeWorkspace?.name ?? ""
-		let hasRunningAgents = !runtime.agentModeViewModel.tabsWithActiveAgentRun.isEmpty
+		let workspaceName = summary.name
+		let hasRunningAgents = viewModel.runtime(for: id).map { !$0.agentModeViewModel.tabsWithActiveAgentRun.isEmpty } ?? false
 
 		switch remove.source {
 		case .user:

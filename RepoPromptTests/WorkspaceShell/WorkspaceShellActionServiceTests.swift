@@ -99,6 +99,24 @@ final class WorkspaceShellActionServiceTests: XCTestCase {
 		XCTAssertFalse(snapshot.workspaces.contains(where: { $0.id == a }))
 	}
 
+	func testDispatchRemoveDropsWorkspaceWithoutPreparedRuntime() async throws {
+		let first = await makeStartedService()
+		let a = try await first.viewModel.add(name: "A", folderPath: try makeRoot("a"), makeVisible: true)
+		let b = try await first.viewModel.add(name: "B", folderPath: try makeRoot("b"), makeVisible: false)
+		await first.viewModel.stop()
+
+		// A fresh shell without background preparation only prepares the visible workspace.
+		let service = await makeStartedService()
+		let shell = service.viewModel
+		XCTAssertNotNil(shell.runtime(for: a))
+		XCTAssertNil(shell.runtime(for: b))
+		WorkspaceApprovalManager.shared.setAutoApproveAll(true)
+
+		let snapshot = try await service.dispatch(.remove(RemoveWorkspacePayload(workspaceID: b, source: .tool(clientID: "test-client"))))
+		XCTAssertFalse(snapshot.workspaces.contains(where: { $0.id == b }))
+		XCTAssertEqual(snapshot.visibleWorkspaceID, a)
+	}
+
 	func testDispatchRemoveCancelLeavesWorkspaceAndAgent() async throws {
 		let service = await makeStartedService()
 		let shell = service.viewModel

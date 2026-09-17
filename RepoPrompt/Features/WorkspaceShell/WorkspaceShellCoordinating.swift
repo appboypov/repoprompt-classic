@@ -11,8 +11,9 @@ enum RuntimeDisposalReason: Equatable, Sendable {
 protocol WorkspaceShellCoordinating: AnyObject {
 	var isStarted: Bool { get }
 	var isMCPToolsEnabled: Bool { get set }
-	func select(_ id: UUID) async throws
-	func add(name: String, folderPath: String?, makeVisible: Bool) async throws -> UUID
+	/// Queued behind other shell mutations; the entry points for runtimes and incoming URLs.
+	func requestSelect(_ id: UUID) async throws
+	func requestAdd(name: String, folderPath: String?, makeVisible: Bool) async throws -> UUID
 	func runtime(for id: UUID) -> WindowState?
 	func disposeRuntime(for id: UUID, reason: RuntimeDisposalReason) async
 	func flushAllWorkspaceState()
