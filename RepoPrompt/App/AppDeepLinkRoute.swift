@@ -168,8 +168,26 @@ struct AgentSessionDeepLinkRoute: Equatable, Sendable {
 	}
 }
 
+/// `repoprompt://workspace?id=<uuid>` or `repoprompt://workspace?name=<name>`.
+struct WorkspaceDeepLinkRoute: Equatable, Sendable {
+	let id: UUID?
+	let name: String?
+
+	static func parse(components: URLComponents) -> WorkspaceDeepLinkRoute? {
+		let items = components.queryItems ?? []
+		let id = items.first(where: { $0.name == "id" })?.value.flatMap(UUID.init(uuidString:))
+		let name = items.first(where: { $0.name == "name" })?.value?
+			.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard id != nil || (name.map { !$0.isEmpty } ?? false) else {
+			return nil
+		}
+		return WorkspaceDeepLinkRoute(id: id, name: name)
+	}
+}
+
 enum AppDeepLinkRoute: Equatable {
 	case agentSession(AgentSessionDeepLinkRoute)
+	case workspace(WorkspaceDeepLinkRoute)
 	case legacyURL(URL)
 
 	static func parse(url: URL) -> AppDeepLinkURLParseResult {
@@ -178,15 +196,21 @@ enum AppDeepLinkRoute: Equatable {
 			return .unsupported
 		}
 
-		if components.host?.lowercased() == "agent" {
+		switch components.host?.lowercased() {
+		case "agent":
 			guard components.path == "/session",
 					let route = AgentSessionDeepLinkRoute.parse(url: url) else {
 				return .invalidScopedRoute
 			}
 			return .route(.agentSession(route))
+		case "workspace":
+			guard let route = WorkspaceDeepLinkRoute.parse(components: components) else {
+				return .invalidScopedRoute
+			}
+			return .route(.workspace(route))
+		default:
+			return .route(.legacyURL(url))
 		}
-
-		return .route(.legacyURL(url))
 	}
 
 	static func parse(notificationUserInfo userInfo: [AnyHashable: Any]) -> AppDeepLinkRoute? {

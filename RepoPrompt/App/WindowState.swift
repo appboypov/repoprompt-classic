@@ -81,6 +81,20 @@ struct AppCommand {
 	/// When false, skip saving changes to disk/index. If nil or true, persist by default.
 	let persist: Bool?
 	
+	/// The same command aimed at the runtime that already shows the target workspace.
+	func withoutWorkspaceTarget() -> AppCommand {
+		AppCommand(
+			workspaceName: nil,
+			fileList: fileList,
+			promptText: promptText,
+			folderPath: nil,
+			newPrompt: newPrompt,
+			focus: focus,
+			ephemeral: ephemeral,
+			persist: persist
+		)
+	}
+
 	var isEmpty: Bool {
 		return workspaceName == nil
 			&& fileList.isEmpty
@@ -1414,20 +1428,24 @@ class WindowState: ObservableObject {
 					}
 				}
 				
-				// If focus == true, attempt to bring up an existing window
-				if command.focus == true {
-					if let wsManager = self.windowStatesManager,
-						let existingWindow = wsManager.findWindowState(showing: existingWorkspace.id) {
-						NSApplication.shared.activate(ignoringOtherApps: true)
-						existingWindow.focusWindowIfPossible()
-						return
-					}
+				if existingWorkspace.id != workspaceManager.activeWorkspaceID,
+					let shell = WindowStatesManager.shared.shell {
+					await forwardThroughShell(shell, command, to: existingWorkspace.id)
+					return
 				}
 				
 				// Switch to the existing workspace in this window
 				requestedWorkspaceSwitch = true
 				let result = await workspaceManager.requestWorkspaceSwitch(to: existingWorkspace, saveState: true)
 				didSwitchWorkspace = result.didSwitch
+			} else if let shell = WindowStatesManager.shared.shell {
+				let nameGuess = folderURL.lastPathComponent
+				let workspaceName = workspaceManager.uniqueWorkspaceName(baseName: nameGuess)
+				guard let created = try? await shell.add(name: workspaceName, folderPath: folderURL.path, makeVisible: true) else {
+					return
+				}
+				await forwardThroughShell(shell, command, to: created)
+				return
 			} else {
 				// Create a brand-new workspace
 				let nameGuess = folderURL.lastPathComponent
@@ -1454,19 +1472,21 @@ class WindowState: ObservableObject {
 					}
 				}
 				
-				// If focus == true, attempt to bring up existing window
-				if command.focus == true {
-					if let wsManager = self.windowStatesManager,
-						let existingWindow = wsManager.findWindowState(showing: existing.id) {
-						NSApplication.shared.activate(ignoringOtherApps: true)
-						existingWindow.focusWindowIfPossible()
-						return
-					}
+				if existing.id != workspaceManager.activeWorkspaceID,
+					let shell = WindowStatesManager.shared.shell {
+					await forwardThroughShell(shell, command, to: existing.id)
+					return
 				}
 				
 				requestedWorkspaceSwitch = true
 				let result = await workspaceManager.requestWorkspaceSwitch(to: existing, saveState: true)
 				didSwitchWorkspace = result.didSwitch
+			} else if let shell = WindowStatesManager.shared.shell {
+				guard let created = try? await shell.add(name: workspaceName, folderPath: nil, makeVisible: true) else {
+					return
+				}
+				await forwardThroughShell(shell, command, to: created)
+				return
 			} else {
 				// Create a new workspace by name
 				let newWS = workspaceManager.createWorkspace(
@@ -1503,7 +1523,20 @@ class WindowState: ObservableObject {
 		}
 	}
 	
-	// Previous helper methods were refactored into the comprehensive handleCommand method
+	/// Shows the target workspace in the shell and hands the rest of the command to its runtime.
+	private func forwardThroughShell(_ shell: any WorkspaceShellCoordinating, _ command: AppCommand, to workspaceID: UUID) async {
+		do {
+			try await shell.select(workspaceID)
+		} catch {
+			return
+		}
+		let remainder = command.withoutWorkspaceTarget()
+		if command.focus == true {
+			NSApplication.shared.activate(ignoringOtherApps: true)
+		}
+		guard !remainder.isEmpty, let runtime = shell.runtime(for: workspaceID) else { return }
+		runtime.enqueueCommand(remainder)
+	}
 	
 	// MARK: - Window ID Management
 	

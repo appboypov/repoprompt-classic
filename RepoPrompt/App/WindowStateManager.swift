@@ -287,11 +287,6 @@ class WindowStatesManager: ObservableObject {
 	/// so it is `false` once the shell runs.
 	var isMultiWindowModeEffectivelyActive: Bool { shell == nil && allWindows.count > 1 }
 	
-	/// Finds a window that's showing a specific workspace
-	func findWindowState(showing workspaceId: UUID) -> WindowState? {
-		allWindows.first { $0.workspaceManager.activeWorkspace?.id == workspaceId }
-	}
-	
 	/// Counts how many windows are showing a specific workspace
 	func countWindowsShowing(workspaceId: UUID) -> Int {
 		allWindows.filter { $0.workspaceManager.activeWorkspace?.id == workspaceId }.count
@@ -483,20 +478,6 @@ class WindowStatesManager: ObservableObject {
 			state.requestWindowTitleUpdate(reason: .workspaceChanged)
 		}
 		
-		// If we have pending URLs that arrived *before* any windows,
-		// route them through the app router so scoped routes are parsed before
-		// choosing a target window. Drain once and preserve ordering.
-		if shell == nil {
-			let urlsToRoute = pendingURLs
-			pendingURLs.removeAll()
-			if !urlsToRoute.isEmpty {
-				Task { @MainActor in
-					for url in urlsToRoute {
-						await AppDeepLinkRouter.shared.route(url: url, preferredLegacyWindow: state)
-					}
-				}
-			}
-		}
 
 		updateKeyboardShortcutsState()
 		persistWindowSession(reason: "registerWindow")

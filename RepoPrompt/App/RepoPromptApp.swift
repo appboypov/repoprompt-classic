@@ -129,11 +129,6 @@ struct RepoPromptApp: App {
 						versionManager.dismissTransitionNotice()
 					}
 				}
-				.onOpenURL { incomingURL in
-					Task { @MainActor in
-						await AppDeepLinkRouter.shared.route(url: incomingURL)
-					}
-				}
 		}
 		.windowStyle(.automatic)
 		.windowToolbarStyle(.unified)
