@@ -53,7 +53,9 @@ final class AppDeepLinkRouter {
 		switch route {
 		case .legacyURL(let legacyURL):
 			guard let target = windowStatesManager.visibleWindowState else {
-				logger.error("no visible runtime for legacy url \(url.absoluteString, privacy: .public)")
+				// Shell started but no runtime is shown yet: keep the url for the next drain.
+				logger.debug("no visible runtime yet; queued legacy url \(url.absoluteString, privacy: .public)")
+				windowStatesManager.pendingURLs.append(url)
 				return
 			}
 			target.handleIncomingURL(legacyURL)

@@ -114,6 +114,10 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	func stop() async {
 		preparationTask?.cancel()
 		preparationTask = nil
+		for task in runtimePreparations.values {
+			task.cancel()
+		}
+		runtimePreparations.removeAll()
 		catalogObserver = nil
 		for (id, runtime) in loadedWorkspaceStates {
 			if id == visibleWorkspaceID {
@@ -204,7 +208,9 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		let state = WindowState(launch: .shellRuntime)
 		windowStatesManager.registerWindowState(state)
 		await state.workspaceManager.awaitInitialized()
-		guard let model = state.workspaceManager.workspaces.first(where: { $0.id == id }) else {
+		// The shell stopped while this runtime was initializing: drop it instead of registering a zombie.
+		guard hostRuntime != nil, !Task.isCancelled,
+			let model = state.workspaceManager.workspaces.first(where: { $0.id == id }) else {
 			await discard(state)
 			return nil
 		}
@@ -214,6 +220,9 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	/// Like `prepareRuntime`, for a document the manager's catalog copy may not hold yet.
 	func adoptRuntime(for model: WorkspaceModel) async -> WindowState {
 		if let runtime = loadedWorkspaceStates[model.id] {
+			return runtime
+		}
+		if let inflight = runtimePreparations[model.id], let runtime = await inflight.value {
 			return runtime
 		}
 		preparingWorkspaceIDs.insert(model.id)
@@ -272,11 +281,19 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		if visibleWorkspaceID == id, loadedWorkspaceStates[id] != nil {
 			return
 		}
+		let previousVisibleID = visibleWorkspaceID
 		visibleWorkspaceID = id
 		preparationQueue.removeAll { $0 == id }
 		preparationQueue.insert(id, at: 0)
 		publish()
-		guard let next = await ensureRuntime(for: id) else { return }
+		guard let next = await ensureRuntime(for: id) else {
+			// Preparation failed: the sidebar must not mark a workspace visible that never showed.
+			if visibleWorkspaceID == id {
+				visibleWorkspaceID = previousVisibleID
+				publish()
+			}
+			return
+		}
 		// A later selection wins while this one was preparing.
 		guard visibleWorkspaceID == id else { return }
 		visibleWorkspaceRecency.removeAll { $0 == id }
@@ -300,6 +317,9 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		}
 		windowStatesManager.setVisibleWindowState(next)
 		contentRuntime = next
+		if isStarted {
+			drainPendingURLs()
+		}
 	}
 
 	func runtime(for id: UUID) -> WindowState? {

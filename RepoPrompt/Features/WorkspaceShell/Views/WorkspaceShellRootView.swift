@@ -62,6 +62,11 @@ struct WorkspaceShellRootView: View {
 				)
 			}
 		}
+		.onChange(of: shellViewModel.contentRuntime?.windowID) { _, _ in
+			// Popovers belong to the runtime they opened on; a switch closes them.
+			showMCPServerPopover = false
+			showRecommendationsPopover = false
+		}
 		.onReceive(NotificationCenter.default.publisher(for: .showMCPServerPopover)) { note in
 			guard targetsShownRuntime(note) else { return }
 			showMCPServerPopover = true
@@ -102,9 +107,11 @@ struct WorkspaceShellRootView: View {
 	}
 
 	/// A notification without a window id targets the shown runtime; one with an id must match it.
+	/// Without a shown runtime there is no toolbar to anchor a popover, so nothing is latched.
 	private func targetsShownRuntime(_ note: Notification) -> Bool {
+		guard let shown = shellViewModel.contentRuntime else { return false }
 		guard let id = note.userInfo?["windowID"] as? Int else { return true }
-		return id == shellViewModel.contentRuntime?.windowID
+		return id == shown.windowID
 	}
 
 	private func dispatch(_ payload: WorkspaceShellActionPayload) {
