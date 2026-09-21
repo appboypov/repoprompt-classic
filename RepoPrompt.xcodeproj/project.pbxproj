@@ -411,7 +411,7 @@
 				A4520B1B2D6FE73C00C0C2B9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
 				A4EC63702D7E5EE200EBEAFF /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				A49D52142D86243B00E71EAA /* XCRemoteSwiftPackageReference "TPObfuscation" */,
-				A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */,
+				A4C3C04A2DB6C956007D9EF8 /* XCLocalSwiftPackageReference "swift-sdk" */,
 				A4C3C05D2DBBDD16007D9EF8 /* XCRemoteSwiftPackageReference "UniversalCharsetDetection" */,
 				A4AD59AC2DE76B8800B22ABF /* XCRemoteSwiftPackageReference "swift-markdown" */,
 				A4E4F3802E0480ED0007D199 /* XCRemoteSwiftPackageReference "swift-service-lifecycle" */,
@@ -1095,13 +1095,9 @@
 				minimumVersion = 5.0.2;
 			};
 		};
-		A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/repoprompt/swift-sdk.git";
-			requirement = {
-				kind = revision;
-				revision = cb6a62f7c266ed535792b3e9e6e05dc3f0dac8e4;
-			};
+		A4C3C04A2DB6C956007D9EF8 /* XCLocalSwiftPackageReference "swift-sdk" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../repoprompt-swift-sdk";
 		};
 		A4C3C05D2DBBDD16007D9EF8 /* XCRemoteSwiftPackageReference "UniversalCharsetDetection" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1296,7 +1292,7 @@
 		};
 		A4C3C04B2DB6C966007D9EF8 /* MCP */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			package = A4C3C04A2DB6C956007D9EF8 /* XCLocalSwiftPackageReference "swift-sdk" */;
 			productName = MCP;
 		};
 		A4C3C05E2DBBDD22007D9EF8 /* UniversalCharsetDetection */ = {
@@ -1316,7 +1312,7 @@
 		};
 		A4E4F3922E0598580007D199 /* MCP */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A4C3C04A2DB6C956007D9EF8 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			package = A4C3C04A2DB6C956007D9EF8 /* XCLocalSwiftPackageReference "swift-sdk" */;
 			productName = MCP;
 		};
 		A4E4F6512E05AE1F0007D199 /* ServiceLifecycle */ = {
