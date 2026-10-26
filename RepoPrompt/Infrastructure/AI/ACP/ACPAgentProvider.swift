@@ -4,6 +4,12 @@ enum ACPProviderID: String, Sendable, Hashable {
 	case antigravity
 	case openCode
 	case cursor
+
+	/// Antigravity starts the session's MCP servers when the first prompt arrives,
+	/// not at session/new, so its RepoPrompt MCP connection follows the prompt.
+	var connectsMCPServersOnPrompt: Bool {
+		self == .antigravity
+	}
 }
 
 enum ACPSupportResult: Sendable, Equatable {

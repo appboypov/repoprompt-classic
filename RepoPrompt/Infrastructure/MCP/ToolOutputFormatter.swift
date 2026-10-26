@@ -4725,8 +4725,8 @@ static func formatCodeStructure(value: Value) -> [MCP.Tool.Content] {
 							.trimmingCharacters(in: .whitespaces)
 						families.append((base: base, name: baseName, efforts: [effort!]))
 					} else {
-						// Simple model (no effort variants)
-						families.append((base: base, name: modelName, efforts: []))
+						// Simple model (no effort variants): its ID stays whole, even when it ends in an effort word
+						families.append((base: afterColon, name: modelName, efforts: []))
 					}
 				}
 

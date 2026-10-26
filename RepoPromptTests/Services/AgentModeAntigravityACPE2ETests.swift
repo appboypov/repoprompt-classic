@@ -104,38 +104,34 @@ final class AgentModeAntigravityACPE2ETests: XCTestCase {
 		}
 	}
 
-	func testAntigravityACPAgentModeWithoutRoutingNeverStartsPromptAndCanBeCancelled() async throws {
+	func testAntigravityACPAgentModeSendsPromptBeforeMCPRoutingAndCompletesOnceRouted() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .success, routeStrategy: .manual, recorder: recorder)
 		let session = await harness.prepareAntigravitySession()
 
-		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Route later")
+		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Route after prompt")
 
-		let bootstrapped = await waitForCondition(timeoutSeconds: 5.0) {
-			session.providerSessionID == harness.sessionID && session.acpController != nil
+		// Antigravity connects to RepoPrompt MCP only after it receives the prompt.
+		let promptSent = await waitForCondition(timeoutSeconds: 5.0) {
+			(try? harness.requestMethodSequence().contains("session/prompt")) == true
 		}
-		if !bootstrapped {
+		if !promptSent {
 			XCTFail(await recorder.summary())
 		}
-		let promptStarted = await recorder.hasPhaseStarted("prompt")
-		if promptStarted {
-			XCTFail(await recorder.summary())
-		}
-		XCTAssertFalse(try harness.requestMethodSequence().contains("session/prompt"))
+		XCTAssertEqual(session.runState, .running, "The run must wait for the MCP connection the prompt triggers")
 
-		await harness.viewModel.cancelAgentRun(tabID: harness.tabID)
+		let runID = try XCTUnwrap(session.runID)
+		MCPRoutingWaiter.signalRouted(runID)
 
-		let cancelled = await waitForCondition(timeoutSeconds: 5.0) {
-			session.runState == .cancelled
-				&& session.agentTask == nil
-				&& session.acpController == nil
+		let completed = await waitForCondition(timeoutSeconds: 5.0) {
+			session.runState == .completed && session.agentTask == nil
 		}
-		if !cancelled {
+		if !completed {
 			XCTFail(await recorder.summary())
 		}
 	}
 
-	func testAntigravityACPShowsStatusImmediatelyAndWhileWaitingForRouting() async throws {
+	func testAntigravityACPShowsStatusImmediately() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .success, routeStrategy: .manual, recorder: recorder)
 		let session = await harness.prepareAntigravitySession()
@@ -147,15 +143,6 @@ final class AgentModeAntigravityACPE2ETests: XCTestCase {
 				&& !(session.runningStatusText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
 		}
 		if !showedImmediateStatus {
-			XCTFail(await recorder.summary())
-		}
-
-		let waitingForRouting = await waitForCondition(timeoutSeconds: 5.0) {
-			session.providerSessionID == harness.sessionID
-				&& session.acpController != nil
-				&& session.runningStatusText == "Waiting for connection…"
-		}
-		if !waitingForRouting {
 			XCTFail(await recorder.summary())
 		}
 

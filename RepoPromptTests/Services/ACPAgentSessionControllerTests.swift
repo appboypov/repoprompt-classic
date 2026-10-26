@@ -172,6 +172,34 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		await recorder.cancel()
 	}
 
+	func testAntigravityBootstrapKeepsOnlySetModelIDsWhenConfigOptionsListBaseNames() async throws {
+		let modelsJSON = #"{"currentModelId":"gemini-3.8-flash-high","availableModels":[{"modelId":"gemini-3.8-flash-high","name":"Gemini 3.8 Flash (High)"},{"modelId":"gemini-3.8-flash-low","name":"Gemini 3.8 Flash (Low)"}]}"#
+		let configOptionsJSON = #"[{"id":"model","name":"Model","category":"model","type":"select","currentValue":"gemini-3.8-flash","options":[{"value":"gemini-3.8-flash","name":"Gemini 3.8 Flash"}]}]"#
+		let harness = try makeMockHarness(
+			scenario: .bootstrap,
+			environmentOverrides: [
+				"ACP_TEST_MODELS_JSON": modelsJSON,
+				"ACP_TEST_CONFIG_OPTIONS_JSON": configOptionsJSON
+			]
+		)
+		let controller = try harness.makeController()
+
+		do {
+			_ = try await controller.bootstrap()
+			let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)
+			XCTAssertEqual(discoveredModels?.currentModelRaw, "gemini-3.8-flash-high")
+			XCTAssertEqual(
+				discoveredModels?.options.map(\.rawValue),
+				["gemini-3.8-flash-high", "gemini-3.8-flash-low"],
+				"session/set_model rejects the config option base name, so it must not be offered"
+			)
+		} catch {
+			await controller.shutdown()
+			throw error
+		}
+		await controller.shutdown()
+	}
+
 	func testOpenCodeBootstrapParsesConfigOptionModels() async throws {
 		let openCodeConfigOptionsJSON = #"[{"id":"model","name":"Model","category":"model","type":"select","currentValue":"openai/gpt-5","options":[{"value":"anthropic/claude-sonnet-4","name":"Anthropic/Claude Sonnet 4","description":"Anthropic via OpenCode"},{"value":"openai/gpt-5","name":"OpenAI/GPT-5","description":"OpenAI via OpenCode"}]}]"#
 		let harness = try makeMockHarness(

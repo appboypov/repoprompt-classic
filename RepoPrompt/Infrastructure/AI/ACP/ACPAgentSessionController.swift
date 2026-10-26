@@ -1726,7 +1726,11 @@ actor ACPAgentSessionController {
 
 	private func parseDiscoveredSessionModels(from response: [String: Any]) -> ACPDiscoveredSessionModels? {
 		let modelSnapshot = parseModelsSnapshot(from: response["models"] as? [String: Any])
-		let configSnapshot = parseConfigOptionsModelSnapshot(from: response["configOptions"] as? [[String: Any]])
+		// Antigravity selects models with session/set_model, which accepts only the IDs in
+		// `models`. Its `configOptions` model values are base names that set_model rejects.
+		let configSnapshot = provider.providerID == .antigravity
+			? (currentModelRaw: nil, options: [])
+			: parseConfigOptionsModelSnapshot(from: response["configOptions"] as? [[String: Any]])
 
 		let currentModelRaw = configSnapshot.currentModelRaw ?? modelSnapshot.currentModelRaw
 		var options = mergeModelOptions(configSnapshot.options + modelSnapshot.options)

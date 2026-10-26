@@ -427,21 +427,24 @@ final class ACPIntegratedAgentModeRunner {
 			try await applyExplicitSelectedModelIfNeeded(runRequest, controller: controller, runID: runID)
 			setRunningStatus(waitingForConnectionStatusText(for: runRequest.agentKind), source: .transport, session: session, urgent: true)
 
-			let routed = await lease.releaseWhenRouted()
-			log("releaseWhenRouted routed=\(routed)", runID: runID)
-			guard routed else {
-				await controller.shutdown()
-				await stopToolTracking(for: session)
-				await finalize(
-					session: session,
-					runID: runID,
-					runAttemptID: runAttemptID,
-					attachmentReservationID: attachmentReservationID,
-					terminalState: .failed,
-					errorText: "RepoPrompt MCP routing did not complete before \(runRequest.agentKind.displayName) ACP prompt submission.",
-					notifyTurnComplete: false
-				)
-				return
+			let connectsMCPOnPrompt = runRequest.agentKind.acpProviderID?.connectsMCPServersOnPrompt == true
+			if !connectsMCPOnPrompt {
+				let routed = await lease.releaseWhenRouted()
+				log("releaseWhenRouted routed=\(routed)", runID: runID)
+				guard routed else {
+					await controller.shutdown()
+					await stopToolTracking(for: session)
+					await finalize(
+						session: session,
+						runID: runID,
+						runAttemptID: runAttemptID,
+						attachmentReservationID: attachmentReservationID,
+						terminalState: .failed,
+						errorText: routingFailureErrorText(for: runRequest.agentKind),
+						notifyTurnComplete: false
+					)
+					return
+				}
 			}
 
 			await runPromptTurn(
@@ -453,7 +456,8 @@ final class ACPIntegratedAgentModeRunner {
 				controller: controller,
 				runRequest: runRequest,
 				attachmentReservationID: attachmentReservationID,
-				prepareControllerForNextTurn: false
+				prepareControllerForNextTurn: false,
+				leaseRoutedDuringPrompt: connectsMCPOnPrompt ? lease : nil
 			)
 		} catch is CancellationError {
 			log("fresh start cancelled", runID: runID)
@@ -552,7 +556,8 @@ final class ACPIntegratedAgentModeRunner {
 		controller: ACPAgentSessionController,
 		runRequest: ACPRunRequest,
 		attachmentReservationID: UUID?,
-		prepareControllerForNextTurn: Bool
+		prepareControllerForNextTurn: Bool,
+		leaseRoutedDuringPrompt: MCPBootstrapLease? = nil
 	) async {
 		log("prompt turn begin prepare=\(prepareControllerForNextTurn)", runID: runID)
 		setRunningStatus("Thinking…", source: .transport, session: session, urgent: true)
@@ -613,6 +618,18 @@ final class ACPIntegratedAgentModeRunner {
 				runAttemptID: runAttemptID
 			)
 		}
+		// The agent connects to RepoPrompt MCP once it receives the prompt, so the
+		// routing wait runs beside it and stops the turn when the agent never connects.
+		let routingTask: Task<Bool, Never>? = leaseRoutedDuringPrompt.map { lease in
+			Task { @MainActor [weak self] in
+				let routed = await lease.releaseWhenRouted()
+				self?.log("releaseWhenRouted during prompt routed=\(routed)", runID: runID)
+				if !routed {
+					await controller.cancelPrompt()
+				}
+				return routed
+			}
+		}
 
 		do {
 			log("controller.prompt begin", runID: runID)
@@ -645,7 +662,10 @@ final class ACPIntegratedAgentModeRunner {
 		let outcome = await consumeTask.value
 		let outcomeErrorDescription = outcome.errorText ?? "nil"
 		log("event consumer completed state=\(outcome.terminalState.rawValue) error=\(outcomeErrorDescription)", runID: runID)
-		if outcome.terminalState != .completed {
+		let routed = await routingTask?.value ?? true
+		let terminalState: AgentSessionRunState = routed ? outcome.terminalState : .failed
+		let errorText = routed ? outcome.errorText : routingFailureErrorText(for: runRequest.agentKind)
+		if terminalState != .completed {
 			await controller.shutdown()
 		}
 		await stopToolTracking(for: session)
@@ -654,9 +674,9 @@ final class ACPIntegratedAgentModeRunner {
 			runID: runID,
 			runAttemptID: runAttemptID,
 			attachmentReservationID: attachmentReservationID,
-			terminalState: outcome.terminalState,
-			errorText: outcome.errorText,
-			notifyTurnComplete: outcome.terminalState == .completed
+			terminalState: terminalState,
+			errorText: errorText,
+			notifyTurnComplete: terminalState == .completed
 		)
 	}
 
@@ -952,6 +972,10 @@ final class ACPIntegratedAgentModeRunner {
 
 	private func waitingForConnectionStatusText(for _: DiscoverAgentKind) -> String {
 		"Waiting for connection…"
+	}
+
+	private func routingFailureErrorText(for agentKind: DiscoverAgentKind) -> String {
+		"RepoPrompt MCP routing did not complete for the \(agentKind.displayName) ACP session."
 	}
 
 	// MARK: - Tracker Callbacks
