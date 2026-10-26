@@ -423,6 +423,8 @@ class RepoFileManagerViewModel: ObservableObject {
 
 	/// New: O(1) lookup cache
 	private var fileHierarchyIndex = FileHierarchyIndex()
+	/// The index of each root folder, by the root folder's standardized full path.
+	private(set) var rootFolderIndexes: [String: RootFolderIndex] = [:]
 
 	// Track window focus
 	private var isWindowFocused: Bool = true
@@ -584,6 +586,7 @@ class RepoFileManagerViewModel: ObservableObject {
 		let stdPath = folder.standardizedFullPath
 		unregisterExpansionTracking(for: folder)
 		rootFolders.removeAll { $0.id == folder.id }
+		rootFolderIndexes.removeValue(forKey: stdPath)
 		
 		// Topology: root disappeared - remove per-root generation entry
 		removeHierarchyGenerationEntry(forRootFullPath: stdPath)
@@ -2200,6 +2203,7 @@ func loadFolder(
 
 			// Remove the root from the absolute-path index to avoid stale entries
 			fileHierarchyIndex.removeFolder(forKey: stdPath, expectedRootKey: stdPath)
+			rootFolderIndexes.removeValue(forKey: stdPath)
 			
 			// Clean up per-root generation entry and invalidate snapshot
 			removeHierarchyGenerationEntry(forRootFullPath: stdPath)
@@ -2224,6 +2228,8 @@ func loadFolder(
 		let chunkedStream = await fileSystemService.loadContentsInChunks(of: url, chunkSize: 200)
 		
 		let isGitDataRoot = rootFolder.isSystemRoot && rootFolder.name == "_git_data"
+		let rootFolderIndex = RootFolderIndex(rootPath: rootFolder.standardizedFullPath)
+		rootFolderIndexes[rootFolder.standardizedFullPath] = rootFolderIndex
 
 		@inline(__always)
 		func fullPath(forRelativePath rel: String) -> String {
@@ -2255,6 +2261,7 @@ func loadFolder(
 		@inline(__always)
 		func stageChunk(_ chunk: FSPreparedChunk) {
 			// We are on @MainActor (class is @MainActor)
+			rootFolderIndex.add(chunk)
 			// 1) Stage Folders
 			for folderDTO in chunk.folders {
 				let relPath = folderDTO.relativePath
@@ -2374,11 +2381,12 @@ func loadFolder(
 				}
 
 				if !folders.isEmpty || !files.isEmpty {
-					stageChunk(FSPreparedChunk(folders: folders, files: files))
+					stageChunk(FSPreparedChunk(folders: folders, files: files, readFolders: []))
 					await Task.yield()
 				}
 			}
 		}
+		rootFolderIndex.finishReading()
 
 		// Commit staged content in a single pass to minimize UI thrash
 		// ➊ Index all staged VMs first (so parents can be found even if not yet attached).
@@ -3500,6 +3508,16 @@ func loadFolder(
 		#if DEBUG
 		deltaLoopDurationMS = debugPerfElapsedMS(since: deltaLoopStartMS)
 		#endif
+		if let rootFolderIndex = rootFolderIndexes[rootKey] {
+			for digest in processedDigests {
+				switch digest {
+				case .fileRemoved(let path), .folderRemoved(let path):
+					rootFolderIndex.remove(path)
+				case .fileAdded, .folderAdded, .fileModified, .folderModified:
+					break
+				}
+			}
+		}
 
 		flushRemovedSubtreesForCleanup()
 
@@ -3744,6 +3762,7 @@ func loadFolder(
 										sortMethodOverride: sortOverride)
 		
 		fileHierarchyIndex.insertFolder(folderVM, rootKey: root.standardizedFullPath)
+		rootFolderIndexes[root.standardizedFullPath]?.addFolder(StandardizedPath.relative(relativePath), isRead: true)
 		
 		// Attach (creating any missing ancestors)
 		insertFolder(folderVM, under: root, relativePath: relativePath)
@@ -4641,6 +4660,7 @@ func loadFolder(
 			await clearRemovedFileCaches([fileVM])
 			removeFileFromParentChildrenArray(fileVM)
 			fileHierarchyIndex.removeFile(forKey: standardizedAbsolutePath, expectedRootKey: root.standardizedFullPath)
+			rootFolderIndexes[root.standardizedFullPath]?.remove(standardizedRelativePath)
 			if let formerParentFolder {
 				recomputeAncestorStates(startingAtFolders: [formerParentFolder])
 			} else {
@@ -4663,6 +4683,7 @@ func loadFolder(
 			removedSubtree = removeFolderRecursive(in: root, relativePath: standardizedRelativePath)
 		}
 		guard let removedSubtree else { return false }
+		rootFolderIndexes[root.standardizedFullPath]?.remove(standardizedRelativePath)
 
 		let subtreeSnapshot = collectSubtreeSnapshot(from: removedSubtree.removedFolder)
 		await clearRemovedFileCaches(subtreeSnapshot.fileViewModels)
@@ -4795,6 +4816,7 @@ private func handleNewFile(
 	let fileHierarchyInsertStartMS = fileAddPathMetricsCollector?.isDetailedWallAttributionEnabled == true ? debugPerfTimestampMS() : nil
 	#endif
 	fileHierarchyIndex.insertFile(fileVM, rootKey: root.standardizedFullPath)
+	rootFolderIndexes[root.standardizedFullPath]?.addFile(StandardizedPath.relative(relativePath))
 	#if DEBUG
 	fileAddPathMetricsCollector?.recordFileHierarchyInsertFile(durationMS: fileHierarchyInsertStartMS.map { debugPerfElapsedMS(since: $0) } ?? 0)
 	#endif
@@ -5205,38 +5227,21 @@ private func removeFolderRecursive(
 		scope: LookupRootScope = .allLoaded
 	) -> (StaticPathMatchData, Set<String>, SelectionSig) {
 		if snapshotCache.staticDataByScope[scope] == nil {
-			let roots = roots(in: scope)
-			let allowedRootPaths = Set(roots.map(\.standardizedFullPath))
-			let allFiles = fileHierarchyIndex.filesByFullPath
-			let allFolders = fileHierarchyIndex.foldersByFullPath
-			let files: [String: FileViewModel]
-			let folders: [String: FolderViewModel]
-			if scope == .allLoaded {
-				files = allFiles
-				folders = allFolders
-			} else {
-				files = allFiles.filter { allowedRootPaths.contains($0.value.standardizedRootFolderPath) }
-				folders = allFolders.filter { allowedRootPaths.contains(StandardizedPath.absolute($0.value.rootPath)) }
-			}
-
 			let scopeDiscriminator: UInt64 = switch scope {
 			case .visibleWorkspace: 0
 			case .visibleWorkspacePlusGitData: 1
 			case .allLoaded: 2
 			}
 			let scopeID = snapshotCache.generation &* 3 &+ scopeDiscriminator
-			let built = Self.buildStaticSnapshot(
-				files: files,
-				folders: folders,
-				rootFolders: roots,
+			snapshotCache.staticDataByScope[scope] = buildStaticSnapshot(
+				rootFolders: roots(in: scope),
 				id: scopeID
 			)
-			snapshotCache.staticDataByScope[scope] = built
 		}
 		
-		let staticData = snapshotCache.staticDataByScope[scope] ?? Self.buildStaticSnapshot(
-			files: [:],
-			folders: [:],
+		let staticData = snapshotCache.staticDataByScope[scope] ?? StaticPathMatchData(
+			filesByFullPath: [:],
+			foldersByFullPath: [:],
 			rootFolders: [],
 			id: 0
 		)
@@ -5249,33 +5254,43 @@ private func removeFolderRecursive(
 	}
 	
 	
-	private static func buildStaticSnapshot(
-		files: [String: FileViewModel],
-		folders: [String: FolderViewModel],
-		rootFolders: [FolderViewModel],
-		id: UInt64
-	) -> StaticPathMatchData {
-		// Build frozen file records
-		let fileRecords: [String: FileRecord] = Dictionary(uniqueKeysWithValues: files.map { (key, vm) in
-			let frozen = FrozenFileRecord(from: vm)
-			return (key, frozen as FileRecord)
-		})
-
-		// Build frozen folder records
-		let folderRecords: [String: FolderRecord] = Dictionary(uniqueKeysWithValues: folders.map { (key, vm) in
-			let frozen = FrozenFolderRecord(from: vm)
-			return (key, frozen as FolderRecord)
-		})
-
-		// Build frozen root folder list
-		let rootRecords: [FolderRecord] = rootFolders.map { folder in
-			FrozenFolderRecord(from: folder) as FolderRecord
+	/// Builds the path data for matching from the index of each root folder.
+	/// Hidden empty folders stay out, as they leave the tree once reading finds them empty.
+	@MainActor
+	private func buildStaticSnapshot(rootFolders: [FolderViewModel], id: UInt64) -> StaticPathMatchData {
+		var fileRecords: [String: FileRecord] = [:]
+		var folderRecords: [String: FolderRecord] = [:]
+		for root in rootFolders {
+			let rootPath = root.standardizedFullPath
+			folderRecords[rootPath] = FrozenFolderRecord(from: root)
+			guard let index = rootFolderIndexes[rootPath] else { continue }
+			fileRecords.reserveCapacity(fileRecords.count + index.filePaths.count)
+			for path in index.filePaths {
+				let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: path)
+				fileRecords[fullPath] = FrozenFileRecord(
+					name: (path as NSString).lastPathComponent,
+					relativePath: path,
+					fullPath: fullPath,
+					rootFolderPath: rootPath
+				)
+			}
+			folderRecords.reserveCapacity(folderRecords.count + index.folders.count)
+			for (path, folder) in index.folders where !path.isEmpty {
+				if !showEmptyFolders, folder.isSubtreeRead, folder.fileCount == 0 { continue }
+				let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: path)
+				folderRecords[fullPath] = FrozenFolderRecord(
+					name: (path as NSString).lastPathComponent,
+					relativePath: path,
+					fullPath: fullPath,
+					rootPath: rootPath
+				)
+			}
 		}
 
 		return StaticPathMatchData(
 			filesByFullPath:   fileRecords,
 			foldersByFullPath: folderRecords,
-			rootFolders:       rootRecords,
+			rootFolders:       rootFolders.map { FrozenFolderRecord(from: $0) as FolderRecord },
 			id:                id
 		)
 	}
@@ -5727,6 +5742,7 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 	/// Removes all index references for a given root folder's entire subtree.
 	@MainActor
 	private func removeRootFolderReferences(_ folder: FolderViewModel) {
+		rootFolderIndexes.removeValue(forKey: folder.standardizedFullPath)
 		let cleanup = rootReferenceCleanupPlan(for: folder)
 		for filePath in cleanup.filePaths {
 			codemapCapableAPIsByFullPath.removeValue(forKey: filePath)
@@ -6291,6 +6307,7 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 		error = nil
 		
 		fileHierarchyIndex.clearAll()
+		rootFolderIndexes.removeAll()
 		fileHierarchyIndex = FileHierarchyIndex()
 		codemapCapableAPIsByFullPath.removeAll()
 		autoCodemapSyncTask?.cancel()

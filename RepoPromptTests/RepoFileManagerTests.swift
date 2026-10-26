@@ -438,6 +438,92 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	private func makeIndexedRoot() async throws -> (RepoFileManagerViewModel, URL, FolderViewModel) {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		for folder in ["src/deep", "docs/guides", "build", "empty"] {
+			try FileManager.default.createDirectory(at: rootURL.appendingPathComponent(folder, isDirectory: true), withIntermediateDirectories: true)
+		}
+		try "build/\n*.log\n".write(to: rootURL.appendingPathComponent(".gitignore"), atomically: true, encoding: .utf8)
+		try "secret.txt\n".write(to: rootURL.appendingPathComponent("docs/.gitignore"), atomically: true, encoding: .utf8)
+		for file in ["src/a.swift", "src/b.swift", "src/deep/c.swift", "src/noise.log", "docs/guides/intro.md", "docs/secret.txt", "build/out.o", "README.md"] {
+			XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent(file).path, contents: Data()))
+		}
+		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
+		let fileManagerVM = RepoFileManagerViewModel()
+		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		let rootFolder = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		return (fileManagerVM, rootURL, rootFolder)
+	}
+
+	@MainActor
+	func testIndexHoldsExactlyTheFilesAndFoldersTheIgnoreRulesAllowAfterReading() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+		XCTAssertEqual(index.filePaths, [".gitignore", "README.md", "docs/.gitignore", "docs/guides/intro.md", "src/a.swift", "src/b.swift", "src/deep/c.swift"])
+		XCTAssertEqual(Set(index.folders.keys), ["", "docs", "docs/guides", "empty", "src", "src/deep"])
+		XCTAssertEqual(index.folders[""]?.fileCount, 7)
+		XCTAssertEqual(index.folders["src"]?.fileCount, 3)
+		XCTAssertEqual(index.folders["docs"]?.fileCount, 2)
+		XCTAssertEqual(index.folders["empty"]?.fileCount, 0)
+		XCTAssertTrue(index.isReadingComplete)
+	}
+
+	@MainActor
+	func testIndexFollowsPathsAddedChangedMovedAndRemovedOnDisk() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManager = FileManager.default
+
+		XCTAssertTrue(fileManager.createFile(atPath: rootURL.appendingPathComponent("src/deep/new.swift").path, contents: Data()))
+		try fileManager.createDirectory(at: rootURL.appendingPathComponent("lib", isDirectory: true), withIntermediateDirectories: true)
+		try fileManager.moveItem(at: rootURL.appendingPathComponent("src/a.swift"), to: rootURL.appendingPathComponent("lib/a.swift"))
+		try "changed".write(to: rootURL.appendingPathComponent("src/b.swift"), atomically: true, encoding: .utf8)
+		try fileManager.removeItem(at: rootURL.appendingPathComponent("docs"))
+		await fileManagerVM.applyFileSystemDeltasForTesting(
+			[
+				.fileAdded("src/deep/new.swift"),
+				.fileRemoved("src/a.swift"),
+				.folderAdded("lib"),
+				.fileAdded("lib/a.swift"),
+				.fileModified("src/b.swift", nil),
+				.folderRemoved("docs")
+			],
+			forRootFolder: rootFolder
+		)
+
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+		XCTAssertEqual(index.filePaths, [".gitignore", "README.md", "lib/a.swift", "src/b.swift", "src/deep/c.swift", "src/deep/new.swift"])
+		XCTAssertEqual(Set(index.folders.keys), ["", "empty", "lib", "src", "src/deep"])
+		XCTAssertEqual(index.folders[""]?.fileCount, 6)
+		XCTAssertEqual(index.folders["src"]?.fileCount, 3)
+		XCTAssertEqual(index.folders["lib"]?.fileCount, 1)
+		XCTAssertTrue(index.isReadingComplete)
+	}
+
+	@MainActor
+	func testUnloadingARootFolderDropsItsIndex() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		await fileManagerVM.unloadRootFolder(rootFolder)
+
+		XCTAssertNil(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+	}
+
+	@MainActor
+	func testPathMatchingResolvesFilesFromTheIndex() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		let hits = await fileManagerVM.findFiles(atPaths: ["deep/c.swift"], profile: .mcpRead)
+
+		XCTAssertEqual(hits["deep/c.swift"]?.standardizedFullPath, rootFolder.standardizedFullPath + "/src/deep/c.swift")
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)
