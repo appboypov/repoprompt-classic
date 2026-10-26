@@ -524,6 +524,45 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testEachRootFolderReportsAGrowingFilesReadCountOnlyWhileItIsRead() async throws {
+		let tempParent = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: tempParent) }
+		let rootA = tempParent.appendingPathComponent("RootA", isDirectory: true)
+		let rootB = tempParent.appendingPathComponent("RootB", isDirectory: true)
+		for (root, fileCount) in [(rootA, 450), (rootB, 300)] {
+			for index in 0..<fileCount {
+				let folder = root.appendingPathComponent("src/d\(index / 25)", isDirectory: true)
+				try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+				XCTAssertTrue(FileManager.default.createFile(atPath: folder.appendingPathComponent("f\(index).swift").path, contents: Data()))
+			}
+		}
+		let keyA = StandardizedPath.absolute(rootA.path)
+		let keyB = StandardizedPath.absolute(rootB.path)
+		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootA.path, rootB.path])
+		let fileManagerVM = RepoFileManagerViewModel()
+		var snapshots: [[String: Int]] = []
+		let cancellable = fileManagerVM.readingFileCounts.sink { snapshots.append($0) }
+		defer { cancellable.cancel() }
+
+		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
+		let snapshotsOfA = snapshots
+		snapshots.removeAll()
+		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+
+		let countsOfA = snapshotsOfA.compactMap { $0[keyA] }
+		XCTAssertEqual(countsOfA.first, 0)
+		XCTAssertEqual(countsOfA.last, 450)
+		XCTAssertTrue(countsOfA.contains { $0 > 0 && $0 < 450 }, "The count grows while reading runs: \(countsOfA)")
+		XCTAssertEqual(countsOfA, countsOfA.sorted())
+		let countsOfB = snapshots.compactMap { $0[keyB] }
+		XCTAssertEqual(countsOfB.first, 0)
+		XCTAssertEqual(countsOfB.last, 300)
+		XCTAssertFalse(snapshots.contains { $0[keyA] != nil }, "A root folder whose reading is complete reports no count")
+		XCTAssertEqual(fileManagerVM.readingFileCounts.value, [:])
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)
