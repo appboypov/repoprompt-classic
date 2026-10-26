@@ -370,6 +370,9 @@ actor FileSystemService {
 	
 	/// The FSEvent stream reference
 	private var fseventStreamRef: FSEventStreamRef?
+
+	/// Where a paused stream resumes, so the changes made while it was paused replay on restart.
+	private var pausedSinceEventID: FSEventStreamEventId?
 	
 	/// Publishes arrays of deltas whenever changes occur
 	private var changePublisher = PassthroughSubject<[FileSystemDelta], Never>()
@@ -825,10 +828,21 @@ actor FileSystemService {
 	
 	/// Request to stop watching for changes. This tears down the FSEvent stream.
 	public func stopWatchingForChanges() {
+		pausedSinceEventID = nil
 		stopFSEventStream()
 	}
-	
-	/// (Re)start the FSEvent stream if needed.
+
+	/// Stops the FSEvent stream and remembers where it stopped. The next
+	/// `startWatchingForChanges()` replays every change made in between.
+	public func pauseWatchingForChanges() {
+		guard fseventStreamRef != nil else { return }
+		let currentEventID = FSEventsGetCurrentEventId()
+		let oldestPendingEventID = pendingFSEvents.map(\.2).min()
+		pausedSinceEventID = oldestPendingEventID.map { min($0 > 0 ? $0 - 1 : 0, currentEventID) } ?? currentEventID
+		stopFSEventStream()
+	}
+
+	/// (Re)start the FSEvent stream if needed. After a pause it replays the changes made while paused.
 	public func startWatchingForChanges() {
 		startFSEventStream()
 	}
@@ -1981,7 +1995,7 @@ actor FileSystemService {
 			Self.fseventCallback,
 			&streamContext,
 			[path] as CFArray,
-			FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+			pausedSinceEventID ?? FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
 			0,
 			flags
 		)
@@ -2009,6 +2023,7 @@ actor FileSystemService {
 			print("Failed to start FSEventStream for \(path)")
 			return
 		}
+		pausedSinceEventID = nil
 		fileSystemDebugLog("FSEventStream started for path: \(path)")
 	}
 	
@@ -2682,6 +2697,10 @@ actor FileSystemService {
 		}
 		
 		for (absPath, flags, eventId) in events {
+			// A resumed stream ends its replay with a marker event that names no change.
+			if flags & FSEventStreamEventFlags(kFSEventStreamEventFlagHistoryDone) != 0 {
+				continue
+			}
 			let relPath: String
 			#if DEBUG
 			let mappedEventPath = mapToRelativeEventPath(absPath, diagnostics: &eventPathMappingFastPathDiagnostics)

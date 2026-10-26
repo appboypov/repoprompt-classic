@@ -175,7 +175,8 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 
 	private func startBackgroundPreparation() {
 		preparationTask?.cancel()
-		preparationTask = Task { [weak self] in
+		// Hidden workspaces prepare one by one at low priority, then rest until shown.
+		preparationTask = Task(priority: .utility) { [weak self] in
 			while let self, !Task.isCancelled, let next = self.preparationQueue.first {
 				_ = await self.ensureRuntime(for: next)
 				self.preparationQueue.removeAll { $0 == next }
@@ -367,7 +368,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 			previous?.attachWindow(nil)
 			await previous?.workspaceManager.pausePeriodicWork()
 		}
-		next.workspaceManager.resumePeriodicWork()
+		await next.workspaceManager.resumePeriodicWork()
 		windowDelegateProxy?.windowState = next
 		if let nativeWindow {
 			next.attachWindow(nativeWindow, installsDelegateProxy: false)

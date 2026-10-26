@@ -383,6 +383,11 @@ final class GitViewModel: ObservableObject {
     func refresh() async {
 		await fetchUnstagedFiles(trigger: .explicitRefresh)
     }
+
+	/// Stops git background polls while the workspace is hidden; resuming starts them again.
+	func setBackgroundPollingPaused(_ paused: Bool) async {
+		await statusActor.setPollingPaused(paused)
+	}
     
     var hasValidRepository: Bool {
         selectedRootFolder != nil && errorMessage?.contains("Not a git repository") != true

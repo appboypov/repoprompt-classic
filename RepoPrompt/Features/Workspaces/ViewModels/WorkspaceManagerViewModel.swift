@@ -1017,7 +1017,8 @@ class WorkspaceManagerViewModel: ObservableObject {
 	// MARK: - Shell visibility
 
 	/// True while the shell keeps this runtime hidden. State and views stay; the timers that
-	/// recount tokens and autosave stop, so hidden runtimes cost the main thread nothing.
+	/// recount tokens and autosave stop, file watching and git polls stop, so hidden runtimes
+	/// cost the main thread nothing. Resuming replays the file changes made while hidden.
 	private(set) var isPeriodicWorkPaused = false
 
 	@MainActor
@@ -1026,15 +1027,22 @@ class WorkspaceManagerViewModel: ObservableObject {
 		stopPollTimer()
 		fileManager.isAutoCodemapSyncPaused = true
 		await promptViewModel.stopTokenCountUpdateTimer()
+		await fileManager.pauseFileWatching()
+		// A resume can run while the awaits above wait; the latest call wins.
+		guard isPeriodicWorkPaused else { return }
+		await promptViewModel.gitViewModel.setBackgroundPollingPaused(true)
 	}
 
 	@MainActor
-	func resumePeriodicWork() {
+	func resumePeriodicWork() async {
 		guard isPeriodicWorkPaused else { return }
 		isPeriodicWorkPaused = false
 		startPollTimer()
 		promptViewModel.startTokenCountUpdateTimer()
 		fileManager.isAutoCodemapSyncPaused = false
+		await fileManager.resumeFileWatching()
+		guard !isPeriodicWorkPaused else { return }
+		await promptViewModel.gitViewModel.setBackgroundPollingPaused(false)
 	}
 
 	private func startTokenCountUpdateTimerUnlessPaused() {

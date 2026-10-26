@@ -639,6 +639,30 @@ class RepoFileManagerViewModel: ObservableObject {
 		}
 	}
 	private var pendingAutoCodemapSync = false
+	/// Set while the shell hides this runtime: every root's FSEvent stream stays stopped,
+	/// and on resume each stream replays the changes made while it was stopped.
+	/// Each loop stops when the flag flips mid-way, so the latest pause or resume wins.
+	private(set) var isFileWatchingPaused = false
+
+	@MainActor
+	func pauseFileWatching() async {
+		guard !isFileWatchingPaused else { return }
+		isFileWatchingPaused = true
+		for service in fileSystemServices.values {
+			guard isFileWatchingPaused else { return }
+			await service.pauseWatchingForChanges()
+		}
+	}
+
+	@MainActor
+	func resumeFileWatching() async {
+		guard isFileWatchingPaused else { return }
+		isFileWatchingPaused = false
+		for service in fileSystemServices.values {
+			guard !isFileWatchingPaused else { return }
+			await service.startWatchingForChanges()
+		}
+	}
 	/// Tracks which paths currently have a cached FileAPI to avoid scanning all FileViewModels.
 	private var codemapCapableAPIsByFullPath: [String: FileAPI] = [:]
 	
@@ -1995,6 +2019,9 @@ func loadFolder(
 				let rootReplayIngressGeneration = advanceRootReplayIngressGeneration(forRootKey: rootKey)
 				await deferredReplayBuffer.registerActiveRootGeneration(rootReplayIngressGeneration, forRootKey: rootKey)
 				await newFileSystemService.startWatchingForChanges()
+				if isFileWatchingPaused {
+					await newFileSystemService.pauseWatchingForChanges()
+				}
 				let changesPublisher = await newFileSystemService.publisherForChanges()
 				self.watchers[rootKey] = makeFileSystemChangesCancellable(
 					changesPublisher: changesPublisher,

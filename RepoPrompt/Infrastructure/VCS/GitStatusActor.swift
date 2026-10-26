@@ -69,6 +69,8 @@ actor GitStatusActor {
     private var latestSnapshot: GitStatusSnapshot?
     
     private var pollingTask: Task<Void, Never>?
+    /// True while the workspace is hidden: no background polls run.
+    private var isPollingPaused = false
     
     /// Timestamp of last fetch to throttle network calls
     private var lastFetchTime: Date?
@@ -403,7 +405,7 @@ actor GitStatusActor {
     // MARK: - Polling
     
     private func startPollingIfNeeded() {
-        guard pollingTask == nil, inclusionMode != .none else { return }
+        guard pollingTask == nil, inclusionMode != .none, !isPollingPaused else { return }
         
         pollingTask = Task {
             while !Task.isCancelled {
@@ -419,6 +421,18 @@ actor GitStatusActor {
     private func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
+    }
+    
+    /// Stops background polls while the workspace is hidden. Resuming starts polling again,
+    /// so the next poll picks up what changed while hidden.
+    func setPollingPaused(_ paused: Bool) {
+        guard isPollingPaused != paused else { return }
+        isPollingPaused = paused
+        if paused {
+            stopPolling()
+        } else {
+            startPollingIfNeeded()
+        }
     }
     
     func restartPollingIfNeeded() {
