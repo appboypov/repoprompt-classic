@@ -191,9 +191,10 @@ final class SecureRuntimePermissionBindingTests: XCTestCase {
 
 		let store = AgentProviderPreferenceSnapshotStore()
 
-		let gemini = store.runtimePermission(for: .antigravity, profile: .userConfigured)
-		XCTAssertEqual(gemini.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID)
-		XCTAssertTrue(gemini.acceptsPendingACPApprovalWhenActivated)
+		let antigravity = store.runtimePermission(for: .antigravity, profile: .userConfigured)
+		XCTAssertEqual(antigravity.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
+		XCTAssertTrue(antigravity.autoApproveAllACPToolPermissions)
+		XCTAssertTrue(antigravity.acceptsPendingACPApprovalWhenActivated)
 
 		let openCode = store.runtimePermission(for: .openCode, profile: .userConfigured)
 		XCTAssertEqual(openCode.acpSessionModeID, OpenCodeAgentConfig.managedFullAccessSessionModeID)
