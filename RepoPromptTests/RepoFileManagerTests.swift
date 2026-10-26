@@ -364,6 +364,38 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testLoadFolderSkipsWorktreesAndBuildOutputByDefault() async throws {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let keptPath = "repos/app/Sources/App.swift"
+		let skippedPaths = [
+			"worktrees/app/feature/Sources/App.swift",
+			"repos/app/DerivedData/Build/Out.swift",
+			"repos/app/.build/debug/Out.swift",
+			"repos/app/.dart_tool/package_config.json",
+			"repos/app/.next/server/page.js",
+		]
+		for path in [keptPath] + skippedPaths {
+			let fileURL = rootURL.appendingPathComponent(path)
+			try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+			try "x".write(to: fileURL, atomically: true, encoding: .utf8)
+		}
+
+		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
+		let fileManagerVM = RepoFileManagerViewModel()
+		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+
+		let rootName = rootURL.lastPathComponent
+		let keptExists = await fileManagerVM.fileExistsStrictly(atPath: "\(rootName)/\(keptPath)")
+		XCTAssertTrue(keptExists)
+		for path in skippedPaths {
+			let exists = await fileManagerVM.fileExistsStrictly(atPath: "\(rootName)/\(path)")
+			XCTAssertFalse(exists, path)
+		}
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)

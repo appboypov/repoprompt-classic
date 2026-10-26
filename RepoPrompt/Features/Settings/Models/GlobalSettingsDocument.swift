@@ -210,6 +210,8 @@ struct GlobalScalarPreferences: Codable, Equatable {
 		var respectRepoIgnore: Bool?
 		var respectCursorignore: Bool?
 		var globalIgnoreDefaults: String?
+		/// The `IgnoreSettingsDefaults` version that `globalIgnoreDefaults` already holds.
+		var globalIgnoreDefaultsVersion: Int?
 		var enableHierarchicalIgnores: Bool?
 		var skipSymlinks: Bool?
 		var showEmptyFolders: Bool?
@@ -219,6 +221,7 @@ struct GlobalScalarPreferences: Codable, Equatable {
 			respectRepoIgnore: Bool? = nil,
 			respectCursorignore: Bool? = nil,
 			globalIgnoreDefaults: String? = nil,
+			globalIgnoreDefaultsVersion: Int? = nil,
 			enableHierarchicalIgnores: Bool? = nil,
 			skipSymlinks: Bool? = nil,
 			showEmptyFolders: Bool? = nil
@@ -227,6 +230,7 @@ struct GlobalScalarPreferences: Codable, Equatable {
 			self.respectRepoIgnore = respectRepoIgnore
 			self.respectCursorignore = respectCursorignore
 			self.globalIgnoreDefaults = globalIgnoreDefaults
+			self.globalIgnoreDefaultsVersion = globalIgnoreDefaultsVersion
 			self.enableHierarchicalIgnores = enableHierarchicalIgnores
 			self.skipSymlinks = skipSymlinks
 			self.showEmptyFolders = showEmptyFolders

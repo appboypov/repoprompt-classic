@@ -562,6 +562,45 @@ final class GlobalSettingsMigrationTests: XCTestCase {
 		XCTAssertEqual(diskDocument.scalarPreferences?.fileSystem?.globalIgnoreDefaults, upgradedDefaults)
 	}
 
+	func testGlobalSettingsStoreUpgradesUnversionedJSONGlobalIgnoreDefaultsAndKeepsUserPatterns() throws {
+		let defaults = makeUserDefaults()
+		let fileStore = GlobalSettingsFileStore(fileURL: try makeTemporarySettingsFileURL())
+		let userDefaults = "# mine\n**/node_modules/\n**/custom-output/\n"
+		try fileStore.save(GlobalSettingsDocument(scalarPreferences: GlobalScalarPreferences(
+			fileSystem: GlobalScalarPreferences.FileSystemSettings(globalIgnoreDefaults: userDefaults)
+		)))
+
+		let store = GlobalSettingsStore(defaults: defaults, fileStore: fileStore)
+
+		let upgraded = store.globalIgnoreDefaults()
+		XCTAssertTrue(upgraded.hasPrefix("# mine\n**/node_modules/\n**/custom-output/"))
+		XCTAssertTrue(upgraded.contains("**/worktrees/"))
+		XCTAssertTrue(upgraded.contains("**/DerivedData/"))
+		XCTAssertEqual(defaults.string(forKey: GlobalSettingsLegacyBridge.globalIgnoreDefaultsKey), upgraded)
+		XCTAssertFalse(GlobalSettingsLegacyBridge.shouldReimportScalarPreferences(defaults: defaults))
+		let diskSettings = try fileStore.load().scalarPreferences?.fileSystem
+		XCTAssertEqual(diskSettings?.globalIgnoreDefaults, upgraded)
+		XCTAssertEqual(diskSettings?.globalIgnoreDefaultsVersion, IgnoreSettingsDefaults.currentGlobalIgnoreDefaultsVersion)
+	}
+
+	func testGlobalSettingsStoreKeepsCurrentJSONGlobalIgnoreDefaultsWithRemovedPattern() throws {
+		let defaults = makeUserDefaults()
+		let fileStore = GlobalSettingsFileStore(fileURL: try makeTemporarySettingsFileURL())
+		let userDefaults = IgnoreSettingsDefaults.canonicalGlobalIgnoreDefaults
+			.replacingOccurrences(of: "**/worktrees/\n", with: "")
+		try fileStore.save(GlobalSettingsDocument(scalarPreferences: GlobalScalarPreferences(
+			fileSystem: GlobalScalarPreferences.FileSystemSettings(
+				globalIgnoreDefaults: userDefaults,
+				globalIgnoreDefaultsVersion: IgnoreSettingsDefaults.currentGlobalIgnoreDefaultsVersion
+			)
+		)))
+
+		let store = GlobalSettingsStore(defaults: defaults, fileStore: fileStore)
+
+		XCTAssertEqual(store.globalIgnoreDefaults(), userDefaults)
+		XCTAssertFalse(store.globalIgnoreDefaults().contains("**/worktrees/"))
+	}
+
 	func testScalarAccessorsReconcileChangedLegacyMirrorsBeforeRead() throws {
 		let defaults = makeUserDefaults()
 		let fileStore = GlobalSettingsFileStore(fileURL: try makeTemporarySettingsFileURL())

@@ -251,6 +251,7 @@ enum GlobalSettingsLegacyBridge {
 				respectRepoIgnore: optionalBool(forKey: respectRepoIgnoreKey, defaults: defaults),
 				respectCursorignore: optionalBool(forKey: respectCursorignoreKey, defaults: defaults),
 				globalIgnoreDefaults: importedGlobalIgnoreDefaults,
+				globalIgnoreDefaultsVersion: importedGlobalIgnoreDefaults == nil ? nil : IgnoreSettingsDefaults.currentGlobalIgnoreDefaultsVersion,
 				enableHierarchicalIgnores: optionalBool(forKey: enableHierarchicalIgnoresKey, defaults: defaults),
 				skipSymlinks: optionalBool(forKey: skipSymlinksKey, defaults: defaults),
 				showEmptyFolders: optionalBool(forKey: showEmptyFoldersKey, defaults: defaults)

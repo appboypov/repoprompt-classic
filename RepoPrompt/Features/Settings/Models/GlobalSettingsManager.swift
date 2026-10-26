@@ -328,7 +328,7 @@ class GlobalSettingsStore: ObservableObject {
 		// One-time migration: reset token budgets to new default (160k)
 		// Bump version number to trigger another reset in the future if needed
 		ensureLatestTokenBudgetSchema(currentVersion: 2)
-		ensureFileSystemGlobalIgnoreDefaultsSeeded()
+		ensureFileSystemGlobalIgnoreDefaultsCurrent()
 	}
 
 	func recentSettingsWriteDiagnostics() -> [GlobalSettingsWriteDiagnostic] {
@@ -1676,13 +1676,19 @@ class GlobalSettingsStore: ObservableObject {
 		}
 	}
 
-	private func ensureFileSystemGlobalIgnoreDefaultsSeeded() {
+	private func ensureFileSystemGlobalIgnoreDefaultsCurrent() {
 		var fileSystemSettings = scalarPreferences.fileSystem ?? GlobalScalarPreferences.FileSystemSettings()
-		guard fileSystemSettings.globalIgnoreDefaults == nil else { return }
-		// Seed once during store initialization so later FileSystemService ignore-rule
-		// loading cannot create a UserDefaults value that dirties the scalar shadow
-		// hash and forces repeated legacy reimports during workspace open.
-		fileSystemSettings.globalIgnoreDefaults = IgnoreSettingsDefaults.resolvedGlobalIgnoreDefaults(defaults: defaults)
+		let currentVersion = IgnoreSettingsDefaults.currentGlobalIgnoreDefaultsVersion
+		if let stored = fileSystemSettings.globalIgnoreDefaults {
+			guard (fileSystemSettings.globalIgnoreDefaultsVersion ?? 0) < currentVersion else { return }
+			fileSystemSettings.globalIgnoreDefaults = IgnoreSettingsDefaults.upgradedGlobalIgnoreDefaults(stored)
+		} else {
+			// Seed once during store initialization so later FileSystemService ignore-rule
+			// loading cannot create a UserDefaults value that dirties the scalar shadow
+			// hash and forces repeated legacy reimports during workspace open.
+			fileSystemSettings.globalIgnoreDefaults = IgnoreSettingsDefaults.resolvedGlobalIgnoreDefaults(defaults: defaults)
+		}
+		fileSystemSettings.globalIgnoreDefaultsVersion = currentVersion
 		scalarPreferences.fileSystem = fileSystemSettings
 		save(reconcileScalarLegacy: false)
 	}

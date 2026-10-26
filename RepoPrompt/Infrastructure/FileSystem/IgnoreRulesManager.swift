@@ -13,7 +13,7 @@ enum IgnoreSettingsDefaults {
 	static let globalIgnoreDefaultsKey = "globalIgnoreDefaults"
 	static let globalIgnoreDefaultsVersionKey = "globalIgnoreDefaultsVersion"
 	/// Bump when we add new "required by default" patterns.
-	static let currentGlobalIgnoreDefaultsVersion = 2
+	static let currentGlobalIgnoreDefaultsVersion = 3
 
 	/// Canonical default patterns (do NOT include `.git`; that is always ignored separately).
 	/// These mirror our "big dirs" heuristic plus a few common temp files.
@@ -42,6 +42,13 @@ enum IgnoreSettingsDefaults {
 	**/.bundle/
 	**/.gem/
 
+	# Build output and git worktrees
+	**/DerivedData/
+	**/.build/
+	**/.dart_tool/
+	**/.next/
+	**/worktrees/
+
 	# Virtual environments
 	**/.venv/
 	**/venv/
@@ -55,11 +62,9 @@ enum IgnoreSettingsDefaults {
 	"""
 
 	static func resolvedGlobalIgnoreDefaults(defaults: UserDefaults = .standard) -> String {
-		let storedObject = defaults.object(forKey: globalIgnoreDefaultsKey)
-		let stored = defaults.string(forKey: globalIgnoreDefaultsKey)
 		let storedVersion = defaults.object(forKey: globalIgnoreDefaultsVersionKey) as? Int ?? 0
 
-		guard storedObject != nil, let stored else {
+		guard let stored = defaults.string(forKey: globalIgnoreDefaultsKey) else {
 			defaults.set(canonicalGlobalIgnoreDefaults, forKey: globalIgnoreDefaultsKey)
 			defaults.set(currentGlobalIgnoreDefaultsVersion, forKey: globalIgnoreDefaultsVersionKey)
 			return canonicalGlobalIgnoreDefaults
@@ -69,28 +74,29 @@ enum IgnoreSettingsDefaults {
 			return stored
 		}
 
+		let upgraded = upgradedGlobalIgnoreDefaults(stored)
+		if upgraded != stored {
+			defaults.set(upgraded, forKey: globalIgnoreDefaultsKey)
+		}
+		defaults.set(currentGlobalIgnoreDefaultsVersion, forKey: globalIgnoreDefaultsVersionKey)
+		return upgraded
+	}
+
+	/// Appends the canonical patterns that `stored` lacks. An empty value becomes the canonical defaults.
+	static func upgradedGlobalIgnoreDefaults(_ stored: String) -> String {
 		guard !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-			defaults.set(canonicalGlobalIgnoreDefaults, forKey: globalIgnoreDefaultsKey)
-			defaults.set(currentGlobalIgnoreDefaultsVersion, forKey: globalIgnoreDefaultsVersionKey)
 			return canonicalGlobalIgnoreDefaults
 		}
 
-		let have = normalizedPatterns(stored)
-		let required = normalizedPatterns(canonicalGlobalIgnoreDefaults)
-		let missing = required.subtracting(have)
-
+		let missing = normalizedPatterns(canonicalGlobalIgnoreDefaults).subtracting(normalizedPatterns(stored))
 		guard !missing.isEmpty else {
-			defaults.set(currentGlobalIgnoreDefaultsVersion, forKey: globalIgnoreDefaultsVersionKey)
 			return stored
 		}
 
-		let upgraded = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+		return stored.trimmingCharacters(in: .whitespacesAndNewlines)
 			+ "\n\n# (Auto-upgraded to v\(currentGlobalIgnoreDefaultsVersion))\n"
 			+ missing.sorted().joined(separator: "\n")
 			+ "\n"
-		defaults.set(upgraded, forKey: globalIgnoreDefaultsKey)
-		defaults.set(currentGlobalIgnoreDefaultsVersion, forKey: globalIgnoreDefaultsVersionKey)
-		return upgraded
 	}
 
 	private static func normalizedPatterns(_ text: String) -> Set<String> {
