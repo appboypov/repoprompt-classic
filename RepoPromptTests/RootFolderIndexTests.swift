@@ -123,4 +123,67 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertEqual(index.folders["a"]?.fileCount, 1)
 		XCTAssertTrue(index.isReadingComplete)
 	}
+
+	func testFolderStateComesFromSelectedFilesAgainstFilesUnderIt() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("a/b/c.swift")
+		index.addFile("a/d.swift")
+		index.addFile("e.swift")
+		index.addFolder("a/empty", isRead: true)
+
+		index.select("a/b/c.swift")
+
+		XCTAssertEqual(index.checkboxState(ofFolder: "a/b"), .checked)
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .mixed)
+		XCTAssertEqual(index.checkboxState(ofFolder: ""), .mixed)
+		XCTAssertEqual(index.checkboxState(ofFolder: "a/empty"), .unchecked)
+
+		index.select("a/d.swift")
+
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .checked, "An empty folder under it does not keep a folder mixed")
+
+		index.deselect("a/b/c.swift")
+		index.deselect("a/d.swift")
+
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .unchecked)
+		XCTAssertEqual(index.checkboxState(ofFolder: ""), .unchecked)
+	}
+
+	func testOnlyFilesOfTheIndexCanBeSelectedAndEachCountsOnce() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("a/b.swift")
+		index.addFile("a/c.swift")
+
+		index.select("a/b.swift")
+		index.select("a/b.swift")
+		index.select("a/missing.swift")
+		index.select("a")
+
+		XCTAssertEqual(index.selectedFilePaths, ["a/b.swift"])
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .mixed)
+	}
+
+	func testFileChangesOnDiskKeepTheSelectionCountsRight() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("a/b/c.swift")
+		index.addFile("a/d.swift")
+		index.select("a/b/c.swift")
+		index.select("a/d.swift")
+
+		index.addFile("a/new.swift")
+
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .mixed, "A file that appears on disk is not selected")
+
+		index.remove("a/new.swift")
+		index.remove("a/b")
+
+		XCTAssertEqual(index.selectedFilePaths, ["a/d.swift"])
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .checked)
+
+		index.remove("a/d.swift")
+
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(index.checkboxState(ofFolder: ""), .unchecked)
+	}
 }

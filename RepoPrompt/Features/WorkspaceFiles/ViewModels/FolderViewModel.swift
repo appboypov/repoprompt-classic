@@ -54,6 +54,10 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 		var mixedSubfolders: Int = 0
 	}
 	private var checkboxMetrics = CheckboxMetrics()
+
+	/// Set on a root folder that has an index: gives the checkbox state of a folder of this root by its
+	/// standardized full path, from the selected files under it against all files under it in the index.
+	var checkboxStateFromIndex: (@MainActor (_ standardizedFullPath: String) -> CheckboxState?)?
 	
 	let hierarchyLevel: Int
 	weak var parent: FolderViewModel?
@@ -725,7 +729,23 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 	/// Recompute the checkboxState based on cached metrics.
 	@MainActor
 	private func updateCheckboxState() {
-		applyCheckboxState(computeCheckboxStateFromMetrics())
+		applyCheckboxState(computeCheckboxState())
+	}
+
+	/// The checkbox state from the root folder's index, else from the loaded children.
+	@MainActor
+	private func computeCheckboxState() -> CheckboxState {
+		// A faster walker two steps ahead meets the slower one only on a parent cycle.
+		var root = self
+		var ahead = parent?.parent
+		while let parent = root.parent {
+			root = parent
+			if let node = ahead, node === root {
+				return computeCheckboxStateFromMetrics()
+			}
+			ahead = ahead?.parent?.parent
+		}
+		return root.checkboxStateFromIndex?(standardizedFullPath) ?? computeCheckboxStateFromMetrics()
 	}
 	
 	@MainActor
@@ -774,18 +794,19 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 		case .unchecked:
 			break
 		}
-		applyCheckboxState(computeCheckboxStateFromMetrics())
+		applyCheckboxState(computeCheckboxState())
 	}
 	
 	@MainActor
 	func childFileCheckboxDidChange(from old: Bool, to new: Bool) {
 		guard old != new else { return }
 		checkboxMetrics.checkedFiles += new ? 1 : -1
-		applyCheckboxState(computeCheckboxStateFromMetrics())
+		applyCheckboxState(computeCheckboxState())
 	}
 	
+	/// Recounts the checkbox state of the loaded children, then recomputes this folder's state.
 	@MainActor
-	private func rebuildCheckboxMetricsFromChildren() {
+	func rebuildCheckboxMetricsFromChildren() {
 		var checkedFiles = 0
 		var checkedSubfolders = 0
 		var mixedSubfolders = 0
@@ -807,7 +828,7 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 		checkboxMetrics.checkedFiles = checkedFiles
 		checkboxMetrics.checkedSubfolders = checkedSubfolders
 		checkboxMetrics.mixedSubfolders = mixedSubfolders
-		applyCheckboxState(computeCheckboxStateFromMetrics())
+		applyCheckboxState(computeCheckboxState())
 	}
 	
 	// MARK: - Recursive Checkbox & Expand/Collapse
@@ -849,7 +870,7 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 		for subFolder in subfolders {
 			subFolder.setCheckboxStateOnSubtree(newValue: newValue)
 		}
-		updateCheckboxStateImmediately(newState: newValue)
+		updateCheckboxState()
 	}
 	
 	/// Forces parent folders to recalc state after a checkbox change.

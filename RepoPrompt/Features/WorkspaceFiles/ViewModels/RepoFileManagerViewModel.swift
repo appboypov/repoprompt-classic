@@ -2239,6 +2239,12 @@ func loadFolder(
 		let rootKey = rootFolder.standardizedFullPath
 		let rootFolderIndex = RootFolderIndex(rootPath: rootKey)
 		rootFolderIndexes[rootKey] = rootFolderIndex
+		rootFolder.checkboxStateFromIndex = { [weak rootFolderIndex] standardizedFullPath in
+			rootFolderIndex?.checkboxState(ofFolder: RelativePath.fromStandardized(
+				standardizedAbsolutePath: standardizedFullPath,
+				standardizedRootPath: rootKey
+			))
+		}
 		readingFileCounts.value[rootKey] = 0
 
 		@inline(__always)
@@ -6392,7 +6398,7 @@ private func setFolderStateOnSubtree(_ folder: FolderViewModel,
 				stack.append(subFolder)
 			}
 		}
-		current.updateCheckboxStateImmediately(newState: newState)
+		current.updateCheckboxStateImmediately()
 	}
 }
 	
@@ -6438,45 +6444,11 @@ private func setFolderStateOnSubtree(_ folder: FolderViewModel,
 		visitedFolderIDs: inout Set<UUID>
 	) -> CheckboxState {
 		guard visitedFolderIDs.insert(folder.id).inserted else { return folder.checkboxState }
-		var checkedCount = 0
-		var uncheckedCount = 0
-		var mixedCount = 0
-		let totalCount = folder.children.count
-		
-		for child in folder.children {
-			switch child {
-			case .file(let fileVM):
-				if fileVM.isChecked {
-					checkedCount += 1
-				} else {
-					uncheckedCount += 1
-				}
-			case .folder(let folderVM):
-				let childState = updateFolderStateRecursive(folderVM, visitedFolderIDs: &visitedFolderIDs)
-				switch childState {
-				case .checked:
-					checkedCount += 1
-				case .unchecked:
-					uncheckedCount += 1
-				case .mixed:
-					mixedCount += 1
-				}
-			}
+		for case .folder(let folderVM) in folder.children {
+			_ = updateFolderStateRecursive(folderVM, visitedFolderIDs: &visitedFolderIDs)
 		}
-		
-		let newState: CheckboxState
-		if mixedCount > 0 || (checkedCount > 0 && uncheckedCount > 0) {
-			newState = .mixed
-		} else if checkedCount == totalCount && totalCount > 0 {
-			newState = .checked
-		} else if uncheckedCount == totalCount && totalCount > 0 {
-			newState = .unchecked
-		} else {
-			newState = .unchecked
-		}
-		
-		folder.updateCheckboxStateImmediately(newState: newState)
-		return newState
+		folder.rebuildCheckboxMetricsFromChildren()
+		return folder.checkboxState
 	}
 	
 	@MainActor
@@ -11852,6 +11824,7 @@ extension RepoFileManagerViewModel {
 		assert(Set(newFiles.map(\.id)) == newIDs, "Selection state mismatch: files vs. IDs")
 		#endif
 
+		applySelectionToIndexes(from: selectedFiles, oldIDs: selectedFileIDs, to: newFiles, newIDs: newIDs)
 		selectedFileIDs = newIDs
 		selectedFiles   = newFiles
 		requestSelectionSliceSnapshotRebuild(reason: "commitSelectionState")
@@ -11869,6 +11842,31 @@ extension RepoFileManagerViewModel {
 		if codemapAutoEnabled, !selectedFiles.isEmpty {
 			scheduleAutoCodemapSync()
 		}
+	}
+
+	/// Carries a selection change into the index of each root folder, then recomputes the checkbox state
+	/// of every folder above a changed file from it.
+	@MainActor
+	private func applySelectionToIndexes(
+		from oldFiles: [FileViewModel],
+		oldIDs: Set<UUID>,
+		to newFiles: [FileViewModel],
+		newIDs: Set<UUID>
+	) {
+		var changedParents: [FolderViewModel] = []
+		for file in newFiles where !oldIDs.contains(file.id) {
+			rootFolderIndexes[file.standardizedRootFolderPath]?.select(file.standardizedRelativePath)
+			if let parent = file.parentFolder {
+				changedParents.append(parent)
+			}
+		}
+		for file in oldFiles where !newIDs.contains(file.id) {
+			rootFolderIndexes[file.standardizedRootFolderPath]?.deselect(file.standardizedRelativePath)
+			if let parent = file.parentFolder {
+				changedParents.append(parent)
+			}
+		}
+		recomputeAncestorStates(startingAtFolders: changedParents)
 	}
 
 	/// Clear both selected files and IDs in one atomic operation.
