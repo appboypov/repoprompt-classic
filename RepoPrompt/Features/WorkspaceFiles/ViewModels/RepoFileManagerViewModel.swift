@@ -10506,7 +10506,9 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		#endif
 	}
 
-	// New: Request scans for a set of files in bulk with minimal MainActor work
+	// New: Request scans for a set of files in bulk with minimal MainActor work.
+	// `rootFolderPaths` names the roots that hold every file in `files`; when it is
+	// empty the roots come from the files themselves.
 	@MainActor
 	private func requestScans(
 		forFiles files: [FileViewModel],
@@ -10515,10 +10517,9 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	) {
 		guard codeScanEnabled else { return }
 		
-		let rootPaths = Set(
-			files.map(\.standardizedRootFolderPath) +
-			rootFolderPaths.map { ($0 as NSString).standardizingPath }
-		)
+		let rootPaths = rootFolderPaths.isEmpty
+			? Set(files.map(\.standardizedRootFolderPath))
+			: Set(rootFolderPaths.map { ($0 as NSString).standardizingPath })
 		let rootServices = rootPaths.reduce(into: [String: FileSystemService]()) { result, root in
 			if let service = getFileSystemService(for: root) {
 				result[root] = service
