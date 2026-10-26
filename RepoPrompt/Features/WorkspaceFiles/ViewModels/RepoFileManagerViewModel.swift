@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import AppKit
+import CryptoKit
 #if DEBUG || EDIT_FLOW_PERF
 import os
 #endif
@@ -674,7 +675,7 @@ class RepoFileManagerViewModel: ObservableObject {
 			await service.startWatchingForChanges()
 		}
 	}
-	/// Tracks which paths currently have a cached FileAPI to avoid scanning all FileViewModels.
+	/// Holds the codemap of every scanned code file by path, for files with and without a tree item.
 	private var codemapCapableAPIsByFullPath: [String: FileAPI] = [:]
 	
 	@Published private(set) var isLoading: Bool = false
@@ -1582,6 +1583,21 @@ class RepoFileManagerViewModel: ObservableObject {
 				} else {
 					if wasTracked {
 						// Previously tracked data vanished; ensure auto codemap dependencies stay in sync.
+						shouldScheduleAutoSync = true
+					}
+					codemapCapableAPIsByFullPath.removeValue(forKey: standardizedPath)
+				}
+				updated += 1
+			} else if let entry = pathEntries.reversed().first(where: { candidate in
+				candidate.result.fileID == Self.codemapScanID(forFileWithoutTreeItem: standardizedPath)
+			}), rootFolderIndexes[StandardizedPath.absolute(entry.result.rootFolderPath)]?.filePaths.contains(entry.result.relativePath) == true {
+				// A file without a tree item keeps its codemap by path.
+				let wasTracked = codemapCapableAPIsByFullPath[standardizedPath] != nil
+				if let api = entry.result.fileAPI, StandardizedPath.absolute(api.filePath) == standardizedPath {
+					codemapCapableAPIsByFullPath[standardizedPath] = api
+					shouldScheduleAutoSync = true
+				} else {
+					if wasTracked {
 						shouldScheduleAutoSync = true
 					}
 					codemapCapableAPIsByFullPath.removeValue(forKey: standardizedPath)
@@ -8964,6 +8980,13 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		fileHierarchyIndex.insertFile(file, rootKey: file.standardizedRootFolderPath)
 	}
 
+	/// Drops the tree item of a file while its root folder's index keeps the path.
+	@MainActor
+	func removeTreeItemForTesting(fullPath: String) {
+		guard let file = fileHierarchyIndex.removeFile(forKey: fullPath) else { return }
+		file.parentFolder?.removeFile(file)
+	}
+
 	/// Attach the selection callback and toggle a file into `selectedFiles`
 	/// through the normal commit path. Mirrors what `attachSelectionCallback`
 	/// does for fresh view models so tests can exercise code paths that read
@@ -10439,16 +10462,8 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			guard self.codeScanEnabled else { return }
 			for rootPath in rootPaths.sorted() {
 				guard !Task.isCancelled, self.codeScanEnabled else { return }
-				guard let rootFolder = self.loadedUserRootFolder(for: rootPath) else { continue }
-				let filesToScan = self.getFilesRecursively(under: rootFolder)
-				guard !Task.isCancelled else { return }
-				// A root can unload while file gathering is in progress; skip it without aborting later roots.
 				guard self.loadedUserRootFolder(for: rootPath) != nil else { continue }
-				self.requestScans(
-					forFiles: filesToScan,
-					purpose: .initialRootLoad,
-					rootFolderPaths: [rootPath]
-				)
+				self.requestInitialRootLoadScan(forRootPath: rootPath)
 				await Task.yield()
 			}
 		}
@@ -10515,12 +10530,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			#endif
 			return
 		}
-		let filesToScan = getFilesRecursively(under: rootFolder)
-		requestScans(
-			forFiles: filesToScan,
-			purpose: .initialRootLoad,
-			rootFolderPaths: [rootPath]
-		)
+		requestInitialRootLoadScan(forRootPath: rootPath)
 		#if DEBUG
 		WorkspaceRestorePerfLog.event(
 			"folderLoad.enqueueScan",
@@ -10528,7 +10538,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 				"workspaceID": WorkspaceRestorePerfLog.shortID(currentWorkspaceID),
 				"rootName": rootFolder.name,
 				"outcome": "enqueued",
-				"files": "\(filesToScan.count)",
+				"files": "\(rootFolderIndexes[rootPath]?.filePaths.count ?? 0)",
 				"duration": enqueueScanStartMS.map { WorkspaceRestorePerfLog.formatElapsedMS(since: $0) } ?? "notMeasured"
 			]
 		)
@@ -10536,19 +10546,11 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	}
 
 	// New: Request scans for a set of files in bulk with minimal MainActor work.
-	// `rootFolderPaths` names the roots that hold every file in `files`; when it is
-	// empty the roots come from the files themselves.
 	@MainActor
-	private func requestScans(
-		forFiles files: [FileViewModel],
-		purpose: CodeScanActor.ScanBatchPurpose = .adhoc,
-		rootFolderPaths: [String] = []
-	) {
+	private func requestScans(forFiles files: [FileViewModel]) {
 		guard codeScanEnabled else { return }
 		
-		let rootPaths = rootFolderPaths.isEmpty
-			? Set(files.map(\.standardizedRootFolderPath))
-			: Set(rootFolderPaths.map { ($0 as NSString).standardizingPath })
+		let rootPaths = Set(files.map(\.standardizedRootFolderPath))
 		let rootServices = rootPaths.reduce(into: [String: FileSystemService]()) { result, root in
 			if let service = getFileSystemService(for: root) {
 				result[root] = service
@@ -10560,25 +10562,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			guard let ext = f.fileExtension, SyntaxManager.isSupportedFileExtension(ext) else { return nil }
 			return f
 		}
-		guard !supported.isEmpty else {
-			guard purpose == .initialRootLoad, !rootPaths.isEmpty else { return }
-			enqueueInitialRootLoadRequests(
-				files: [],
-				rootPaths: rootPaths,
-				rootServices: rootServices,
-				purgeCachesOnEmptyInitialRequests: true
-			)
-			return
-		}
-		
-		if purpose == .initialRootLoad {
-			enqueueInitialRootLoadRequests(
-				files: supported,
-				rootPaths: rootPaths,
-				rootServices: rootServices
-			)
-			return
-		}
+		guard !supported.isEmpty else { return }
 		
 		// Cancel any previous enqueue task so only one builder runs at a time
 		currentAdhocScanEnqueueTask?.cancel()
@@ -10594,9 +10578,28 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			if Task.isCancelled { return }
 
 			if !requests.isEmpty {
-				await self.codeScanActor.requestScans(requests, purpose: purpose)
+				await self.codeScanActor.requestScans(requests)
 			}
 		}
+	}
+
+	/// Requests a codemap for every code file in the index of a root folder, at low priority.
+	/// The file list and the scan snapshots are built off the main thread.
+	@MainActor
+	private func requestInitialRootLoadScan(forRootPath rootPath: String) {
+		guard codeScanEnabled else { return }
+		let rootKey = StandardizedPath.absolute(rootPath)
+		guard let index = rootFolderIndexes[rootKey] else { return }
+		var rootServices: [String: FileSystemService] = [:]
+		if let service = getFileSystemService(for: rootKey) {
+			rootServices[rootKey] = service
+		}
+		enqueueInitialRootLoadRequests(
+			rootPath: rootKey,
+			relativeFilePaths: index.filePaths,
+			filesByFullPath: fileHierarchyIndex.filesByFullPath,
+			rootServices: rootServices
+		)
 	}
 
 	@MainActor
@@ -10646,38 +10649,36 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	
 	@MainActor
 	private func enqueueInitialRootLoadRequests(
-		files: [FileViewModel],
-		rootPaths: Set<String>,
-		rootServices: [String: FileSystemService],
-		purgeCachesOnEmptyInitialRequests: Bool = false
+		rootPath: String,
+		relativeFilePaths: Set<String>,
+		filesByFullPath: [String: FileViewModel],
+		rootServices: [String: FileSystemService]
 	) {
-		guard !rootPaths.isEmpty else { return }
-		
-		for root in rootPaths {
-			if let existing = initialRootScanEnqueueTasks[root] {
-				existing.task.cancel()
-				initialRootScanEnqueueTasks[root] = nil
-			}
+		if let existing = initialRootScanEnqueueTasks[rootPath] {
+			existing.task.cancel()
+			initialRootScanEnqueueTasks[rootPath] = nil
 		}
 		
 		let taskID = UUID()
-		let task = Task.detached(priority: .userInitiated) { [weak self] in
+		let task = Task.detached(priority: .utility) { [weak self] in
 			guard let self = self else { return }
 
-			func clearInitialRootTasksIfCurrent() async {
+			func clearInitialRootTaskIfCurrent() async {
 				await MainActor.run { [weak self] in
 					guard let self = self else { return }
-					for root in rootPaths {
-						if self.initialRootScanEnqueueTasks[root]?.id == taskID {
-							self.initialRootScanEnqueueTasks[root] = nil
-						}
+					if self.initialRootScanEnqueueTasks[rootPath]?.id == taskID {
+						self.initialRootScanEnqueueTasks[rootPath] = nil
 					}
 				}
 			}
 
-			let snapshots = await Self.buildScanSnapshots(from: files)
+			let snapshots = await Self.buildInitialRootLoadScanSnapshots(
+				rootPath: rootPath,
+				relativeFilePaths: relativeFilePaths,
+				filesByFullPath: filesByFullPath
+			)
 			if Task.isCancelled {
-				await clearInitialRootTasksIfCurrent()
+				await clearInitialRootTaskIfCurrent()
 				return
 			}
 			let requests = await Self.buildScanRequests(
@@ -10686,24 +10687,66 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			)
 
 			if Task.isCancelled {
-				await clearInitialRootTasksIfCurrent()
+				await clearInitialRootTaskIfCurrent()
 				return
 			}
 
 			await self.codeScanActor.requestScans(
 				requests,
 				purpose: .initialRootLoad,
-				rootFolderPaths: Array(rootPaths),
-				purgeCachesOnEmptyInitialRequests: purgeCachesOnEmptyInitialRequests
+				rootFolderPaths: [rootPath],
+				purgeCachesOnEmptyInitialRequests: snapshots.isEmpty
 			)
 			
-			await clearInitialRootTasksIfCurrent()
+			await clearInitialRootTaskIfCurrent()
 		}
 		
-		let entry = InitialRootEnqueueTask(id: taskID, task: task)
-		for root in rootPaths {
-			initialRootScanEnqueueTasks[root] = entry
+		initialRootScanEnqueueTasks[rootPath] = InitialRootEnqueueTask(id: taskID, task: task)
+	}
+
+	/// The identity a code file without a tree item scans under. The same path always gives the same identity,
+	/// so a newer scan request for the file replaces an older one in the scan queue.
+	nonisolated static func codemapScanID(forFileWithoutTreeItem standardizedFullPath: String) -> UUID {
+		var bytes = Array(Insecure.MD5.hash(data: Data(standardizedFullPath.utf8)))
+		bytes[6] = (bytes[6] & 0x0F) | 0x30
+		bytes[8] = (bytes[8] & 0x3F) | 0x80
+		return UUID(uuid: (
+			bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+			bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+		))
+	}
+
+	/// One scan snapshot per code file in a root folder's index. A file with a tree item scans under the
+	/// tree item's identity and cached content; a file without one scans from disk under its path identity.
+	private nonisolated static func buildInitialRootLoadScanSnapshots(
+		rootPath: String,
+		relativeFilePaths: Set<String>,
+		filesByFullPath: [String: FileViewModel]
+	) async -> [ScanSnapshot] {
+		var treeItemFiles: [FileViewModel] = []
+		var pathOnlySnapshots: [ScanSnapshot] = []
+		for relativePath in relativeFilePaths {
+			guard !Task.isCancelled else { return [] }
+			let ext = (relativePath as NSString).pathExtension
+			guard SyntaxManager.isSupportedFileExtension(ext) else { continue }
+			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
+			if let file = filesByFullPath[fullPath] {
+				treeItemFiles.append(file)
+			} else {
+				pathOnlySnapshots.append(ScanSnapshot(
+					id: codemapScanID(forFileWithoutTreeItem: fullPath),
+					mod: .distantPast,
+					ext: ext,
+					rel: relativePath,
+					full: fullPath,
+					root: rootPath,
+					cachedContent: nil,
+					cachedContentIsFresh: false
+				))
+			}
 		}
+		let treeItemSnapshots = await buildScanSnapshots(from: treeItemFiles)
+		return Task.isCancelled ? [] : treeItemSnapshots + pathOnlySnapshots
 	}
 	
 	private nonisolated static func boundedAsyncCompactMap<Input, Output: Sendable>(

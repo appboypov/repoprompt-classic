@@ -638,6 +638,96 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	private func makeCodeRoot() throws -> URL {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: rootURL.appendingPathComponent("src/deep", isDirectory: true), withIntermediateDirectories: true)
+		try "final class Top {\n\tfunc run() {}\n}\n".write(to: rootURL.appendingPathComponent("Top.swift"), atomically: true, encoding: .utf8)
+		try "final class Middle {\n\tfunc run() {}\n}\n".write(to: rootURL.appendingPathComponent("src/Middle.swift"), atomically: true, encoding: .utf8)
+		try "final class Deep {\n\tfunc run() {}\n}\n".write(to: rootURL.appendingPathComponent("src/deep/Deep.swift"), atomically: true, encoding: .utf8)
+		try "# Notes\n".write(to: rootURL.appendingPathComponent("src/deep/notes.md"), atomically: true, encoding: .utf8)
+		return rootURL
+	}
+
+	@MainActor
+	private func waitForCodemaps(of fullPaths: [String], in fileManagerVM: RepoFileManagerViewModel) async throws {
+		let deadline = Date().addingTimeInterval(60)
+		while fullPaths.contains(where: { fileManagerVM.cachedCodeMapAPIForTesting(fullPath: $0) == nil }) {
+			guard Date() < deadline else {
+				XCTFail("Codemaps did not arrive for \(fullPaths.filter { fileManagerVM.cachedCodeMapAPIForTesting(fullPath: $0) == nil })")
+				return
+			}
+			try await Task.sleep(nanoseconds: 100_000_000)
+		}
+	}
+
+	@MainActor
+	func testEveryCodeFileGetsItsCodemapAfterReadingInOpenedAndUnopenedFolders() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let codePaths = ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift"].map { rootURL.appendingPathComponent($0).path }
+
+		try await waitForCodemaps(of: codePaths, in: fileManagerVM)
+
+		for path in codePaths {
+			let file = try XCTUnwrap(fileManagerVM.findFileByFullPath(path))
+			XCTAssertEqual(file.fileAPI?.definedTypeNames, [file.name.replacingOccurrences(of: ".swift", with: "")])
+		}
+		XCTAssertNil(fileManagerVM.cachedCodeMapAPIForTesting(fullPath: rootURL.appendingPathComponent("src/deep/notes.md").path))
+	}
+
+	@MainActor
+	func testACodeFileWithoutATreeItemGetsItsCodemapByPath() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
+		fileManagerVM.removeTreeItemForTesting(fullPath: deepPath)
+		XCTAssertNil(fileManagerVM.findFileByFullPath(deepPath))
+
+		fileManagerVM.flushDeferredInitialRootLoadScans()
+		try await waitForCodemaps(of: [deepPath], in: fileManagerVM)
+
+		XCTAssertEqual(fileManagerVM.cachedCodeMapAPIForTesting(fullPath: deepPath)?.definedTypeNames, ["Deep"])
+	}
+
+	@MainActor
+	func testACodemapForAFileWithoutATreeItemIsKeptOnlyWhileTheIndexHoldsTheFile() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let rootPath = StandardizedPath.absolute(rootURL.path)
+		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
+		let ghostPath = rootURL.appendingPathComponent("src/deep/Ghost.swift").path
+		fileManagerVM.removeTreeItemForTesting(fullPath: deepPath)
+		func result(_ relativePath: String, typeName: String) -> CodeScanActor.ScanResult {
+			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
+			let request = CodeScanActor.ScanRequest(
+				fileID: RepoFileManagerViewModel.codemapScanID(forFileWithoutTreeItem: fullPath),
+				modificationDate: Date(),
+				content: "",
+				fileExtension: "swift",
+				relativePath: relativePath,
+				fullPath: fullPath,
+				rootFolderPath: rootPath
+			)
+			let api = FileAPI(filePath: fullPath, imports: [], classes: [ClassInfo(name: typeName, methods: [], properties: [])], functions: [], enums: [], globalVars: [], macros: [], referencedTypes: [])
+			return CodeScanActor.ScanResult(request: request, fileAPI: api)
+		}
+
+		fileManagerVM.applyBatchCodeMapResultsForTesting([result("src/deep/Deep.swift", typeName: "Deep"), result("src/deep/Ghost.swift", typeName: "Ghost")])
+
+		XCTAssertEqual(fileManagerVM.cachedCodeMapAPIForTesting(fullPath: deepPath)?.definedTypeNames, ["Deep"])
+		XCTAssertNil(fileManagerVM.cachedCodeMapAPIForTesting(fullPath: ghostPath))
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)
