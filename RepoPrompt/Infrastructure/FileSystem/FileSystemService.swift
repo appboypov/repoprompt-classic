@@ -97,6 +97,8 @@ struct FSItemDTO: Sendable {
 struct FSPreparedChunk: Sendable {
 	let folders: [FSItemDTO]
 	let files: [FSItemDTO]
+	/// Folders whose direct entries are all in this chunk or an earlier one. "" is the root folder.
+	let readFolders: [String]
 }
 
 private struct FSEventCallbackEntry: Sendable {
@@ -4093,6 +4095,8 @@ actor FileSystemService {
 		let folders: [FSItemDTO]
 		let files: [FSItemDTO]
 		let subdirs: [DirectoryContext]
+		/// The listed folder, plus the folders it holds that reading does not enter.
+		let readFolders: [String]
 		let ignoreCacheDelta: [IgnoreCacheStore.PathKey: Bool]
 	}
 	
@@ -4138,6 +4142,7 @@ actor FileSystemService {
 		var files: [FSItemDTO] = []
 		files.reserveCapacity(scanResult.entries.count)
 		var subdirs: [DirectoryContext] = []
+		var readFolders: [String] = [context.relPath]
 		subdirs.reserveCapacity(scanResult.entries.count)
 		var localCache: [IgnoreCacheStore.PathKey: Bool] = [:]
 		var componentsCache = PathComponentsCache()
@@ -4194,9 +4199,11 @@ actor FileSystemService {
 
 				if trackCycles {
 					guard let id = Self.dirID(followingSymlinksAtPath: absolutePath) else {
+						readFolders.append(relativePath)
 						continue
 					}
 					if let chain = context.chain, chain.contains(id) {
+						readFolders.append(relativePath)
 						continue
 					}
 					let childChain = DirChain(id, parent: context.chain)
@@ -4235,6 +4242,7 @@ actor FileSystemService {
 			folders: folders,
 			files: files,
 			subdirs: subdirs,
+			readFolders: readFolders,
 			ignoreCacheDelta: localCache
 		)
 	}
@@ -4293,18 +4301,22 @@ actor FileSystemService {
 		chunkFolders.reserveCapacity(chunkSize)
 		var chunkFiles: [FSItemDTO] = []
 		chunkFiles.reserveCapacity(chunkSize)
+		var chunkReadFolders: [String] = []
 		var pendingFileCount = 0
 		var totalFilesSeen = 0
 
+		// Read folders ride along with the next chunk of entries, so a folder is never
+		// reported read before its entries.
 		@inline(__always)
 		func flush(force: Bool = false) {
-			guard !chunkFolders.isEmpty || !chunkFiles.isEmpty else { return }
+			guard !chunkFolders.isEmpty || !chunkFiles.isEmpty || !chunkReadFolders.isEmpty else { return }
 			if !force && (chunkFolders.count + chunkFiles.count) < chunkSize { return }
 			let newlyCounted = pendingFileCount
 			totalFilesSeen += newlyCounted
-			let chunk = FSPreparedChunk(folders: chunkFolders, files: chunkFiles)
+			let chunk = FSPreparedChunk(folders: chunkFolders, files: chunkFiles, readFolders: chunkReadFolders)
 			chunkFolders.removeAll(keepingCapacity: true)
 			chunkFiles.removeAll(keepingCapacity: true)
+			chunkReadFolders.removeAll(keepingCapacity: true)
 			pendingFileCount = 0
 			yield(chunk, totalFilesSeen)
 		}
@@ -4375,6 +4387,7 @@ actor FileSystemService {
 				inFlight -= 1
 				try Task.checkCancellation()
 
+				chunkReadFolders.append(contentsOf: result.readFolders)
 				if !result.folders.isEmpty || !result.files.isEmpty {
 					chunkFolders.append(contentsOf: result.folders)
 					chunkFiles.append(contentsOf: result.files)
@@ -4480,7 +4493,7 @@ actor FileSystemService {
 				scanResult = try Self.listDirectoryWithIgnoreDetection(context.absPath)
 			}
 		} catch {
-			return DirectoryChunkResult(folders: [], files: [], subdirs: [], ignoreCacheDelta: [:])
+			return DirectoryChunkResult(folders: [], files: [], subdirs: [], readFolders: [context.relPath], ignoreCacheDelta: [:])
 		}
 
 		let trackCycles = !skipSymlinks && !isVirtualFS
@@ -4510,7 +4523,7 @@ actor FileSystemService {
 		do {
 			scanResult = try Self.listDirectoryWithIgnoreDetection(context.absPath)
 		} catch {
-			return DirectoryChunkResult(folders: [], files: [], subdirs: [], ignoreCacheDelta: [:])
+			return DirectoryChunkResult(folders: [], files: [], subdirs: [], readFolders: [context.relPath], ignoreCacheDelta: [:])
 		}
 
 		let trackCycles = !skipSymlinks

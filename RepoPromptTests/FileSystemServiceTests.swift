@@ -1307,4 +1307,44 @@ final class FileSystemServiceTests: XCTestCase {
         XCTAssertTrue(deltas.isEmpty || deltas.count == 1,
                       "Root directory event should be handled gracefully")
     }
+
+	func testReadingReportsEachFolderReadOnlyAfterAllItsEntries() async throws {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("FileSystemServiceReadFolders-\(UUID().uuidString)", isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		for folder in ["a/b/c", "a/empty", "d"] {
+			try FileManager.default.createDirectory(at: rootURL.appendingPathComponent(folder, isDirectory: true), withIntermediateDirectories: true)
+		}
+		for file in ["top.swift", "a/one.swift", "a/b/two.swift", "a/b/c/three.swift", "d/four.swift"] {
+			XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent(file).path, contents: Data()))
+		}
+		let service = try await FileSystemService(
+			path: rootURL.path,
+			respectGitignore: true,
+			respectRepoIgnore: false,
+			respectCursorignore: false,
+			skipSymlinks: true,
+			isTestMode: true
+		)
+
+		var seen: Set<String> = []
+		var readFolders: [String] = []
+		var folders: Set<String> = [""]
+		let stream = await service.loadContentsInChunks(of: rootURL, chunkSize: 1)
+		for try await event in stream {
+			guard case .preparedItems(let chunk) = event else { continue }
+			seen.formUnion(chunk.folders.map(\.relativePath))
+			seen.formUnion(chunk.files.map(\.relativePath))
+			folders.formUnion(chunk.folders.map(\.relativePath))
+			for folder in chunk.readFolders {
+				let entries = try FileManager.default.contentsOfDirectory(atPath: rootURL.appendingPathComponent(folder).path)
+					.map { folder.isEmpty ? $0 : "\(folder)/\($0)" }
+				XCTAssertTrue(seen.isSuperset(of: entries), "\(folder) was reported read before all its entries")
+				readFolders.append(folder)
+			}
+		}
+
+		XCTAssertEqual(readFolders.count, folders.count)
+		XCTAssertEqual(Set(readFolders), folders)
+	}
 }
