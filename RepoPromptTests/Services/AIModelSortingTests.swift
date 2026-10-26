@@ -322,7 +322,7 @@ final class AIModelSortingTests: XCTestCase {
 		XCTAssertEqual(AgentModelCatalog.displayName(for: "gpt-5.5-high", agentKind: .codexExec, codexDynamicModels: []), "GPT-5.5 High")
 	}
 
-	func testClaudeCodeProviderModelsIncludePinnedModelsAndSupportedEfforts() {
+	func testClaudeCodeProviderModelsIncludeClaudeCLIModelsAndSupportedEfforts() {
 		let rawValues = Set(AIModel.modelsForProvider(.claudeCode).map(\.rawValue))
 
 		XCTAssertTrue(rawValues.contains("claude-code"))
@@ -332,10 +332,10 @@ final class AIModelSortingTests: XCTestCase {
 		XCTAssertTrue(rawValues.contains("claude_code__claude-opus-4-7:xhigh"))
 		XCTAssertTrue(rawValues.contains("claude_code__claude-opus-4-6"))
 		XCTAssertTrue(rawValues.contains("claude_code__claude-opus-4-6:max"))
-		XCTAssertTrue(rawValues.contains("claude_code__claude-opus-4-5-20251101"))
+		XCTAssertFalse(rawValues.contains("claude_code__claude-opus-4-5-20251101"))
 		XCTAssertTrue(rawValues.contains("claude_code__claude-sonnet-4-6:high"))
 		XCTAssertTrue(rawValues.contains("claude_code__claude-haiku-4-5-20251001"))
-		XCTAssertFalse(rawValues.contains("claude_code__claude-sonnet-4-6:max"))
+		XCTAssertTrue(rawValues.contains("claude_code__claude-sonnet-4-6:max"))
 		XCTAssertFalse(rawValues.contains("claude_code__claude-opus-4-6:xhigh"))
 	}
 
@@ -346,21 +346,21 @@ final class AIModelSortingTests: XCTestCase {
 		XCTAssertEqual(Array(menu.groups.prefix(5)).map(\.displayName), [
 			"Opus Latest (1M)",
 			"Opus Latest",
-			"Opus 4.7",
-			"Opus 4.6",
-			"Opus 4.5"
+			"Opus 5.5",
+			"Opus 5",
+			"Opus 4.8"
 		])
 		let opus47 = menu.groups.first { $0.displayName == "Opus 4.7" }
 		XCTAssertEqual(opus47?.rendersAsSubmenu, true)
-		XCTAssertEqual(opus47?.options.map(\.displayName), ["Low", "Medium", "High", "XHigh"])
+		XCTAssertEqual(opus47?.options.map(\.displayName), ["Low", "Medium", "High", "Max", "XHigh"])
 		let opus46 = menu.groups.first { $0.displayName == "Opus 4.6" }
 		XCTAssertEqual(opus46?.rendersAsSubmenu, true)
 		XCTAssertEqual(opus46?.options.map(\.displayName), ["Low", "Medium", "High", "Max"])
 		let sonnet46 = menu.groups.first { $0.displayName == "Sonnet 4.6" }
 		XCTAssertEqual(sonnet46?.rendersAsSubmenu, true)
-		XCTAssertEqual(sonnet46?.options.map(\.displayName), ["Low", "Medium", "High"])
-		let opus45 = menu.groups.first { $0.displayName == "Opus 4.5" }
-		XCTAssertEqual(opus45?.rendersAsSubmenu, false)
-		XCTAssertEqual(opus45?.options.map(\.displayName), ["Opus 4.5"])
+		XCTAssertEqual(sonnet46?.options.map(\.displayName), ["Low", "Medium", "High", "Max"])
+		let haiku45 = menu.groups.first { $0.displayName == "Haiku 4.5" }
+		XCTAssertEqual(haiku45?.rendersAsSubmenu, false)
+		XCTAssertEqual(haiku45?.options.map(\.displayName), ["Haiku 4.5"])
 	}
 }

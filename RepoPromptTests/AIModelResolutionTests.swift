@@ -228,21 +228,21 @@ final class AIModelResolutionTests: XCTestCase {
 	}
 
 	func testUnprefixedAgentCatalogClaudeEffortRawResolvesToClaudeCodeProvider() throws {
-		let raw = "claude-opus-4-5:high"
+		let raw = "claude-opus-4-8:high"
 		let model = try XCTUnwrap(AIModel.fromModelName(raw))
 
 		XCTAssertEqual(model, .claudeCodeModel(specifier: raw))
 		XCTAssertEqual(model.providerType, .claudeCode)
-		XCTAssertEqual(model.rawValue, "claude_code__claude-opus-4-5:high")
-		XCTAssertEqual(model.displayName, "Claude Code Opus 4.5 High")
-		XCTAssertEqual(model.modelName, "claude-opus-4-5")
+		XCTAssertEqual(model.rawValue, "claude_code__claude-opus-4-8:high")
+		XCTAssertEqual(model.displayName, "Claude Code Opus 4.8 High")
+		XCTAssertEqual(model.modelName, "claude-opus-4-8")
 		XCTAssertEqual(model.defaultReasoningEffort, "high")
 	}
 
 	func testPrefixedAgentCatalogClaudeEffortRawRoundTrips() throws {
-		let model = try XCTUnwrap(AIModel.fromModelName("claude_code__claude-opus-4-5:high"))
+		let model = try XCTUnwrap(AIModel.fromModelName("claude_code__claude-opus-4-8:high"))
 
-		XCTAssertEqual(model, .claudeCodeModel(specifier: "claude-opus-4-5:high"))
+		XCTAssertEqual(model, .claudeCodeModel(specifier: "claude-opus-4-8:high"))
 		XCTAssertEqual(AIModel.fromModelName(model.rawValue), model)
 	}
 
@@ -266,7 +266,7 @@ final class AIModelResolutionTests: XCTestCase {
 				return specifier.baseModel != nil && specifier.effortLevel != nil
 			}
 
-		XCTAssertTrue(effortTargets.contains { $0.modelRaw == "claude-opus-4-5:high" })
+		XCTAssertTrue(effortTargets.contains { $0.modelRaw == "claude-opus-4-8:high" })
 		for target in effortTargets {
 			let model = try XCTUnwrap(AIModel.fromModelName(target.modelRaw), "Expected \(target.modelRaw) to resolve")
 			XCTAssertEqual(model.providerType, .claudeCode, "Expected \(target.modelRaw) to stay on Claude Code")
@@ -276,19 +276,19 @@ final class AIModelResolutionTests: XCTestCase {
 
 	func testAgentCatalogClaudeEffortProviderSelectionMapsRuntimeModelAndEffort() throws {
 		XCTAssertEqual(
-			try ClaudeCodeProvider.resolveCLIModelSelection(for: .claudeCodeModel(specifier: "claude-opus-4-5:high")),
-			ClaudeCodeCLIModelSelection(modelArgument: "claude-opus-4-5", effortLevel: .high)
+			try ClaudeCodeProvider.resolveCLIModelSelection(for: .claudeCodeModel(specifier: "claude-opus-4-8:high")),
+			ClaudeCodeCLIModelSelection(modelArgument: "claude-opus-4-8", effortLevel: .high)
 		)
 	}
 
 	func testAgentCatalogClaudeEffortVariantsResolveWhenAdvertised() {
 		XCTAssertEqual(
-			AIModel.fromModelName("claude-opus-4-5:medium"),
-			.claudeCodeModel(specifier: "claude-opus-4-5:medium")
+			AIModel.fromModelName("claude-opus-4-8:medium"),
+			.claudeCodeModel(specifier: "claude-opus-4-8:medium")
 		)
 		XCTAssertEqual(
-			AIModel.fromModelName("claude-opus-4-5:low"),
-			.claudeCodeModel(specifier: "claude-opus-4-5:low")
+			AIModel.fromModelName("claude-opus-4-8:low"),
+			.claudeCodeModel(specifier: "claude-opus-4-8:low")
 		)
 		XCTAssertEqual(
 			AIModel.fromModelName("claude_code__claude-sonnet-4-6:max"),
@@ -298,9 +298,10 @@ final class AIModelResolutionTests: XCTestCase {
 
 	func testClaudeCodeEffortModelValidationAcceptsAdvertisedVariantsAndRejectsInvalidOnes() {
 		XCTAssertEqual(
-			AIModel.fromModelName("claude_code__claude-opus-4-6:xhigh"),
-			.claudeCodeModel(specifier: "claude-opus-4-6:xhigh")
+			AIModel.fromModelName("claude_code__claude-opus-4-7:xhigh"),
+			.claudeCodeModel(specifier: "claude-opus-4-7:xhigh")
 		)
+		XCTAssertNil(AIModel.fromModelName("claude_code__claude-opus-4-6:xhigh"))
 		XCTAssertNil(AIModel.fromModelName("claude_code__claude-opus-4-7:ultra"))
 		XCTAssertNil(AIModel.fromModelName("claude_code__claude-opus-4-5-20251101:high"))
 		XCTAssertNil(AIModel.fromModelName("claude_code__default:high"))

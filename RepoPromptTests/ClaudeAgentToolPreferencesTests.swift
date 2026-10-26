@@ -98,7 +98,7 @@ final class ClaudeAgentToolPreferencesTests: XCTestCase {
 			AgentModel.defaultModel.rawValue,
 			AgentModel.claudeSonnet.rawValue,
 			AgentModel.claudeHaiku.rawValue,
-			AgentModel.claudeOpus47.rawValue,
+			"claude-opus-4-7",
 			"claude-unknown-opus"
 		]
 		for modelRaw in unsupportedModelRaws {
@@ -374,19 +374,19 @@ final class ClaudeAgentToolPreferencesTests: XCTestCase {
 	func testUnsupportedStoredEffortFallsBackToSupportedDefault() {
 		let (defaults, suiteName) = makeDefaults()
 		defer { defaults.removePersistentDomain(forName: suiteName) }
-		defaults.set(["claudeCode|sonnet": "xhigh"], forKey: "claudeCodeEffortLevelsByModelSlug")
+		defaults.set(["claudeCode|claude-sonnet-4-6": "xhigh"], forKey: "claudeCodeEffortLevelsByModelSlug")
 		ClaudeAgentToolPreferences.setEffortLevel(.xhigh, defaults: defaults)
 
 		XCTAssertNil(
 			ClaudeAgentToolPreferences.storedEffortLevel(
-				forModelRaw: AgentModel.claudeSonnet.rawValue,
+				forModelRaw: "claude-sonnet-4-6",
 				agentKind: .claudeCode,
 				defaults: defaults
 			)
 		)
 		XCTAssertEqual(
 			ClaudeAgentToolPreferences.effortLevel(
-				forModelRaw: AgentModel.claudeSonnet.rawValue,
+				forModelRaw: "claude-sonnet-4-6",
 				agentKind: .claudeCode,
 				defaults: defaults
 			),

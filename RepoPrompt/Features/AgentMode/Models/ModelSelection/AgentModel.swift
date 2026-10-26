@@ -60,14 +60,6 @@ enum AgentModel: String, CaseIterable, Codable {
 	case claudeHaiku = "haiku"
 	case claudeOpus1m = "opus[1m]"
 
-	// Claude Code full model IDs (static known versions; no dynamic probing)
-	case claudeSonnet46 = "claude-sonnet-4-6"
-	case claudeSonnet45 = "claude-sonnet-4-5"
-	case claudeOpus47 = "claude-opus-4-7"
-	case claudeOpus46 = "claude-opus-4-6"
-	case claudeOpus45 = "claude-opus-4-5"
-	case claudeHaiku45 = "claude-haiku-4-5"
-
 	// Claude Code GLM aliases
 	case glm46 = "glm-4.6" // legacy compatibility only
 	case glm47 = "glm-4.7"
@@ -111,12 +103,6 @@ enum AgentModel: String, CaseIterable, Codable {
 		case .claudeOpus: return "Opus Latest"
 		case .claudeHaiku: return "Haiku Latest"
 		case .claudeOpus1m: return "Opus Latest (1M)"
-		case .claudeSonnet46: return "Sonnet 4.6"
-		case .claudeSonnet45: return "Sonnet 4.5"
-		case .claudeOpus47: return "Opus 4.7"
-		case .claudeOpus46: return "Opus 4.6"
-		case .claudeOpus45: return "Opus 4.5"
-		case .claudeHaiku45: return "Haiku 4.5"
 		case .glm46: return "GLM 4.6"
 		case .glm47: return "GLM 4.7"
 		case .glm5Turbo: return "GLM 5 Turbo"
@@ -155,12 +141,6 @@ enum AgentModel: String, CaseIterable, Codable {
 		case .claudeOpus: return "Strongest Claude model. Best for open-ended tasks, architecture, and complex reasoning."
 		case .claudeHaiku: return "Fast and lightweight. Good for exploration, quick edits, and mapping codebases."
 		case .claudeOpus1m: return "Claude Opus with 1M token context. Best for large codebases and tasks requiring extensive context."
-		case .claudeSonnet46: return "Pinned Claude Sonnet 4.6. Balanced speed and capability for everyday engineering."
-		case .claudeSonnet45: return "Pinned Claude Sonnet 4.5. Balanced speed and capability for everyday engineering."
-		case .claudeOpus47: return "Pinned Claude Opus 4.7. Strongest Claude tier for complex reasoning and architecture."
-		case .claudeOpus46: return "Pinned Claude Opus 4.6. Strongest Claude tier for complex reasoning and architecture."
-		case .claudeOpus45: return "Pinned Claude Opus 4.5. Strongest Claude tier for complex reasoning and architecture."
-		case .claudeHaiku45: return "Pinned Claude Haiku 4.5. Fast and lightweight for quick edits and exploration."
 		case .glm46: return "Legacy GLM tier alias kept for compatibility."
 		case .glm47: return "GLM tier via Z.ai. Fast and lightweight, good for exploration."
 		case .glm5Turbo: return "GLM tier via Z.ai. Balanced, good for general work."
@@ -186,14 +166,14 @@ enum AgentModel: String, CaseIterable, Codable {
 					.gpt5Low, .gpt5Medium, .gpt5High, .gpt5XHigh]
 		case .claudeCode:
 			// Family priority matches the Claude Code picker catalog:
-			// Opus[1M] → Opus → Sonnet → Haiku. Within each family,
-			// latest aliases come first, then pinned full IDs by descending version.
+			// Opus[1M] → Opus → Sonnet → Haiku. Pinned full IDs come from the
+			// Claude CLI catalog in `AgentModelCatalog.options`.
 			models = [
 				.defaultModel,
 				.claudeOpus1m,
-				.claudeOpus, .claudeOpus47, .claudeOpus46, .claudeOpus45,
-				.claudeSonnet, .claudeSonnet46, .claudeSonnet45,
-				.claudeHaiku, .claudeHaiku45,
+				.claudeOpus,
+				.claudeSonnet,
+				.claudeHaiku,
 			]
 		case .antigravity, .openCode:
 			models = [.defaultModel]
@@ -430,10 +410,7 @@ enum AgentModel: String, CaseIterable, Codable {
 		switch self {
 		case .claudeOpus1m:
 			return 1_000_000
-		case .claudeSonnet, .claudeOpus, .claudeHaiku,
-			.claudeSonnet46, .claudeSonnet45,
-			.claudeOpus47, .claudeOpus46, .claudeOpus45,
-			.claudeHaiku45:
+		case .claudeSonnet, .claudeOpus, .claudeHaiku:
 			return 200_000
 		default:
 			return nil

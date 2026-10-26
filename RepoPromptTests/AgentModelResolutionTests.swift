@@ -346,8 +346,6 @@ final class AgentModelResolutionTests: XCTestCase {
 		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "opus:xhigh", for: .claudeCode))
 		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "opus[1m]:xhigh", for: .claudeCode))
 		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "opus[1m]:max", for: .claudeCode))
-		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "sonnet:xhigh", for: .claudeCode))
-		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "haiku:xhigh", for: .claudeCode))
 		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "default:xhigh", for: .claudeCode))
 		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "sonnet:ultra", for: .claudeCode))
 		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "glm-4.7:xhigh", for: .claudeCodeGLM, availability: .init(zaiConfigured: true)))
@@ -365,31 +363,37 @@ final class AgentModelResolutionTests: XCTestCase {
 		XCTAssertEqual(menu.groups.map(\.displayName), [
 			"Opus Latest (1M)",
 			"Opus Latest",
+			"Opus 5.5",
+			"Opus 5",
+			"Opus 4.8",
 			"Opus 4.7",
 			"Opus 4.6",
-			"Opus 4.5",
 			"Sonnet Latest",
+			"Sonnet 5.5",
+			"Sonnet 5",
 			"Sonnet 4.6",
-			"Sonnet 4.5",
 			"Haiku Latest",
-			"Haiku 4.5"
+			"Haiku 5.5",
+			"Haiku 4.5",
+			"Fable 5.1",
+			"Fable 5"
 		])
 		XCTAssertEqual(sonnetGroup.options.map(\.rawValue), [
 			"sonnet:low",
 			"sonnet:medium",
 			"sonnet:high",
-			"sonnet:max"
+			"sonnet:max",
+			"sonnet:xhigh"
 		])
 		XCTAssertEqual(haikuGroup.options.map(\.rawValue), [
 			"haiku:low",
 			"haiku:medium",
 			"haiku:high",
-			"haiku:max"
+			"haiku:max",
+			"haiku:xhigh"
 		])
 		XCTAssertTrue(opusGroup.options.contains { $0.rawValue == "opus:xhigh" })
 		XCTAssertTrue(opus1mGroup.options.contains { $0.rawValue == "opus[1m]:xhigh" })
-		XCTAssertFalse(sonnetGroup.options.contains { $0.rawValue.hasSuffix(":xhigh") })
-		XCTAssertEqual(sonnetGroup.options.compactMap { ClaudeModelSpecifier(raw: $0.rawValue).effortLevel }, [.low, .medium, .high, .max])
 	}
 
 	func testClaudeAliasDisplayLabelsUseLatestSuffix() {
@@ -433,104 +437,45 @@ final class AgentModelResolutionTests: XCTestCase {
 		XCTAssertEqual(normalized.modelRaw, AgentModel.claudeSonnet.rawValue)
 	}
 
-	func testResolvesClaudeFullModelIDsDirectly() {
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-opus-4-5", agentKind: .claudeCode),
-			.claudeOpus45
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-opus-4-6", agentKind: .claudeCode),
-			.claudeOpus46
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-opus-4-7", agentKind: .claudeCode),
-			.claudeOpus47
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-sonnet-4-5", agentKind: .claudeCode),
-			.claudeSonnet45
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-sonnet-4-6", agentKind: .claudeCode),
-			.claudeSonnet46
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-haiku-4-5", agentKind: .claudeCode),
-			.claudeHaiku45
-		)
-	}
-
-	func testResolvesClaudeFullModelIDsWithEncodedEffortSuffix() {
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-opus-4-6:xhigh", agentKind: .claudeCode),
-			.claudeOpus46
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-opus-4-7:xhigh", agentKind: .claudeCode),
-			.claudeOpus47
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-sonnet-4-5:high", agentKind: .claudeCode),
-			.claudeSonnet45
-		)
-		XCTAssertEqual(
-			AgentModel.resolvedModel(forRaw: "claude-haiku-4-5:low", agentKind: .claudeCode),
-			.claudeHaiku45
-		)
-	}
-
-	func testClaudeFullOpusIDsSupportXHighButSonnetAndHaikuDoNot() {
-		// Plain full IDs are valid.
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-5", for: .claudeCode))
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-6", for: .claudeCode))
+	func testClaudeFullModelIDsFollowClaudeCLICatalogEfforts() {
+		// Models the Claude CLI lists are valid; models it no longer lists are not.
+		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-5-5", for: .claudeCode))
 		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-7", for: .claudeCode))
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-sonnet-4-5", for: .claudeCode))
 		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-sonnet-4-6", for: .claudeCode))
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-haiku-4-5", for: .claudeCode))
+		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-haiku-4-5-20251001", for: .claudeCode))
+		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "claude-opus-4-5", for: .claudeCode))
 
-		// Opus full IDs support xhigh.
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-5:xhigh", for: .claudeCode))
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-6:xhigh", for: .claudeCode))
+		// Each model takes exactly the efforts the catalog lists for it.
+		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-5-5:xhigh", for: .claudeCode))
 		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-7:xhigh", for: .claudeCode))
-
-		// Sonnet/Haiku full IDs do NOT support xhigh.
-		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "claude-sonnet-4-5:xhigh", for: .claudeCode))
+		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "claude-opus-4-6:xhigh", for: .claudeCode))
+		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-6:max", for: .claudeCode))
 		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "claude-sonnet-4-6:xhigh", for: .claudeCode))
-		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "claude-haiku-4-5:xhigh", for: .claudeCode))
+		XCTAssertFalse(AgentModelCatalog.isValid(rawModel: "claude-haiku-4-5-20251001:low", for: .claudeCode))
 
-		// Non-xhigh efforts remain valid across all full IDs.
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-sonnet-4-6:high", for: .claudeCode))
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-haiku-4-5:low", for: .claudeCode))
-		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "claude-opus-4-6:medium", for: .claudeCode))
+		// Aliases take the efforts of the model they run.
+		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "sonnet:xhigh", for: .claudeCode))
+		XCTAssertTrue(AgentModelCatalog.isValid(rawModel: "opus[1m]:xhigh", for: .claudeCode))
 	}
 
-	func testClaudeFullModelIDsAppearInClaudeCodeMenu() throws {
+	func testClaudeCodeMenuListsClaudeCLIModelsAfterTheirFamilyAliases() throws {
 		let options = AgentModelCatalog.options(for: .claudeCode)
 		let menu = AgentModelCatalog.claudeMenu(for: options, agentKind: .claudeCode)
-		let groupRawValues = Set(menu.groups.map(\.baseModelRaw))
 
-		XCTAssertTrue(groupRawValues.contains(AgentModel.claudeOpus45.rawValue))
-		XCTAssertTrue(groupRawValues.contains(AgentModel.claudeOpus46.rawValue))
-		XCTAssertTrue(groupRawValues.contains(AgentModel.claudeOpus47.rawValue))
-		XCTAssertTrue(groupRawValues.contains(AgentModel.claudeSonnet45.rawValue))
-		XCTAssertTrue(groupRawValues.contains(AgentModel.claudeSonnet46.rawValue))
-		XCTAssertTrue(groupRawValues.contains(AgentModel.claudeHaiku45.rawValue))
+		XCTAssertEqual(menu.groups.map(\.baseModelRaw), [
+			"opus[1m]", "opus",
+			"claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
+			"sonnet", "claude-sonnet-5-5", "claude-sonnet-5", "claude-sonnet-4-6",
+			"haiku", "claude-haiku-5-5", "claude-haiku-4-5-20251001",
+			"claude-fable-5-1", "claude-fable-5",
+		])
 
-		// Opus full IDs expose xhigh options.
-		let opus47Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == AgentModel.claudeOpus47.rawValue })
+		let opus47Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == "claude-opus-4-7" })
 		XCTAssertTrue(opus47Group.options.contains { $0.rawValue == "claude-opus-4-7:xhigh" })
-		let opus46Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == AgentModel.claudeOpus46.rawValue })
-		XCTAssertTrue(opus46Group.options.contains { $0.rawValue == "claude-opus-4-6:xhigh" })
-		let opus45Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == AgentModel.claudeOpus45.rawValue })
-		XCTAssertTrue(opus45Group.options.contains { $0.rawValue == "claude-opus-4-5:xhigh" })
-
-		// Sonnet/Haiku full IDs do not expose xhigh options.
-		let sonnet46Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == AgentModel.claudeSonnet46.rawValue })
+		let sonnet46Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == "claude-sonnet-4-6" })
 		XCTAssertFalse(sonnet46Group.options.contains { $0.rawValue.hasSuffix(":xhigh") })
-		let sonnet45Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == AgentModel.claudeSonnet45.rawValue })
-		XCTAssertFalse(sonnet45Group.options.contains { $0.rawValue.hasSuffix(":xhigh") })
-		let haiku45Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == AgentModel.claudeHaiku45.rawValue })
-		XCTAssertFalse(haiku45Group.options.contains { $0.rawValue.hasSuffix(":xhigh") })
+		let haiku45Group = try XCTUnwrap(menu.groups.first { $0.baseModelRaw == "claude-haiku-4-5-20251001" })
+		XCTAssertFalse(haiku45Group.options.contains { ClaudeModelSpecifier(raw: $0.rawValue).effortLevel != nil })
 	}
 
 	func testClaudeCodeGLMDoesNotExposeClaudeFullModelIDs() {
@@ -540,17 +485,15 @@ final class AgentModelResolutionTests: XCTestCase {
 		)
 		let rawValues = Set(options.map(\.rawValue))
 
-		XCTAssertFalse(rawValues.contains(AgentModel.claudeOpus45.rawValue))
-		XCTAssertFalse(rawValues.contains(AgentModel.claudeOpus46.rawValue))
-		XCTAssertFalse(rawValues.contains(AgentModel.claudeOpus47.rawValue))
-		XCTAssertFalse(rawValues.contains(AgentModel.claudeSonnet45.rawValue))
-		XCTAssertFalse(rawValues.contains(AgentModel.claudeSonnet46.rawValue))
-		XCTAssertFalse(rawValues.contains(AgentModel.claudeHaiku45.rawValue))
+		XCTAssertFalse(rawValues.contains("claude-opus-5-5"))
+		XCTAssertFalse(rawValues.contains("claude-opus-4-6"))
+		XCTAssertFalse(rawValues.contains("claude-sonnet-4-6"))
+		XCTAssertFalse(rawValues.contains("claude-haiku-4-5-20251001"))
 
 		// GLM agent also rejects Claude full IDs at the validator.
 		XCTAssertFalse(
 			AgentModelCatalog.isValid(
-				rawModel: AgentModel.claudeOpus46.rawValue,
+				rawModel: "claude-opus-4-6",
 				for: .claudeCodeGLM,
 				availability: .init(zaiConfigured: true)
 			)

@@ -22,19 +22,65 @@ enum ClaudeCodeAIModelCatalog {
 		.low, .medium, .high, .max, .xhigh
 	]
 
-	private static let modelDefinitions: [ModelDefinition] = [
-		ModelDefinition(runtimeModelRaw: "opus[1m]", displayName: "Opus Latest (1M)", supportedEfforts: [.low, .medium, .high, .max]),
-		ModelDefinition(runtimeModelRaw: "opus", displayName: "Opus Latest", supportedEfforts: [.low, .medium, .high, .max]),
-		ModelDefinition(runtimeModelRaw: "claude-opus-4-7", displayName: "Opus 4.7", supportedEfforts: [.low, .medium, .high, .xhigh]),
-		ModelDefinition(runtimeModelRaw: "claude-opus-4-6", displayName: "Opus 4.6", supportedEfforts: [.low, .medium, .high, .max]),
-		ModelDefinition(runtimeModelRaw: "claude-opus-4-5-20251101", displayName: "Opus 4.5", supportedEfforts: []),
-		ModelDefinition(runtimeModelRaw: "sonnet[1m]", displayName: "Sonnet Latest (1M)", supportedEfforts: [.low, .medium, .high]),
-		ModelDefinition(runtimeModelRaw: "sonnet", displayName: "Sonnet Latest", supportedEfforts: [.low, .medium, .high]),
-		ModelDefinition(runtimeModelRaw: "claude-sonnet-4-6", displayName: "Sonnet 4.6", supportedEfforts: [.low, .medium, .high]),
-		ModelDefinition(runtimeModelRaw: "claude-sonnet-4-5-20250929", displayName: "Sonnet 4.5", supportedEfforts: []),
-		ModelDefinition(runtimeModelRaw: "haiku", displayName: "Haiku Latest", supportedEfforts: []),
-		ModelDefinition(runtimeModelRaw: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5", supportedEfforts: [])
+	/// Aliases the Claude CLI resolves to the newest model of a family. Their efforts follow that model.
+	private static let aliasDefinitions: [(runtimeModelRaw: String, displayName: String, family: String)] = [
+		("opus[1m]", "Opus Latest (1M)", "opus"),
+		("opus", "Opus Latest", "opus"),
+		("sonnet[1m]", "Sonnet Latest (1M)", "sonnet"),
+		("sonnet", "Sonnet Latest", "sonnet"),
+		("haiku", "Haiku Latest", "haiku"),
 	]
+
+	private static let aliasFamilyOrder = ["opus", "sonnet", "haiku"]
+
+	/// The aliases and the Claude CLI's models, grouped by family: Opus, Sonnet, Haiku, then other
+	/// families in catalog order. Each family lists its aliases first, then its models in catalog order.
+	private static var modelDefinitions: [ModelDefinition] {
+		definitionsCache.definitions(for: ClaudeCLIModelCatalog.current)
+	}
+
+	private static let definitionsCache = DefinitionsCache()
+
+	private static func modelDefinitions(for catalog: ClaudeCLIModelCatalog) -> [ModelDefinition] {
+		var families = aliasFamilyOrder
+		for family in catalog.models.compactMap(\.family) where !families.contains(family) {
+			families.append(family)
+		}
+		var definitions: [ModelDefinition] = []
+		for family in families {
+			for alias in aliasDefinitions where alias.family == family {
+				definitions.append(ModelDefinition(
+					runtimeModelRaw: alias.runtimeModelRaw,
+					displayName: alias.displayName,
+					supportedEfforts: catalog.efforts(forBaseModelRaw: alias.runtimeModelRaw) ?? []
+				))
+			}
+			for model in catalog.models where model.family == family {
+				definitions.append(ModelDefinition(runtimeModelRaw: model.id, displayName: model.displayName, supportedEfforts: model.efforts))
+			}
+		}
+		for model in catalog.models where model.family == nil {
+			definitions.append(ModelDefinition(runtimeModelRaw: model.id, displayName: model.displayName, supportedEfforts: model.efforts))
+		}
+		return definitions
+	}
+
+	/// Keeps the definitions of the last catalog, since sorting reads them once per comparison.
+	private final class DefinitionsCache: @unchecked Sendable {
+		private let lock = NSLock()
+		private var catalog: ClaudeCLIModelCatalog?
+		private var definitions: [ModelDefinition] = []
+
+		func definitions(for catalog: ClaudeCLIModelCatalog) -> [ModelDefinition] {
+			lock.lock()
+			defer { lock.unlock() }
+			if self.catalog != catalog {
+				self.catalog = catalog
+				definitions = ClaudeCodeAIModelCatalog.modelDefinitions(for: catalog)
+			}
+			return definitions
+		}
+	}
 
 	static func normalizedSpecifier(_ specifier: String) -> String {
 		specifier

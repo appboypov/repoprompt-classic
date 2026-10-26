@@ -357,12 +357,13 @@ enum AgentModelCatalog {
 				preferredLiveModels: codexDynamicModels
 			)
 		case .claudeCode:
-			let staticOptions = AgentModel.modelsForAgent(agentKind)
+			let aliasOptions = AgentModel.modelsForAgent(agentKind)
 				.filter { isAvailable($0, for: agentKind, availability: availability) }
 				.map { staticOption($0, for: agentKind) }
+			let baseOptions = claudeCodeOptions(withAliasOptions: aliasOptions)
 			return includeClaudeEffortVariants
-				? expandedClaudeOptions(from: staticOptions, agentKind: agentKind)
-				: staticOptions
+				? expandedClaudeOptions(from: baseOptions, agentKind: agentKind)
+				: baseOptions
 		case .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
 			let staticOptions = compatibleBackendOptions(for: agentKind)
 			return includeClaudeEffortVariants
@@ -413,6 +414,9 @@ enum AgentModelCatalog {
 			if let effort = specifier.effortLevel,
 				!claudeEffort(effort, isSupportedForBaseModelRaw: baseModel, agentKind: agentKind) {
 				return false
+			}
+			if agentKind == .claudeCode, ClaudeCLIModelCatalog.current.model(id: baseModel) != nil {
+				return true
 			}
 			guard let known = AgentModel.resolvedModel(forRaw: baseModel, agentKind: agentKind) else { return false }
 			guard known.isValidFor(agentKind) else { return false }
@@ -1011,25 +1015,50 @@ enum AgentModelCatalog {
 		if let agentKind, compatibleBackendModelBehavior(for: agentKind) == .noModel {
 			return false
 		}
-		guard effort == .xhigh else { return true }
-		if let agentKind, isCompatibleBackendAgent(agentKind) {
-			return false
+		let isCompatibleBackend = agentKind.map(isCompatibleBackendAgent) ?? false
+		if !isCompatibleBackend,
+			let baseModelRaw,
+			let efforts = ClaudeCLIModelCatalog.current.efforts(forBaseModelRaw: baseModelRaw) {
+			return efforts.contains(effort)
 		}
-		guard let baseModelRaw else { return false }
-		let normalized = baseModelRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-		return claudeXHighEligibleBaseRaws.contains(normalized)
+		// Models the Claude CLI catalog does not list, such as compatible backends, get every
+		// effort except XHigh.
+		return effort != .xhigh
 	}
 
-	/// Base model raw values (lowercased) that support the XHigh effort tier.
-	/// Opus Latest, Opus 1M, and pinned Opus full IDs support XHigh.
-	/// Sonnet, Haiku, and GLM deliberately do not support XHigh.
-	private static let claudeXHighEligibleBaseRaws: Set<String> = [
-		AgentModel.claudeOpus.rawValue.lowercased(),
-		AgentModel.claudeOpus1m.rawValue.lowercased(),
-		AgentModel.claudeOpus47.rawValue.lowercased(),
-		AgentModel.claudeOpus46.rawValue.lowercased(),
-		AgentModel.claudeOpus45.rawValue.lowercased(),
-	]
+	/// The Claude Code alias options with the Claude CLI's models after the aliases of their family.
+	/// Models of a family without an alias come last, in catalog order.
+	private static func claudeCodeOptions(withAliasOptions aliasOptions: [AgentModelOption]) -> [AgentModelOption] {
+		let models = ClaudeCLIModelCatalog.current.models
+		var options: [AgentModelOption] = []
+		var placedFamilies: Set<String> = []
+		for (index, option) in aliasOptions.enumerated() {
+			options.append(option)
+			let nextFamily = aliasOptions.indices.contains(index + 1)
+				? claudeAliasFamily(aliasOptions[index + 1].rawValue)
+				: nil
+			guard let family = claudeAliasFamily(option.rawValue), family != nextFamily else { continue }
+			options.append(contentsOf: models.filter { $0.family == family }.map(claudeCLIOption))
+			placedFamilies.insert(family)
+		}
+		options.append(contentsOf: models.filter { !placedFamilies.contains($0.family ?? "") }.map(claudeCLIOption))
+		return options
+	}
+
+	private static func claudeAliasFamily(_ rawValue: String) -> String? {
+		let base = rawValue.lowercased().replacingOccurrences(of: "[1m]", with: "")
+		return ["opus", "sonnet", "haiku"].contains(base) ? base : nil
+	}
+
+	private static func claudeCLIOption(_ model: ClaudeCLIModel) -> AgentModelOption {
+		AgentModelOption(
+			rawValue: model.id,
+			displayName: model.displayName,
+			description: model.description,
+			isPlaceholderDefault: false,
+			isProviderDefault: false
+		)
+	}
 
 	private static func strippedClaudeEffortSuffix(from label: String) -> String {
 		let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2108,7 +2137,7 @@ enum AgentModelCatalog {
 				let specifier = ClaudeModelSpecifier(raw: option.rawValue)
 				let effortDisplayName = specifier.effortLevel?.displayName
 				let targetNameSuffix = effortDisplayName.map { "\(group.displayName) \($0)" } ?? option.displayName
-				let contextWindow = AgentModel.resolvedModel(forRaw: option.rawValue, agentKind: agent)?.contextWindowTokens
+				let contextWindow = claudeContextWindowTokens(forRaw: option.rawValue, agent: agent)
 				return DiscoveryStartTarget(
 					selectionID: selectionID,
 					modelRaw: option.rawValue,
@@ -2122,7 +2151,6 @@ enum AgentModelCatalog {
 			}
 
 			let representative = group.options.first
-			let representativeModel = AgentModel.resolvedModel(forRaw: group.baseModelRaw, agentKind: agent)
 			let childTags = Set(group.options.flatMap { option -> [AgentModelDiscoveryTag] in
 				AgentModel.resolvedModel(forRaw: option.rawValue, agentKind: agent)?.discoveryTags
 					?? AgentModelDiscoveryTag.infer(from: option.rawValue)
@@ -2135,7 +2163,7 @@ enum AgentModelCatalog {
 				description: representative?.description,
 				available: true,
 				tags: tags,
-				contextWindowTokens: representativeModel?.contextWindowTokens,
+				contextWindowTokens: claudeContextWindowTokens(forRaw: group.baseModelRaw, agent: agent),
 				supportedReasoningEfforts: [],
 				defaultReasoningEffort: nil,
 				startTargets: targets
@@ -2143,6 +2171,14 @@ enum AgentModelCatalog {
 		}
 
 		return models
+	}
+
+	private static func claudeContextWindowTokens(forRaw rawModel: String, agent: DiscoverAgentKind) -> Int? {
+		if let known = AgentModel.resolvedModel(forRaw: rawModel, agentKind: agent) {
+			return known.contextWindowTokens
+		}
+		guard agent == .claudeCode, let baseModel = ClaudeModelSpecifier(raw: rawModel).baseModel else { return nil }
+		return ClaudeCLIModelCatalog.current.model(id: baseModel)?.contextWindowTokens
 	}
 
 	private static func discoveryModel(
