@@ -3659,7 +3659,7 @@ class WorkspaceManagerViewModel: ObservableObject {
 	}
 
 	nonisolated private static func cleanupWorkspaceSort(_ lhs: WorkspaceModel, _ rhs: WorkspaceModel) -> Bool {
-		let nameComparison = lhs.name.localizedStandardCompare(rhs.name)
+		let nameComparison = lhs.name.compare(rhs.name, options: [.caseInsensitive, .numeric])
 		if nameComparison != .orderedSame {
 			return nameComparison == .orderedAscending
 		}

@@ -1107,7 +1107,7 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 				return leftInsertionOrder < rightInsertionOrder
 			}
 
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 	}
 
@@ -4030,7 +4030,7 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 			}
 			return session.runState.isActive
 				&& !hasPendingCodexInteraction(for: session)
-				&& message.localizedCaseInsensitiveContains("transport closed")
+				&& message.range(of: "transport closed", options: .caseInsensitive) != nil
 		}()
 		if !shouldKeepTransportClosedFallback {
 			cancelCodexTransportClosedFallback(for: session.tabID)
@@ -4399,7 +4399,7 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 			) {
 				return
 			}
-			let isTransportClosed = message.localizedCaseInsensitiveContains("transport closed")
+			let isTransportClosed = message.range(of: "transport closed", options: .caseInsensitive) != nil
 			if isTransportClosed {
 				if !session.runState.isActive {
 					_ = invalidateCodexControllerForReconnect(
@@ -4452,7 +4452,7 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 			) {
 				return
 			}
-			let isTransportClosed = message.localizedCaseInsensitiveContains("transport closed")
+			let isTransportClosed = message.range(of: "transport closed", options: .caseInsensitive) != nil
 			if isTransportClosed {
 				if !session.runState.isActive {
 					_ = invalidateCodexControllerForReconnect(

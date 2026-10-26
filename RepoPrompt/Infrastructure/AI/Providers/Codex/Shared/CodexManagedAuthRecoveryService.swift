@@ -68,7 +68,7 @@ enum CodexManagedAuthRecoveryClassifier {
 
 	static func preservesAsUserFacingGuidance(_ message: String) -> Bool {
 		message == manualLoginGuidanceMessage
-			|| message.localizedCaseInsensitiveContains("Login with ChatGPT")
+			|| message.range(of: "Login with ChatGPT", options: .caseInsensitive) != nil
 	}
 }
 
@@ -226,7 +226,7 @@ actor CodexManagedAuthRecoveryService: CodexManagedAuthRecovering {
 			}
 			throw AIProviderError.invalidResponse(detail: "Codex returned an invalid ChatGPT login response.")
 		} catch {
-			if error.localizedDescription.localizedCaseInsensitiveContains("external auth is active") {
+			if error.localizedDescription.range(of: "external auth is active", options: .caseInsensitive) != nil {
 				_ = try? await client.request(method: "account/logout", params: nil, timeout: timeout)
 				let response = try await client.request(
 					method: "account/login/start",

@@ -128,7 +128,7 @@ extension GitRepoDescriptor: Comparable {
 	public static func < (lhs: GitRepoDescriptor, rhs: GitRepoDescriptor) -> Bool {
 		// Sort by display name first, then by path for stability
 		if lhs.displayName != rhs.displayName {
-			return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.compare(rhs.displayName, options: [.caseInsensitive, .numeric]) == .orderedAscending
 		}
 		return lhs.rootPath < rhs.rootPath
 	}

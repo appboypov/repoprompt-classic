@@ -272,7 +272,7 @@ enum ClaudeCodeIntegrationConfiguration {
 			let stderr = (String(data: result.stderr, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
 			// If the server already exists, remove and re-add to update config
-			if stderr.localizedCaseInsensitiveContains("already exists") {
+			if stderr.range(of: "already exists", options: .caseInsensitive) != nil {
 				print("ClaudeCodeIntegrationConfiguration – RepoPrompt already exists in Claude Code, updating config...")
 				let removeResult = try await runner.run(
 					args: ["mcp", "remove", configuration.name],

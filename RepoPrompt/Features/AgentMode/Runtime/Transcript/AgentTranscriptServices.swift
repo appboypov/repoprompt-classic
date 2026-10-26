@@ -329,6 +329,11 @@ enum ToolRawJSON {
 		return json as? [String: Any]
 	}
 
+	/// The object inside an explicit result envelope such as `tool_result`, or nil when `object` has none.
+	static func unwrappedObject(from object: [String: Any]) -> [String: Any]? {
+		explicitlyUnwrappedObject(from: object)
+	}
+
 	private static func explicitlyUnwrappedObject(from value: Any, depth: Int = 0) -> [String: Any]? {
 		guard depth < 4 else { return nil }
 		if let object = value as? [String: Any] {
@@ -1447,25 +1452,36 @@ enum AgentTranscriptToolNormalizer {
 			}
 		}
 		if let object = resultObject {
-			if let rawStatus = AgentTranscriptToolStatusSemantics.normalizedStatusWord(
-				stringValue(object, keys: ["status", "result", "outcome", "state"])
-			) {
-				let status = AgentTranscriptToolStatusSemantics.transcriptStatus(fromNormalizedStatusWord: rawStatus)
-				if status != .unknown {
-					return status
-				}
+			if let status = structuredStatus(from: object) {
+				return status
 			}
-			if let isError = boolValue(object, keys: ["is_error", "isError"]) {
-				return isError ? .failed : .success
-			}
-			if let exitCode = intValue(object, keys: ["exitCode", "exit_code", "code"]) {
-				return exitCode == 0 ? .success : .failed
+			if let unwrapped = ToolRawJSON.unwrappedObject(from: object),
+				let status = structuredStatus(from: unwrapped) {
+				return status
 			}
 		}
 		if let toolIsError = item.toolIsError {
 			return toolIsError ? .failed : .success
 		}
 		return .unknown
+	}
+
+	private static func structuredStatus(from object: [String: Any]) -> AgentTranscriptToolStatus? {
+		if let rawStatus = AgentTranscriptToolStatusSemantics.normalizedStatusWord(
+			stringValue(object, keys: ["status", "result", "outcome", "state"])
+		) {
+			let status = AgentTranscriptToolStatusSemantics.transcriptStatus(fromNormalizedStatusWord: rawStatus)
+			if status != .unknown {
+				return status
+			}
+		}
+		if let isError = boolValue(object, keys: ["is_error", "isError"]) {
+			return isError ? .failed : .success
+		}
+		if let exitCode = intValue(object, keys: ["exitCode", "exit_code", "code"]) {
+			return exitCode == 0 ? .success : .failed
+		}
+		return nil
 	}
 
 	static func isSummaryOnly(raw: String?) -> Bool {

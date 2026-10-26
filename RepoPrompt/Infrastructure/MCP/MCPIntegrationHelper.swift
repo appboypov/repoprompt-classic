@@ -224,7 +224,13 @@ struct MCPIntegrationHelper {
 	}
 
 	static func canonicalRepoPromptAskUserToolName(_ rawName: String?) -> String? {
-		guard canonicalRepoPromptToolName(rawName) == "ask_user" else { return nil }
+		guard let resolution = resolveRepoPromptToolName(rawName),
+			resolution.canonicalName == "ask_user" else { return nil }
+		// `functions.ask_user` without the RepoPrompt server prefix is another host's tool.
+		if trimmedLowercasedToolName(rawName)?.hasPrefix("functions.") == true,
+			!resolution.hasExplicitServerPrefix {
+			return nil
+		}
 		return "ask_user"
 	}
 
@@ -317,7 +323,7 @@ struct MCPIntegrationHelper {
 	private static func repoPromptPermissionLabelMatch(_ rawLabel: String?) -> RepoPromptPermissionAutoApprovalMatch? {
 		guard let label = trimmedPermissionRequestString(rawLabel) else { return nil }
 		let legacyServerLabel = "(\(repoPromptMCPServerName) MCP Server)"
-		if label.localizedCaseInsensitiveContains(legacyServerLabel) {
+		if label.range(of: legacyServerLabel, options: .caseInsensitive) != nil {
 			return RepoPromptPermissionAutoApprovalMatch(
 				source: .serverIdentifier,
 				normalizedToolName: nil,

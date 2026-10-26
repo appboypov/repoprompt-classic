@@ -10488,6 +10488,8 @@ File: \(displayPath)
 		if embeddedExpansion.didProcessEnvelope {
 			return embeddedExpansion.text
 		}
+		// Only a slash token can resolve to a skill, so plain messages skip the skill folder scan.
+		guard !Self.extractSlashSkillTokens(from: text).isEmpty else { return text }
 		await refreshSkillCatalog(force: false, agentKind: agentKind)
 		var invocations = resolvedSlashSkillInvocations(in: text, reservingNativeSlashNamesFor: agentKind)
 
@@ -10495,11 +10497,8 @@ File: \(displayPath)
 		// resolved (e.g. a skill was just installed and we missed the dirty signal),
 		// force-refresh once and retry resolution.
 		if invocations.isEmpty {
-			let syntacticTokens = Self.extractSlashSkillTokens(from: text)
-			if !syntacticTokens.isEmpty {
-				await refreshSkillCatalog(force: true, agentKind: agentKind)
-				invocations = resolvedSlashSkillInvocations(in: text, reservingNativeSlashNamesFor: agentKind)
-			}
+			await refreshSkillCatalog(force: true, agentKind: agentKind)
+			invocations = resolvedSlashSkillInvocations(in: text, reservingNativeSlashNamesFor: agentKind)
 		}
 
 		guard invocations.count == 1, let invocation = invocations.first else {
@@ -12279,6 +12278,7 @@ File: \(displayPath)
 		return """
 		<forked_session source="\(sourceTabName)" delivery_id="\(deliveryID)">
 		You are continuing a session that was restarted after a native resume failed for \(sourceAgentName). Use the recovered transcript below, plus any preserved thread context, to continue seamlessly.
+		If you already handled a forked_session with this delivery_id, treat this message as a duplicate resend and do not re-apply it.
 
 		\(payloadBody)
 		</forked_session>
@@ -12310,6 +12310,7 @@ File: \(displayPath)
 		return """
 		<forked_session source="\(sourceTabName)" delivery_id="\(deliveryID)">
 		You are continuing a session started with \(sourceAgentName) (\(sourceModelName)). Below is a snapshot of the file system state analyzed by that agent, along with the exchange made with the user up until this point.
+		If you already handled a forked_session with this delivery_id, treat this message as a duplicate resend and do not re-apply it.
 
 		\(payloadBody)
 		</forked_session>

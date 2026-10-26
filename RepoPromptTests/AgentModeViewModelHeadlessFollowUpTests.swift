@@ -165,9 +165,10 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		guard session.providerTokenUsageByTurn.count >= 2 else { return }
 		XCTAssertEqual(session.providerTokenUsageByTurn[0].totalTokens, 100)
 		XCTAssertGreaterThan(session.providerTokenUsageByTurn[1].totalTokens, 0)
-		XCTAssertEqual(session.codexContextUsage?.lastTotalTokens, session.providerTokenUsageByTurn[1].totalTokens)
-		XCTAssertEqual(session.codexContextUsage?.totalTotalTokens, session.providerTokenUsageByTurn[1].totalTokens)
-		XCTAssertNil(session.codexContextUsage?.modelContextWindow)
+		XCTAssertNil(
+			session.codexContextUsage?.lastTotalTokens,
+			"Billed prompt tokens must not count as Claude context use"
+		)
 
 		XCTAssertEqual(policyCalls.count, 2)
 		guard policyCalls.count >= 2 else { return }
@@ -443,22 +444,21 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 
 		await vm.cancelAgentRun(tabID: tabID)
 		XCTAssertEqual(session.runState, .cancelled)
-		guard let stableRunID = session.runID else {
-			return XCTFail("Expected Claude runtime to keep its live run ID after cancel")
-		}
+		XCTAssertNil(session.runID, "Cancel must drop the run ID so the next run starts a fresh process")
 
 		await vm.startAgentRun(tabID: tabID, initialMessage: "after cancel")
 		let secondRunInstalledPolicy = await waitForCondition(timeoutSeconds: 2.0) {
 			policyCalls.count >= 2
 		}
 		XCTAssertTrue(secondRunInstalledPolicy)
-		XCTAssertEqual(session.runID, stableRunID)
-		XCTAssertGreaterThanOrEqual(policyCalls.count, 2)
+		guard let nextRunID = session.runID else {
+			return XCTFail("Expected the run after cancel to mint a run ID")
+		}
 		guard let firstRunID = policyCalls[safe: 0]?.runID,
 			let secondRunID = policyCalls[safe: 1]?.runID
 		else { return XCTFail("Expected policy installs to capture run IDs") }
-		XCTAssertEqual(firstRunID, stableRunID)
-		XCTAssertEqual(secondRunID, stableRunID)
+		XCTAssertNotEqual(firstRunID, nextRunID)
+		XCTAssertEqual(secondRunID, nextRunID)
 	}
 
 	func testTabCloseCleansMCPRunRoutingState() async {
@@ -664,10 +664,8 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		XCTAssertTrue(completedBeforeDisposeRelease, "Workspace switch should not wait for old provider disposal")
 		XCTAssertTrue(vm.sessions.isEmpty)
 
-		let disposeStarted = await waitForCondition(timeoutSeconds: 1.0) {
-			provider.disposeStarted
-		}
-		XCTAssertTrue(disposeStarted, "Expected old provider disposal to run in background")
+		// The background cleanup runs at utility priority, so wait for the signal instead of a deadline.
+		await provider.waitForDisposeStart()
 		XCTAssertFalse(provider.disposeFinished)
 
 		provider.releaseDispose()
@@ -1076,6 +1074,7 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 			estimatedToolOutputTokens: 7
 		)
 		session.pendingInstructions = ["stale follow-up"]
+		session.runState = .running
 
 		await vm.cancelAgentRun(tabID: tabID)
 
@@ -1530,33 +1529,44 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 
 	func testQueuedSteeringIsAllowedForClaudeCode() async {
 		let provider = FakeHeadlessAgentProvider()
+		provider.enqueue(
+			results: [
+				AIStreamResult(type: "content", text: "working")
+			],
+			perEventDelayNanos: 800_000_000
+		)
+		provider.enqueue(
+			results: [
+				AIStreamResult(type: "message_stop", text: nil, promptTokens: 15, completionTokens: 5, providerSessionID: "claude-session-steered")
+			]
+		)
 		let vm = makeViewModel(provider: provider, onInstallPolicy: { _ in })
 		let tabID = UUID()
 		vm.ensureSession(for: tabID)
 		guard let session = vm.sessions[tabID] else {
 			return XCTFail("Expected session for tab \(tabID)")
 		}
-
 		session.selectedAgent = .claudeCode
-		session.runState = .running
+
+		await vm.startAgentRun(tabID: tabID, initialMessage: "long task")
+		let started = await waitForCondition(timeoutSeconds: 2.0) {
+			session.runState == .running && provider.messages.count == 1
+		}
+		XCTAssertTrue(started, "Expected the Claude run to be live before steering")
 
 		let result = vm.test_submitUserTurn(tabID: tabID, text: "follow-up steering")
 		if case .blocked(let message) = result {
 			return XCTFail("Expected Claude steering submission, got blocked: \(message)")
 		}
 
-		let sent = await waitForCondition(timeoutSeconds: 1.0) {
-			provider.messages.count == 1
+		let sent = await waitForCondition(timeoutSeconds: 2.0) {
+			provider.messages.count == 2
 		}
-		XCTAssertTrue(sent, "Expected Claude steering to send immediately")
-		XCTAssertEqual(provider.messages.first?.userMessage, "follow-up steering")
-
-		XCTAssertEqual(session.items.count, 1)
-		XCTAssertEqual(session.items.first?.kind, .user)
-		XCTAssertEqual(session.items.first?.text, "follow-up steering")
+		XCTAssertTrue(sent, "Expected Claude steering to reach the live run")
+		XCTAssertEqual(provider.messages[safe: 1]?.userMessage, "follow-up steering")
+		XCTAssertTrue(session.items.contains { $0.kind == .user && $0.text == "follow-up steering" })
 		XCTAssertTrue(session.pendingInstructions.isEmpty)
-		XCTAssertTrue(session.pendingNonCodexUserInputTokenQueue.isEmpty)
-		XCTAssertNotEqual(session.activeNonCodexTurnTokenAccumulator?.estimatedUserInputTokens, 0)
+		XCTAssertTrue(session.pendingClaudeSteeringInstructions.isEmpty)
 	}
 
 	func testClaudeSlashAutocompleteIncludesWorkspaceGenericAgentSkillsAndSlash() async throws {
@@ -1748,6 +1758,28 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		XCTAssertTrue(expanded.contains("~/.agents/skills/triage"))
 		XCTAssertTrue(expanded.contains("references/"))
 		XCTAssertTrue(expanded.contains("<user_instructions>\ninvestigate crash\n</user_instructions>"))
+	}
+
+	func testPlainMessageSkipsSkillCatalogScan() async throws {
+		let tempHomeURL = try makeTemporaryDirectory(named: "plain-skill-home")
+		let skillCatalog = AgentSkillCatalog(homeDirectoryURL: tempHomeURL)
+		try createFolderSkill(at: tempHomeURL, name: "triage", body: "Triage the issue.\n$ARGUMENTS")
+		let vm = makeViewModel(
+			provider: FakeHeadlessAgentProvider(),
+			onInstallPolicy: { _ in },
+			testWorkspacePath: nil,
+			skillCatalog: skillCatalog
+		)
+
+		let plain = await vm.test_augmentUserMessageForProviderSend("investigate /triage later", agent: .claudeCode)
+
+		XCTAssertEqual(plain, "investigate /triage later")
+		XCTAssertNil(skillCatalog.resolve(name: "triage"), "A message without a leading slash must not scan skill folders")
+
+		let expanded = await vm.test_augmentUserMessageForProviderSend("/triage investigate", agent: .claudeCode)
+
+		XCTAssertNotNil(skillCatalog.resolve(name: "triage"))
+		XCTAssertNotEqual(expanded, "/triage investigate")
 	}
 
 	func testLegacySlashSkillExpansionUsesSingleFileTree() async throws {
@@ -2117,10 +2149,7 @@ private final class BlockingDisposeHeadlessAgentProvider: HeadlessAgentProvider 
 	private var didReleaseDispose = false
 	private var _disposeStarted = false
 	private var _disposeFinished = false
-
-	var disposeStarted: Bool {
-		stateQueue.sync { _disposeStarted }
-	}
+	private var disposeStartWaiters: [CheckedContinuation<Void, Never>] = []
 
 	var disposeFinished: Bool {
 		stateQueue.sync { _disposeFinished }
@@ -2132,17 +2161,33 @@ private final class BlockingDisposeHeadlessAgentProvider: HeadlessAgentProvider 
 		}
 	}
 
-	func dispose() async {
+	func waitForDisposeStart() async {
 		await withCheckedContinuation { continuation in
-			let shouldResumeImmediately = stateQueue.sync {
-				_disposeStarted = true
-				if didReleaseDispose {
-					_disposeFinished = true
-					return true
-				}
-				self.continuation = continuation
+			let hasStarted = stateQueue.sync {
+				if _disposeStarted { return true }
+				disposeStartWaiters.append(continuation)
 				return false
 			}
+			if hasStarted {
+				continuation.resume()
+			}
+		}
+	}
+
+	func dispose() async {
+		await withCheckedContinuation { continuation in
+			let (shouldResumeImmediately, startWaiters) = stateQueue.sync {
+				_disposeStarted = true
+				let startWaiters = disposeStartWaiters
+				disposeStartWaiters.removeAll()
+				if didReleaseDispose {
+					_disposeFinished = true
+					return (true, startWaiters)
+				}
+				self.continuation = continuation
+				return (false, startWaiters)
+			}
+			startWaiters.forEach { $0.resume() }
 			if shouldResumeImmediately {
 				continuation.resume()
 			}

@@ -1479,6 +1479,9 @@ final class AgentModeSidebarSortingTests: XCTestCase {
 		let legacyData = try JSONSerialization.data(withJSONObject: storedObject)
 		try legacyData.write(to: fileURL, options: .atomic)
 		try? FileManager.default.removeItem(at: metadataIndexURL(root: tempRoot))
+		await service.test_clearMetadataIndexCache(
+			forAgentSessionsFolder: tempRoot.appendingPathComponent("AgentSessions", isDirectory: true)
+		)
 
 		let vm = makeViewModel(testWorkspaceDirectory: tempRoot)
 		await vm.test_handleWorkspaceSwitch(workspace)
@@ -1536,6 +1539,9 @@ final class AgentModeSidebarSortingTests: XCTestCase {
 		let legacyData = try JSONSerialization.data(withJSONObject: storedObject)
 		try legacyData.write(to: fileURL, options: .atomic)
 		try? FileManager.default.removeItem(at: metadataIndexURL(root: tempRoot))
+		await service.test_clearMetadataIndexCache(
+			forAgentSessionsFolder: tempRoot.appendingPathComponent("AgentSessions", isDirectory: true)
+		)
 
 		let vm = makeViewModel(testWorkspaceDirectory: tempRoot)
 		await vm.test_handleWorkspaceSwitch(workspace)

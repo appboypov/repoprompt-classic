@@ -450,7 +450,7 @@ struct GitDiffSnapshotStore {
 				let perFileDir = diffDir.appendingPathComponent("per-file", isDirectory: true)
 				try fileManager.createDirectory(at: perFileDir, withIntermediateDirectories: true, attributes: nil)
 
-				for (gitPath, diffText) in perFile.sorted(by: { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }) {
+				for (gitPath, diffText) in perFile.sorted(by: { $0.key.caseInsensitiveCompare($1.key) == .orderedAscending }) {
 					let data = Data(diffText.utf8)
 					let fileName = Self.encodeGitPathForPatchFileName(gitPath)
 					let fileURL = perFileDir.appendingPathComponent(fileName)
@@ -472,7 +472,7 @@ struct GitDiffSnapshotStore {
 			}
 		}
 
-		let orderedChanges = inputs.changedFiles.sorted { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
+		let orderedChanges = inputs.changedFiles.sorted { $0.path.caseInsensitiveCompare($1.path) == .orderedAscending }
 		let fileEntries: [GitDiffSnapshotManifest.FileEntry] = orderedChanges.map { file in
 			let patch = writtenPatches[file.path]
 			return GitDiffSnapshotManifest.FileEntry(

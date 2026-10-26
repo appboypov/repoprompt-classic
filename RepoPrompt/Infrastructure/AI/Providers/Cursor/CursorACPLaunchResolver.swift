@@ -102,8 +102,8 @@ final class CursorACPLaunchResolver: @unchecked Sendable {
 					continue
 				}
 
-				let advertisesACP = combined.localizedCaseInsensitiveContains("acp")
-					|| combined.localizedCaseInsensitiveContains("agent client protocol")
+				let advertisesACP = combined.range(of: "acp", options: .caseInsensitive) != nil
+					|| combined.range(of: "agent client protocol", options: .caseInsensitive) != nil
 				guard advertisesACP else {
 					failureMessages.append("`\(candidate.displayCommand)` did not advertise ACP support.")
 					continue

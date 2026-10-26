@@ -179,7 +179,7 @@ extension AgentModeViewModel {
 		#endif
 		let trimmedSearch = searchText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 		let filteredTabs = stashedTabs.filter { stashed in
-			guard trimmedSearch.isEmpty || stashed.tab.name.localizedCaseInsensitiveContains(trimmedSearch) else {
+			guard trimmedSearch.isEmpty || stashed.tab.name.range(of: trimmedSearch, options: .caseInsensitive) != nil else {
 				return false
 			}
 			return shouldShowArchivedSession(for: stashed, lookup: lookup)
@@ -391,7 +391,7 @@ extension AgentModeViewModel {
 			// Collect direct matches
 			var matchedIDs = Set<UUID>()
 			for session in sortedSessions {
-				if session.title.localizedCaseInsensitiveContains(searchTrimmed) {
+				if session.title.range(of: searchTrimmed, options: .caseInsensitive) != nil {
 					matchedIDs.insert(session.id)
 					// Include ancestor chain
 					var cursor = session.parentSessionID

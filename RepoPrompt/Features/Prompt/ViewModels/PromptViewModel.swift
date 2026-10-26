@@ -3451,7 +3451,7 @@ Your goal is to choose the most efficient approach for each task - using direct 
 		return currentStashedTabs
 			.filter { stashed in
 				guard !trimmedSearch.isEmpty else { return true }
-				return stashed.tab.name.localizedCaseInsensitiveContains(trimmedSearch)
+				return stashed.tab.name.range(of: trimmedSearch, options: .caseInsensitive) != nil
 			}
 			.sorted { lhs, rhs in
 				if lhs.tab.isPinned != rhs.tab.isPinned {

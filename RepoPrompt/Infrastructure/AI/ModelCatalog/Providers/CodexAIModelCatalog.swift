@@ -146,14 +146,14 @@ enum CodexDynamicModelMapper {
 				if leftRank != rightRank {
 					return leftRank < rightRank
 				}
-				return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+				return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 			}
 			if lhs.isDefault != rhs.isDefault {
 				return lhs.isDefault && !rhs.isDefault
 			}
 			if AIModel.codexBaseModelPrecedes(leftBase, rightBase) { return true }
 			if AIModel.codexBaseModelPrecedes(rightBase, leftBase) { return false }
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 	}
 
@@ -350,7 +350,7 @@ enum CodexDynamicModelStore {
 			guard let effort = CodexReasoningEffort.parse(entry.reasoningEffort) else { continue }
 			let effortDescription = entry.description.trimmingCharacters(in: .whitespacesAndNewlines)
 			if let existing = reasoningDescriptionsByEffort[effort] {
-				if effortDescription.localizedCaseInsensitiveCompare(existing) == .orderedAscending {
+				if effortDescription.caseInsensitiveCompare(existing) == .orderedAscending {
 					reasoningDescriptionsByEffort[effort] = effortDescription
 				}
 			} else {
@@ -393,11 +393,11 @@ enum CodexDynamicModelStore {
 		if lhsModel != rhsModel {
 			return lhsModel < rhsModel
 		}
-		let displayNameOrder = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+		let displayNameOrder = lhs.displayName.caseInsensitiveCompare(rhs.displayName)
 		if displayNameOrder != .orderedSame {
 			return displayNameOrder == .orderedAscending
 		}
-		let descriptionOrder = lhs.description.localizedCaseInsensitiveCompare(rhs.description)
+		let descriptionOrder = lhs.description.caseInsensitiveCompare(rhs.description)
 		if descriptionOrder != .orderedSame {
 			return descriptionOrder == .orderedAscending
 		}

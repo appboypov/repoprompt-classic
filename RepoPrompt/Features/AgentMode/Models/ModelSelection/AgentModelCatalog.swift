@@ -582,7 +582,7 @@ enum AgentModelCatalog {
 			if lhs.sortIndex != rhs.sortIndex {
 				return lhs.sortIndex < rhs.sortIndex
 			}
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 
 		let groupedProviderGroups = Dictionary(grouping: groups, by: { $0.providerID?.lowercased() ?? "_root" })
@@ -592,7 +592,7 @@ enum AgentModelCatalog {
 				if lhs.sortIndex != rhs.sortIndex {
 					return lhs.sortIndex < rhs.sortIndex
 				}
-				return lhs.modelDisplayName.localizedCaseInsensitiveCompare(rhs.modelDisplayName) == .orderedAscending
+				return lhs.modelDisplayName.caseInsensitiveCompare(rhs.modelDisplayName) == .orderedAscending
 			}
 			return OpenCodeProviderMenuGroup(
 				providerID: representative.providerID,
@@ -605,7 +605,7 @@ enum AgentModelCatalog {
 			if lhs.sortIndex != rhs.sortIndex {
 				return lhs.sortIndex < rhs.sortIndex
 			}
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 
 		return OpenCodeMenu(providerGroups: providerGroups, groups: groups)
@@ -737,7 +737,7 @@ enum AgentModelCatalog {
 				if lhs.option.isProviderDefault != rhs.option.isProviderDefault {
 					return lhs.option.isProviderDefault && !rhs.option.isProviderDefault
 				}
-				return lhs.option.displayName.localizedCaseInsensitiveCompare(rhs.option.displayName) == .orderedAscending
+				return lhs.option.displayName.caseInsensitiveCompare(rhs.option.displayName) == .orderedAscending
 			}
 
 			return CodexMenuGroup(
@@ -748,7 +748,7 @@ enum AgentModelCatalog {
 		}.sorted { lhs, rhs in
 			if AIModel.codexBaseModelPrecedes(lhs.baseModelID, rhs.baseModelID) { return true }
 			if AIModel.codexBaseModelPrecedes(rhs.baseModelID, lhs.baseModelID) { return false }
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 
 		return CodexMenu(defaultOption: defaultOption, groups: groups)
@@ -844,7 +844,7 @@ enum AgentModelCatalog {
 			if leftIndex != rightIndex {
 				return leftIndex < rightIndex
 			}
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 
 		return ClaudeMenu(defaultOption: defaultOption, groups: groups)

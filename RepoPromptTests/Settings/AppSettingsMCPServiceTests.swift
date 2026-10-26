@@ -96,7 +96,11 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 		])
 		let mcpSettings = try settingsCatalog(from: mcpList)
 		let mcpKeys = Set(mcpSettings.compactMap { $0["key"]?.stringValue })
-		XCTAssertEqual(mcpKeys, ["mcp.show_model_presets"])
+		var expectedMCPKeys: Set<String> = ["mcp.show_model_presets"]
+		#if DEBUG
+		expectedMCPKeys.insert("mcp.file_search_perf_diagnostics_enabled")
+		#endif
+		XCTAssertEqual(mcpKeys, expectedMCPKeys)
 		XCTAssertFalse(mcpKeys.contains("mcp.auto_start"))
 		XCTAssertFalse(mcpKeys.contains("mcp.server_start"))
 
@@ -436,7 +440,10 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 			"op": .string("get"),
 			"group": .string("agent_mode")
 		]))
-		var expectedAgentModeKeys: Set<String> = ["agent_mode.show_built_in_workflow_cleanup_guidance"]
+		var expectedAgentModeKeys: Set<String> = [
+			"agent_mode.show_built_in_workflow_cleanup_guidance",
+			"agent_mode.codex_goal_support_enabled"
+		]
 		#if DEBUG
 		expectedAgentModeKeys.formUnion([
 			"agent_mode.claude_raw_event_logging_enabled",

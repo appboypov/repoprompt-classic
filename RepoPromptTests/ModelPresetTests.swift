@@ -161,14 +161,14 @@ final class ModelPresetTests: XCTestCase {
     func testPresetInitialization() {
         let preset = ModelPreset(
             name: "My GPT 4",
-            model: .gpt4o,
+            model: .gpt5,
             description: "Fast responses",
             supportedModes: SupportedModes(chat: true, plan: false, edit: true, review: false)
         )
 
         // Name should be sanitized
         XCTAssertEqual(preset.name, "My_GPT_4")
-        XCTAssertEqual(preset.model, .gpt4o)
+        XCTAssertEqual(preset.model, .gpt5)
         XCTAssertEqual(preset.description, "Fast responses")
         XCTAssertNotNil(preset.supportedModes)
         XCTAssertTrue(preset.supportedModes!.chat)

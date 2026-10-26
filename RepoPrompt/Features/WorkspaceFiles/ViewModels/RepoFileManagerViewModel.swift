@@ -12842,7 +12842,7 @@ extension RepoFileManagerViewModel {
 		}
 
 		let files = fileHierarchyIndex.filesByFullPath.values.sorted {
-			$0.standardizedFullPath.localizedStandardCompare($1.standardizedFullPath) == .orderedAscending
+			$0.standardizedFullPath.compare($1.standardizedFullPath, options: [.caseInsensitive, .numeric]) == .orderedAscending
 		}
 
 		var entries: [MarkdownPathSearchEntry] = []
@@ -12915,7 +12915,7 @@ extension RepoFileManagerViewModel {
 				if lhs.rank != rhs.rank {
 					return lhs.rank < rhs.rank
 				}
-				return lhs.file.standardizedFullPath.localizedStandardCompare(rhs.file.standardizedFullPath) == .orderedAscending
+				return lhs.file.standardizedFullPath.compare(rhs.file.standardizedFullPath, options: [.caseInsensitive, .numeric]) == .orderedAscending
 			}
 			.map(\.file)
 	}

@@ -32,7 +32,7 @@ enum ACPDynamicModelStore {
 		records.removeAll { $0.providerID == providerID.rawValue }
 		records.append(record)
 		records.sort {
-			$0.providerID.localizedCaseInsensitiveCompare($1.providerID) == .orderedAscending
+			$0.providerID.caseInsensitiveCompare($1.providerID) == .orderedAscending
 		}
 		guard let data = try? JSONEncoder().encode(records) else { return }
 		defaults.set(data, forKey: storageKey)
@@ -157,11 +157,11 @@ enum ACPDynamicModelStore {
 		if lhsRaw != rhsRaw {
 			return lhsRaw < rhsRaw
 		}
-		let displayNameOrder = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+		let displayNameOrder = lhs.displayName.caseInsensitiveCompare(rhs.displayName)
 		if displayNameOrder != .orderedSame {
 			return displayNameOrder == .orderedAscending
 		}
-		let descriptionOrder = (lhs.description ?? "").localizedCaseInsensitiveCompare(rhs.description ?? "")
+		let descriptionOrder = (lhs.description ?? "").caseInsensitiveCompare(rhs.description ?? "")
 		if descriptionOrder != .orderedSame {
 			return descriptionOrder == .orderedAscending
 		}
@@ -211,11 +211,11 @@ enum ACPDynamicModelStore {
 		}
 		let lhsDescription = lhs.description ?? ""
 		let rhsDescription = rhs.description ?? ""
-		let displayNameOrder = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+		let displayNameOrder = lhs.displayName.caseInsensitiveCompare(rhs.displayName)
 		if displayNameOrder != .orderedSame {
 			return displayNameOrder == .orderedAscending ? lhs : rhs
 		}
-		let descriptionOrder = lhsDescription.localizedCaseInsensitiveCompare(rhsDescription)
+		let descriptionOrder = lhsDescription.caseInsensitiveCompare(rhsDescription)
 		if descriptionOrder != .orderedSame {
 			return descriptionOrder == .orderedAscending ? lhs : rhs
 		}
@@ -233,7 +233,7 @@ enum ACPDynamicModelStore {
 		if lhsIsLowercased != rhsIsLowercased {
 			return lhsIsLowercased ? lhsTrimmed : rhsTrimmed
 		}
-		let caseInsensitiveOrder = lhsTrimmed.localizedCaseInsensitiveCompare(rhsTrimmed)
+		let caseInsensitiveOrder = lhsTrimmed.caseInsensitiveCompare(rhsTrimmed)
 		if caseInsensitiveOrder != .orderedSame {
 			return caseInsensitiveOrder == .orderedAscending ? lhsTrimmed : rhsTrimmed
 		}

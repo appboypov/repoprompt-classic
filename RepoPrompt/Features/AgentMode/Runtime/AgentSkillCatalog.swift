@@ -241,7 +241,7 @@ final class AgentSkillCatalog {
 				if lhs.score != rhs.score {
 					return lhs.score < rhs.score
 				}
-				return lhs.skill.name.localizedCaseInsensitiveCompare(rhs.skill.name) == .orderedAscending
+				return lhs.skill.name.caseInsensitiveCompare(rhs.skill.name) == .orderedAscending
 			}
 			.map(\.skill)
 			.prefix(limit)
@@ -320,7 +320,7 @@ final class AgentSkillCatalog {
 					if lhs.precedenceRank != rhs.precedenceRank {
 						return lhs.precedenceRank < rhs.precedenceRank
 					}
-					let nameComparison = lhs.definition.name.localizedCaseInsensitiveCompare(rhs.definition.name)
+					let nameComparison = lhs.definition.name.caseInsensitiveCompare(rhs.definition.name)
 					if nameComparison != .orderedSame {
 						return nameComparison == .orderedAscending
 					}
@@ -503,7 +503,7 @@ final class AgentSkillCatalog {
 			guard let contents else { return }
 
 			let sortedContents = contents.sorted {
-				$0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending
+				$0.lastPathComponent.caseInsensitiveCompare($1.lastPathComponent) == .orderedAscending
 			}
 			for rawEntryURL in sortedContents {
 				if Task.isCancelled { return }
@@ -558,7 +558,7 @@ final class AgentSkillCatalog {
 
 		var definitions: [ScannedSkillDefinition] = []
 		let sortedContents = contents.sorted {
-			$0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending
+			$0.lastPathComponent.caseInsensitiveCompare($1.lastPathComponent) == .orderedAscending
 		}
 		for rawFileURL in sortedContents {
 			if Task.isCancelled { break }
@@ -820,7 +820,7 @@ final class AgentSkillCatalog {
 				if lhs.isDirectory != rhs.isDirectory {
 					return lhs.isDirectory && !rhs.isDirectory
 				}
-				return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+				return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 			}
 	}
 

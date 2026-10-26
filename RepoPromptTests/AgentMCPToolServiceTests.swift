@@ -170,7 +170,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -237,7 +237,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		windowState.apiSettingsViewModel.isCodexConnected = true
 
@@ -312,7 +312,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -401,7 +401,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -488,7 +488,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		let windowManager = WindowStatesManager.shared
 		let originalWindows = windowManager.allWindows
 		windowManager.allWindows = [windowState]
@@ -545,7 +545,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let connectionID = UUID()
@@ -584,7 +584,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let connectionID = UUID()
@@ -636,7 +636,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let connectionID = UUID()
@@ -673,7 +673,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -738,7 +738,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentExploreStartRejectsUnsupportedModelWorkflowAndSessionFields() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentExploreService(windowState: windowState, sourceTabID: nil)
 		for key in ["model_id", "workflow_name", "session_name", "session_id", "session_ids", "tab_id", "wait", "timeout_seconds", "oracle_export_path"] {
@@ -759,7 +759,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		let sourceSessionID = try await activateMCPSource(windowState: windowState, tabID: sourceTabID, taskLabelKind: .engineer)
@@ -816,7 +816,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentExploreBatchStartRejectsMixedOrInvalidMessages() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentExploreService(windowState: windowState, sourceTabID: nil)
 
@@ -853,7 +853,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		let sourceSessionID = try await activateMCPSource(windowState: windowState, tabID: sourceTabID, taskLabelKind: .pair)
@@ -902,7 +902,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		let sourceSessionID = try await activateMCPSource(windowState: windowState, tabID: sourceTabID, taskLabelKind: .engineer)
@@ -939,7 +939,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		await XCTAssertThrowsErrorAsync(try await makeAgentExploreService(windowState: windowState, sourceTabID: nil).execute(args: [
@@ -978,7 +978,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		let sourceSessionID = try await activateMCPSource(windowState: windowState, tabID: sourceTabID, taskLabelKind: .engineer)
@@ -1011,7 +1011,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let sourceSessionID = try await activateMCPSource(windowState: windowState, tabID: sourceTabID, taskLabelKind: .engineer)
 		let nonExplore = try await createMCPChild(windowState: windowState, parentSessionID: sourceSessionID, taskLabelKind: .pair, runState: .running)
@@ -1039,7 +1039,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID, isSystemWorkspace: true)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID, isSystemWorkspace: true)
 		defer { Task { await windowState.tearDown() } }
 
 		let metadata = MCPServerViewModel.RequestMetadata(
@@ -1082,7 +1082,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let metadata = MCPServerViewModel.RequestMetadata(
@@ -1127,7 +1127,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -1179,7 +1179,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let metadata = MCPServerViewModel.RequestMetadata(
@@ -1225,7 +1225,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -1278,7 +1278,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let metadata = MCPServerViewModel.RequestMetadata(
@@ -1326,7 +1326,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -1384,7 +1384,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -1443,7 +1443,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -1508,7 +1508,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 			let tempRoot = makeTempDirectory()
 			defer { try? FileManager.default.removeItem(at: tempRoot) }
 			let sourceTabID = UUID()
-			let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+			let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 			defer { Task { await windowState.tearDown() } }
 
 			windowState.apiSettingsViewModel.isClaudeCodeConnected = false
@@ -1571,7 +1571,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 			let tempRoot = makeTempDirectory()
 			defer { try? FileManager.default.removeItem(at: tempRoot) }
 			let sourceTabID = UUID()
-			let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+			let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 			defer { Task { await windowState.tearDown() } }
 
 			windowState.apiSettingsViewModel.isClaudeCodeConnected = false
@@ -1624,7 +1624,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
 		let otherTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		var workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
@@ -1670,7 +1670,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 
@@ -1715,7 +1715,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 
@@ -1765,7 +1765,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 
@@ -1803,7 +1803,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 
@@ -1871,7 +1871,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
 		let explicitTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		var workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
@@ -1950,7 +1950,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 			let tempRoot = makeTempDirectory()
 			defer { try? FileManager.default.removeItem(at: tempRoot) }
 			let sourceTabID = UUID()
-			let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+			let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 			defer { Task { await windowState.tearDown() } }
 
 			UserDefaults.standard.set(false, forKey: "mcpShowModelPresets")
@@ -1981,7 +1981,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		windowState.apiSettingsViewModel.isClaudeCodeConnected = true
@@ -2061,7 +2061,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		windowState.apiSettingsViewModel.isClaudeCodeConnected = true
@@ -2098,7 +2098,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		windowState.apiSettingsViewModel.isClaudeCodeConnected = true
@@ -2153,7 +2153,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2203,7 +2203,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		windowState.apiSettingsViewModel.isCodexConnected = true
 
@@ -2257,7 +2257,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
 		let targetTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2310,7 +2310,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2383,7 +2383,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2432,7 +2432,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let childTabID = UUID()
 		let childSessionID = UUID()
 		let duplicateStashedTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 		let workspaceIndex = try XCTUnwrap(windowState.workspaceManager.workspaces.firstIndex(where: { $0.id == workspace.id }))
@@ -2500,7 +2500,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2569,7 +2569,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2618,7 +2618,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2660,7 +2660,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2701,7 +2701,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 
 		let agentModeVM = windowState.agentModeViewModel
@@ -2735,7 +2735,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 		let sessionID = UUID()
@@ -2784,7 +2784,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		agentModeVM.ensureSession(for: sourceTabID)
@@ -2831,7 +2831,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		agentModeVM.ensureSession(for: sourceTabID)
@@ -2878,7 +2878,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		agentModeVM.ensureSession(for: sourceTabID)
@@ -2908,7 +2908,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let agentModeVM = windowState.agentModeViewModel
 		agentModeVM.ensureSession(for: sourceTabID)
@@ -2941,7 +2941,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 		let sessionID = UUID()
@@ -2988,7 +2988,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 		let sessionID = UUID()
@@ -3032,7 +3032,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
 		let sourceTabID = UUID()
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: sourceTabID)
 		defer { Task { await windowState.tearDown() } }
 		let workspace = try XCTUnwrap(windowState.workspaceManager.activeWorkspace)
 		let sessionID = UUID()
@@ -3185,7 +3185,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyReconcilesStaleStoreTerminalBeforeImmediateTimeout() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let firstSessionID = UUID()
 		let secondSessionID = UUID()
@@ -3234,7 +3234,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let firstSessionID = UUID()
 		let secondSessionID = UUID()
@@ -3296,7 +3296,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let sessionID = UUID()
 		defer { Task { await AgentRunSessionStore.cleanup(sessionID: sessionID) } }
@@ -3330,7 +3330,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let sessionID = UUID()
 		defer { Task { await AgentRunSessionStore.cleanup(sessionID: sessionID) } }
@@ -3386,7 +3386,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let firstSessionID = UUID()
 		let secondSessionID = UUID()
@@ -3466,7 +3466,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyReturnsFirstInterestingSession() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -3509,7 +3509,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitReturnsInstructionDeliveredWake() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let sessionID = UUID()
@@ -3548,7 +3548,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitReturnsSteeringWakeFollowUpNote() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let sessionID = UUID()
@@ -3614,7 +3614,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitConsumesInstructionDeliveredWakeSignalledBeforeWaitStarts() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let sessionID = UUID()
@@ -3651,7 +3651,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyIgnoresInstructionDeliveredWakeUntilActionable() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -3711,7 +3711,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let firstSessionID = UUID()
 		let secondSessionID = UUID()
@@ -3768,7 +3768,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyReturnsSteeringWakeInterrupt() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -3823,7 +3823,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyIgnoresPendingInstructionDeliveredWakeUntilActionable() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -3874,7 +3874,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyReturnsPendingSteeringWakeInterrupt() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -3920,7 +3920,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyTimesOutAfterIgnoredInstructionDeliveredWake() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -3972,7 +3972,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyWaitingForInputWithoutInteractionReturnsImmediately() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -4008,7 +4008,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyTimeoutReturnsAllSnapshots() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -4045,7 +4045,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyAlreadyInterestingReturnsImmediately() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -4079,7 +4079,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunWaitAnyRejectsMixedInputs() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let sessionID = UUID()
@@ -4099,7 +4099,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 	func testAgentRunPollManyReturnsAllSnapshots() async throws {
 		let tempRoot = makeTempDirectory()
 		defer { try? FileManager.default.removeItem(at: tempRoot) }
-		let windowState = makeWindowState(root: tempRoot, sourceTabID: UUID())
+		let windowState = await makeWindowState(root: tempRoot, sourceTabID: UUID())
 		defer { Task { await windowState.tearDown() } }
 		let service = makeAgentRunWaitService(windowState: windowState)
 		let firstSessionID = UUID()
@@ -4337,8 +4337,11 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		XCTAssertTrue(stashedReferences.isEmpty, "Expected no stashed tab to reference deleted agent session; refs=\(stashedReferences)", file: file, line: line)
 	}
 
-	private func makeWindowState(root: URL, sourceTabID: UUID, isSystemWorkspace: Bool = false) -> WindowState {
+	private func makeWindowState(root: URL, sourceTabID: UUID, isSystemWorkspace: Bool = false) async -> WindowState {
 		let windowState = WindowState()
+		// The window restores its saved workspace in the background. Waiting for that keeps the
+		// restore from replacing the test workspace mid-test and from writing test tabs into it.
+		await windowState.workspaceManager.awaitInitialized()
 		let workspace = WorkspaceModel(
 			name: "Tool Service Tests",
 			repoPaths: isSystemWorkspace ? [] : [root.path],

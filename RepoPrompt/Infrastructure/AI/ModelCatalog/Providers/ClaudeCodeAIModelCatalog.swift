@@ -210,7 +210,7 @@ enum ClaudeCodeAIModelCatalog {
 					if leftRank != rightRank {
 						return leftRank < rightRank
 					}
-					return lhs.model.displayName.localizedCaseInsensitiveCompare(rhs.model.displayName) == .orderedAscending
+					return lhs.model.displayName.caseInsensitiveCompare(rhs.model.displayName) == .orderedAscending
 				}
 				.compactMap { entry -> AIModel.ClaudeCodePickerMenuOption? in
 					guard seenRawValues.insert(entry.model.rawValue.lowercased()).inserted else { return nil }
@@ -230,7 +230,7 @@ enum ClaudeCodeAIModelCatalog {
 			if leftRank != rightRank {
 				return leftRank < rightRank
 			}
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 
 		let compatibleGroups = compatibleBackendMenuGroups(for: sortedModels)
@@ -243,7 +243,7 @@ enum ClaudeCodeAIModelCatalog {
 		if lhsCompatible != nil || rhsCompatible != nil {
 			if lhsCompatible == nil { return true }
 			if rhsCompatible == nil { return false }
-			return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+			return lhs.displayName.caseInsensitiveCompare(rhs.displayName) == .orderedAscending
 		}
 		let leftBaseRank = baseSortRank(baseModelRaw(for: lhs))
 		let rightBaseRank = baseSortRank(baseModelRaw(for: rhs))
@@ -257,11 +257,11 @@ enum ClaudeCodeAIModelCatalog {
 			return leftEffortRank < rightEffortRank
 		}
 
-		let displayComparison = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+		let displayComparison = lhs.displayName.caseInsensitiveCompare(rhs.displayName)
 		if displayComparison != .orderedSame {
 			return displayComparison == .orderedAscending
 		}
-		return lhs.rawValue.localizedCaseInsensitiveCompare(rhs.rawValue) == .orderedAscending
+		return lhs.rawValue.caseInsensitiveCompare(rhs.rawValue) == .orderedAscending
 	}
 
 	private static func definition(forBaseModelRaw raw: String?) -> ModelDefinition? {

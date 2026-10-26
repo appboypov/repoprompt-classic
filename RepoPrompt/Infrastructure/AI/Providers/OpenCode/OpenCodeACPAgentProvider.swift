@@ -44,7 +44,7 @@ struct OpenCodeACPAgentProvider: ACPAgentProvider {
 			guard result.status == 0 else {
 				return .unsupported(reason: "OpenCode ACP preflight failed before startup.")
 			}
-			guard combined.localizedCaseInsensitiveContains("acp") else {
+			guard combined.range(of: "acp", options: .caseInsensitive) != nil else {
 				return .unsupported(reason: "Installed OpenCode CLI does not advertise ACP support.")
 			}
 			return .supported

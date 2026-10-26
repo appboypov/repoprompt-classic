@@ -126,7 +126,7 @@ struct OptimizedModelPicker: View {
 			let lhsRank = backendSortOrder[$0] ?? Int.max
 			let rhsRank = backendSortOrder[$1] ?? Int.max
 			if lhsRank != rhsRank { return lhsRank < rhsRank }
-			return compatibleClaudeBackendTopLevelDisplayName(for: $0).localizedCaseInsensitiveCompare(
+			return compatibleClaudeBackendTopLevelDisplayName(for: $0).caseInsensitiveCompare(
 				compatibleClaudeBackendTopLevelDisplayName(for: $1)
 			) == .orderedAscending
 		}) {
