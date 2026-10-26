@@ -86,6 +86,15 @@ struct FileHierarchyIndex {
 		folderPathsByRoot.removeAll()
 	}
 
+	/// Grows the storage once before a bulk insert, so the insert loop never pauses
+	/// to rehash hundreds of thousands of paths.
+	mutating func reserveAdditionalCapacity(folders: Int, files: Int, rootKey: String) {
+		foldersByFullPath.reserveCapacity(foldersByFullPath.count + folders)
+		filesByFullPath.reserveCapacity(filesByFullPath.count + files)
+		folderPathsByRoot[rootKey, default: []].reserveCapacity((folderPathsByRoot[rootKey]?.count ?? 0) + folders)
+		filePathsByRoot[rootKey, default: []].reserveCapacity((filePathsByRoot[rootKey]?.count ?? 0) + files)
+	}
+
 	private static func removePath(
 		_ path: String,
 		from ownership: inout [String: Set<String>],
@@ -2345,13 +2354,30 @@ func loadFolder(
 		}
 
 		// Commit staged content in a single pass to minimize UI thrash
-		// ➊ Index all staged VMs first (so parents can be found even if not yet attached)
+		// ➊ Index all staged VMs first (so parents can be found even if not yet attached).
+		// Large roots hold hundreds of thousands of items, so the loop hands the main
+		// actor back every few milliseconds to keep the window responsive.
+		let indexSliceBudget = Duration.milliseconds(8)
+		var indexSliceStart = ContinuousClock.now
+		fileHierarchyIndex.reserveAdditionalCapacity(
+			folders: stagedFoldersByFullPath.count + 1,
+			files: stagedFilesByFullPath.count,
+			rootKey: StandardizedPath.absolute(canonicalRootPath)
+		)
 		fileHierarchyIndex.insertFolder(rootFolder, rootKey: canonicalRootPath)
-		for (folderFullPath, folderVM) in stagedFoldersByFullPath {
+		for folderVM in stagedFoldersByFullPath.values {
 			fileHierarchyIndex.insertFolder(folderVM, rootKey: canonicalRootPath)
+			if ContinuousClock.now - indexSliceStart > indexSliceBudget {
+				await Task.yield()
+				indexSliceStart = .now
+			}
 		}
-		for (fileFullPath, fileVM) in stagedFilesByFullPath {
+		for fileVM in stagedFilesByFullPath.values {
 			fileHierarchyIndex.insertFile(fileVM, rootKey: canonicalRootPath)
+			if ContinuousClock.now - indexSliceStart > indexSliceBudget {
+				await Task.yield()
+				indexSliceStart = .now
+			}
 		}
 
 		// ➋ Attach children to parents – create missing parent chains once
