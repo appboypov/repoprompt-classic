@@ -3,8 +3,8 @@ import Foundation
 /// Every file and folder of one root folder that the ignore rules allow, by path relative to the root.
 ///
 /// Reading fills it and changes on disk keep it current, whether or not the tree shows a folder.
-/// Each folder knows how many files lie under it at any depth and whether reading has listed
-/// every folder under it. The root folder itself has the empty relative path.
+/// Each folder knows how many files lie under it at any depth, how many of those are selected and
+/// whether reading has listed every folder under it. The root folder itself has the empty relative path.
 @MainActor
 final class RootFolderIndex {
 	/// One folder of the index.
@@ -18,6 +18,9 @@ final class RootFolderIndex {
 		/// Files under this folder at any depth.
 		fileprivate(set) var fileCount = 0
 
+		/// Selected files under this folder at any depth.
+		fileprivate(set) var selectedFileCount = 0
+
 		/// Whether reading has listed this folder and every folder under it.
 		var isSubtreeRead: Bool { unreadFolderCount == 0 }
 
@@ -28,6 +31,8 @@ final class RootFolderIndex {
 
 	let rootPath: String
 	private(set) var filePaths: Set<String> = []
+	/// The files of the selection.
+	private(set) var selectedFilePaths: Set<String> = []
 	private(set) var folders: [String: Folder]
 	private var unreadFolderPaths: Set<String> = [""]
 	private let root: Folder
@@ -110,15 +115,36 @@ final class RootFolderIndex {
 		unreadFolderPaths.removeAll()
 	}
 
+	/// Adds a file of the index to the selection.
+	func select(_ path: String) {
+		guard filePaths.contains(path), selectedFilePaths.insert(path).inserted else { return }
+		addToSelectedFileCounts(1, from: Self.parentPath(of: path))
+	}
+
+	/// Removes a file from the selection.
+	func deselect(_ path: String) {
+		guard selectedFilePaths.remove(path) != nil else { return }
+		addToSelectedFileCounts(-1, from: Self.parentPath(of: path))
+	}
+
+	/// The checkbox state of a folder: ticked when every file under it is selected, mixed when some are,
+	/// and empty when none are.
+	func checkboxState(ofFolder path: String) -> CheckboxState {
+		guard let folder = folders[path], folder.selectedFileCount > 0 else { return .unchecked }
+		return folder.selectedFileCount == folder.fileCount ? .checked : .mixed
+	}
+
 	/// Removes a file, or a folder with everything under it.
 	func remove(_ path: String) {
 		guard !path.isEmpty else { return }
 		if filePaths.remove(path) != nil {
 			guard let parent = folders[Self.parentPath(of: path)] else { return }
 			parent.childFilePaths.remove(path)
+			let selectedCount = selectedFilePaths.remove(path) == nil ? 0 : 1
 			var current: Folder? = parent
 			while let node = current {
 				node.fileCount -= 1
+				node.selectedFileCount -= selectedCount
 				current = node.parent
 			}
 			return
@@ -128,6 +154,7 @@ final class RootFolderIndex {
 		var current: Folder? = parent
 		while let node = current {
 			node.fileCount -= folder.fileCount
+			node.selectedFileCount -= folder.selectedFileCount
 			node.unreadFolderCount -= folder.unreadFolderCount
 			current = node.parent
 		}
@@ -136,7 +163,16 @@ final class RootFolderIndex {
 			guard let removed = folders.removeValue(forKey: folderPath) else { continue }
 			unreadFolderPaths.remove(folderPath)
 			filePaths.subtract(removed.childFilePaths)
+			selectedFilePaths.subtract(removed.childFilePaths)
 			pending.append(contentsOf: removed.childFolderPaths)
+		}
+	}
+
+	private func addToSelectedFileCounts(_ delta: Int, from folderPath: String) {
+		var current = folders[folderPath]
+		while let node = current {
+			node.selectedFileCount += delta
+			current = node.parent
 		}
 	}
 

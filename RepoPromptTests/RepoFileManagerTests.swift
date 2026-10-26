@@ -563,6 +563,81 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testTickingAFolderSelectsEveryFileUnderItAndUntickingDeselectsThem() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+		XCTAssertFalse(deep.isExpanded)
+
+		fileManagerVM.toggleFolder(src)
+
+		let srcFiles: Set<String> = ["src/a.swift", "src/b.swift", "src/deep/c.swift"]
+		XCTAssertEqual(index.selectedFilePaths, srcFiles)
+		XCTAssertEqual(Set(fileManagerVM.selectedFiles.map(\.standardizedRelativePath)), srcFiles)
+		XCTAssertEqual(src.checkboxState, .checked)
+		XCTAssertEqual(deep.checkboxState, .checked)
+		XCTAssertEqual(rootFolder.checkboxState, .mixed)
+
+		fileManagerVM.toggleFolder(src)
+
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(fileManagerVM.selectedFiles, [])
+		XCTAssertEqual(src.checkboxState, .unchecked)
+		XCTAssertEqual(deep.checkboxState, .unchecked)
+		XCTAssertEqual(rootFolder.checkboxState, .unchecked)
+	}
+
+	@MainActor
+	func testSelectingOneDeepFileMakesEveryFolderAboveItMixed() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent("src/deep/d.swift").path, contents: Data()))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/d.swift")], forRootFolder: rootFolder)
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+		let file = try XCTUnwrap(fileManagerVM.findFileByFullPath(rootURL.appendingPathComponent("src/deep/c.swift").path))
+
+		fileManagerVM.toggleFile(file)
+
+		XCTAssertEqual(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath]?.selectedFilePaths, ["src/deep/c.swift"])
+		XCTAssertEqual(deep.checkboxState, .mixed)
+		XCTAssertEqual(src.checkboxState, .mixed)
+		XCTAssertEqual(rootFolder.checkboxState, .mixed)
+	}
+
+	@MainActor
+	func testAFileThatAppearsInATickedFolderIsSelectedOnlyWhenAnAgentCreatedIt() async throws {
+		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+		fileManagerVM.toggleFolder(deep)
+		XCTAssertEqual(deep.checkboxState, .checked)
+
+		XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent("src/deep/fromDisk.swift").path, contents: Data()))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/fromDisk.swift")], forRootFolder: rootFolder)
+
+		XCTAssertEqual(index.selectedFilePaths, ["src/deep/c.swift"])
+		XCTAssertEqual(deep.checkboxState, .mixed)
+
+		try await fileManagerVM.writeFileFromTool(
+			userPath: "src/deep/fromAgent.swift",
+			content: "struct FromAgent {}\n",
+			ifExists: "error",
+			selectAfterCreate: true
+		)
+
+		XCTAssertEqual(index.selectedFilePaths, ["src/deep/c.swift", "src/deep/fromAgent.swift"])
+		XCTAssertEqual(
+			Set(fileManagerVM.selectedFiles.map(\.standardizedRelativePath)),
+			["src/deep/c.swift", "src/deep/fromAgent.swift"]
+		)
+		XCTAssertEqual(deep.checkboxState, .mixed)
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)
