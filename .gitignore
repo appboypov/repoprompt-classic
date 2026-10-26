@@ -83,6 +83,7 @@ error-triage/__pycache__/
 
 docs/*
 !docs/open-source-readiness.md
+!docs/adr/
 prompt-exports/
 
 RepoPrompt/Docs/
