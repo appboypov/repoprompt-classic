@@ -1,24 +1,25 @@
 import Foundation
 
-/// Headless/discovery adapter for Gemini's ACP runtime.
+/// Headless adapter for the Antigravity ACP server.
 ///
-/// Gemini discovery/delegate-edit runs use ACP default mode and answer ACP
-/// permission requests automatically instead of launching the legacy yolo
-/// stream-json runner.
-final class GeminiACPHeadlessAgentProvider: HeadlessAgentProvider {
-	typealias ProviderFactory = @Sendable (_ config: GeminiAgentConfig) -> any ACPAgentProvider
+/// Discovery and delegate-edit runs use ACP default mode and answer ACP
+/// permission requests automatically. Prompt-only runs (chat, Oracle) decline
+/// every tool request instead.
+final class AntigravityACPHeadlessAgentProvider: HeadlessAgentProvider {
+	typealias ProviderFactory = @Sendable (_ config: AntigravityAgentConfig) -> any ACPAgentProvider
 	typealias ControllerFactory = ACPHeadlessAgentProviderBridge.ControllerFactory
 
-	private let config: GeminiAgentConfig
+	private let config: AntigravityAgentConfig
 	private let bridge: ACPHeadlessAgentProviderBridge
 
 #if DEBUG
-	var test_config: GeminiAgentConfig { config }
+	var test_config: AntigravityAgentConfig { config }
 #endif
 
 	init(
-		config: GeminiAgentConfig,
+		config: AntigravityAgentConfig,
 		workspacePath: String? = nil,
+		promptOnly: Bool = false,
 		providerFactory: ProviderFactory? = nil,
 		controllerFactory: @escaping ControllerFactory = { provider, request, diagnosticSink in
 			try ACPAgentSessionController(
@@ -30,32 +31,35 @@ final class GeminiACPHeadlessAgentProvider: HeadlessAgentProvider {
 	) {
 		self.config = config
 		let resolvedProviderFactory = providerFactory ?? { config in
-			GeminiACPAgentProvider(config: config)
+			AntigravityACPAgentProvider(config: config)
 		}
-		let defaultSessionModeID = GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID
+		let defaultSessionModeID = AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID
 		self.bridge = ACPHeadlessAgentProviderBridge(
-			providerName: "Gemini",
+			providerName: "Antigravity",
 			makeProvider: {
 				resolvedProviderFactory(config)
 			},
 			makeRequest: { message, _ in
 				ACPRunRequest(
-					agentKind: .gemini,
+					agentKind: .antigravity,
 					modelString: config.modelString,
 					workspacePath: workspacePath,
 					resumeSessionID: message.resumeSessionID,
 					attachments: [],
 					taskLabelKind: nil,
 					sessionModeID: defaultSessionModeID,
-					autoApproveAllToolPermissions: true
+					autoApproveAllToolPermissions: !promptOnly
 				)
 			},
 			makeController: controllerFactory,
 			beforePrompt: { controller, _ in
-				await controller.setAutoApproveAllToolPermissions(true)
+				await controller.setAutoApproveAllToolPermissions(!promptOnly)
 				try await controller.setSessionMode(defaultSessionModeID)
+				if let model = config.modelString {
+					try await controller.setSessionModel(model)
+				}
 			},
-			approvalPolicy: .acceptForSession
+			approvalPolicy: promptOnly ? .declineUnsupported : .acceptForSession
 		)
 	}
 

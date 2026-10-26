@@ -1461,8 +1461,8 @@ extension CoreUtilityTests {
 		XCTAssertEqual(resolved, callTimeRunID)
 	}
 
-	func testGeminiGrantedToolsKeepSetStatusButDropRemovedReasoningTools() {
-		let grantedTools = AgentModeMCPToolPolicy.grantedTools(forAgent: .gemini)
+	func testAntigravityGrantedToolsKeepSetStatusButDropRemovedReasoningTools() {
+		let grantedTools = AgentModeMCPToolPolicy.grantedTools(forAgent: .antigravity)
 		XCTAssertTrue(grantedTools.contains("set_status"))
 		XCTAssertFalse(grantedTools.contains("share_thoughts"))
 		XCTAssertFalse(grantedTools.contains("wait_for_next_user_instruction"))
@@ -1685,7 +1685,7 @@ extension CoreUtilityTests {
 			oneShot: true,
 			reason: "agent-mode-run",
 			runID: runID,
-			additionalTools: AgentModeMCPToolPolicy.geminiGrantedTools,
+			additionalTools: AgentModeMCPToolPolicy.antigravityGrantedTools,
 			purpose: .agentModeRun,
 			requiresExpectedAgentPID: true
 		)
@@ -1722,7 +1722,7 @@ extension CoreUtilityTests {
 			oneShot: true,
 			reason: "agent-mode-run",
 			runID: runID,
-			additionalTools: AgentModeMCPToolPolicy.geminiGrantedTools,
+			additionalTools: AgentModeMCPToolPolicy.antigravityGrantedTools,
 			purpose: .agentModeRun,
 			requiresExpectedAgentPID: true
 		)
@@ -1737,7 +1737,7 @@ extension CoreUtilityTests {
 
 		XCTAssertEqual(state.windowID, 9)
 		XCTAssertEqual(state.restrictedTools, AgentModeMCPToolPolicy.restrictedTools)
-		XCTAssertEqual(state.additionalTools, AgentModeMCPToolPolicy.geminiGrantedTools)
+		XCTAssertEqual(state.additionalTools, AgentModeMCPToolPolicy.antigravityGrantedTools)
 		XCTAssertEqual(state.purpose, .agentModeRun)
 
 		let snapshot = await manager.debugPendingPolicySnapshot(for: clientName)
@@ -1759,7 +1759,7 @@ extension CoreUtilityTests {
 			oneShot: true,
 			reason: "agent-mode-run",
 			runID: olderRunID,
-			additionalTools: AgentModeMCPToolPolicy.geminiGrantedTools,
+			additionalTools: AgentModeMCPToolPolicy.antigravityGrantedTools,
 			purpose: .agentModeRun,
 			requiresExpectedAgentPID: true
 		)
@@ -1771,7 +1771,7 @@ extension CoreUtilityTests {
 			oneShot: true,
 			reason: "agent-mode-run",
 			runID: matchingRunID,
-			additionalTools: AgentModeMCPToolPolicy.geminiGrantedTools,
+			additionalTools: AgentModeMCPToolPolicy.antigravityGrantedTools,
 			purpose: .agentModeRun,
 			requiresExpectedAgentPID: true
 		)
@@ -1792,9 +1792,9 @@ extension CoreUtilityTests {
 		XCTAssertEqual(snapshot.first?.runID, olderRunID)
 	}
 
-	func testGeminiReconnectFromExpectedPIDAdmittedAfterOneShotPolicyConsumed() async {
+	func testAntigravityReconnectFromExpectedPIDAdmittedAfterOneShotPolicyConsumed() async {
 		let manager = ServerNetworkManager()
-		let clientName = "gemini-cli-mcp-client"
+		let clientName = "antigravity-client"
 		let runID = UUID()
 		let firstConnectionID = UUID()
 		let reconnectConnectionID = UUID()
@@ -1807,7 +1807,7 @@ extension CoreUtilityTests {
 			oneShot: true,
 			reason: "agent-mode-run",
 			runID: runID,
-			additionalTools: AgentModeMCPToolPolicy.geminiGrantedTools,
+			additionalTools: AgentModeMCPToolPolicy.antigravityGrantedTools,
 			purpose: .agentModeRun,
 			requiresExpectedAgentPID: true
 		)
@@ -1826,7 +1826,7 @@ extension CoreUtilityTests {
 		let admission = await manager.debugAgentPolicyAdmissionStatus(
 			clientName: clientName,
 			connectionID: reconnectConnectionID,
-			sessionKey: "new-gemini-bootstrap-token",
+			sessionKey: "new-antigravity-bootstrap-token",
 			clientPid: Int(peerPID),
 			timeout: 0.01
 		)
@@ -1840,7 +1840,7 @@ extension CoreUtilityTests {
 		)
 		XCTAssertEqual(reconnectState.windowID, 12)
 		XCTAssertEqual(reconnectState.restrictedTools, AgentModeMCPToolPolicy.restrictedTools)
-		XCTAssertEqual(reconnectState.additionalTools, AgentModeMCPToolPolicy.geminiGrantedTools)
+		XCTAssertEqual(reconnectState.additionalTools, AgentModeMCPToolPolicy.antigravityGrantedTools)
 		XCTAssertEqual(reconnectState.purpose, .agentModeRun)
 	}
 
@@ -1859,7 +1859,7 @@ extension CoreUtilityTests {
 			oneShot: true,
 			reason: "agent-mode-run",
 			runID: runID,
-			additionalTools: AgentModeMCPToolPolicy.geminiGrantedTools,
+			additionalTools: AgentModeMCPToolPolicy.antigravityGrantedTools,
 			purpose: .agentModeRun,
 			requiresExpectedAgentPID: true
 		)
@@ -2495,19 +2495,12 @@ extension CoreUtilityTests {
 		XCTAssertTrue(prompt.contains("MCP `RepoPrompt__read_file`"))
 	}
 
-	func testAgentModePromptIncludesReadPolicyGuidanceForGemini() {
-		let prompt = SystemPromptService.agentModePrompt(agentKind: .gemini)
-		XCTAssertTrue(prompt.contains("Read policy (important)"))
-		XCTAssertTrue(prompt.contains("Gemini's native `read_file` tool"))
-		XCTAssertTrue(prompt.contains("MCP `RepoPrompt__read_file`"))
-		XCTAssertFalse(prompt.contains("read_file / RepoPrompt__read_file"))
-	}
-
-	func testAgentModePromptOmitsReadPolicyForNonClaudeOrGeminiAgents() {
-		let prompt = SystemPromptService.agentModePrompt(agentKind: .codexExec)
-		XCTAssertFalse(prompt.contains("Read policy (important)"))
-		XCTAssertFalse(prompt.contains("native `Read` tool"))
-		XCTAssertFalse(prompt.contains("Gemini's native `read_file` tool"))
+	func testAgentModePromptOmitsReadPolicyForNonClaudeAgents() {
+		for agentKind in [DiscoverAgentKind.codexExec, .antigravity] {
+			let prompt = SystemPromptService.agentModePrompt(agentKind: agentKind)
+			XCTAssertFalse(prompt.contains("Read policy (important)"))
+			XCTAssertFalse(prompt.contains("native `Read` tool"))
+		}
 	}
 
 	func testCodexAgentModePromptTreatsExpandedSkillContentAsAlreadyProvidedContext() {
@@ -2753,27 +2746,21 @@ extension CoreUtilityTests {
 		XCTAssertEqual(loadablePaths, expected)
 	}
 
-	func testGeminiRuntimeKindDefaultsToHeadless() {
-		UserDefaults.standard.removeObject(forKey: "agentMode.geminiACPEnabled")
-
-		XCTAssertEqual(DiscoverAgentKind.gemini.runtimeKind, "headless")
-		XCTAssertEqual(DiscoverAgentKind.gemini.acpProviderID, .gemini)
+	func testAntigravityRuntimeKindIsACP() {
+		XCTAssertEqual(DiscoverAgentKind.antigravity.runtimeKind, "antigravity_acp")
+		XCTAssertEqual(DiscoverAgentKind.antigravity.acpProviderID, .antigravity)
 	}
 
-	func testGeminiRuntimeKindStaysHeadlessWhenACPFlagEnabled() {
-		UserDefaults.standard.set(true, forKey: "agentMode.geminiACPEnabled")
-		defer { UserDefaults.standard.removeObject(forKey: "agentMode.geminiACPEnabled") }
+	func testAntigravityDiscoveryProviderUsesACPHeadlessWithRepoPromptMCP() throws {
+		let provider = DiscoverAgentService.shared.makeProvider(
+			for: .antigravity,
+			modelString: "gemini-3.0-flash-high",
+			workspacePath: "/tmp/repoprompt-antigravity-headless-test"
+		)
+		let antigravityProvider = try XCTUnwrap(provider as? AntigravityACPHeadlessAgentProvider)
 
-		XCTAssertEqual(DiscoverAgentKind.gemini.runtimeKind, "headless")
-		XCTAssertEqual(DiscoverAgentKind.gemini.acpProviderID, .gemini)
-	}
-
-	func testGeminiDiscoveryProviderStaysHeadlessWhenACPFlagEnabled() {
-		UserDefaults.standard.set(true, forKey: "agentMode.geminiACPEnabled")
-		defer { UserDefaults.standard.removeObject(forKey: "agentMode.geminiACPEnabled") }
-
-		let provider = DiscoverAgentService.shared.makeProvider(for: .gemini)
-		XCTAssertTrue(provider is GeminiAgentProvider)
+		XCTAssertEqual(antigravityProvider.test_config.modelString, "gemini-3.0-flash-high")
+		XCTAssertTrue(antigravityProvider.test_config.includeRepoPromptMCPServer)
 	}
 
 	func testCursorDiscoveryProviderUsesACPHeadlessWithRepoPromptMCP() throws {

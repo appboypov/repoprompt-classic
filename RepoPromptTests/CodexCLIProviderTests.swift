@@ -289,7 +289,7 @@ final class CodexCLIProviderTests: XCTestCase {
 			scripts: [[
 				.requestUserInput(
 					AgentRequestUserInputRequest(
-						requestID: .string("rui-1"),
+						requestID: .codex(.string("rui-1")),
 						method: "item/tool/requestUserInput",
 						threadID: "thread-1",
 						turnID: "turn-1",

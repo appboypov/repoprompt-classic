@@ -89,26 +89,26 @@ extension AgentProviderPermissionProfile {
 		}
 	}
 
-	var geminiSessionModeID: String {
+	var antigravitySessionModeID: String {
 		switch self {
 		case .userConfigured:
-			GeminiAgentToolPreferences.sessionModeID()
+			AntigravityAgentToolPreferences.sessionModeID()
 		case .mcpSafeDefaults:
-			GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID
-		case .providerOverride(.gemini(let level)):
+			AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID
+		case .providerOverride(.antigravity(let level)):
 			level.sessionModeID
 		case .providerOverride:
-			GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID
+			AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID
 		}
 	}
 
-	func geminiPermissionLevel(
-		userConfigured: GeminiAgentToolPreferences.PermissionLevel = GeminiAgentToolPreferences.permissionLevel()
-	) -> GeminiAgentToolPreferences.PermissionLevel {
+	func antigravityPermissionLevel(
+		userConfigured: AntigravityAgentToolPreferences.PermissionLevel = AntigravityAgentToolPreferences.permissionLevel()
+	) -> AntigravityAgentToolPreferences.PermissionLevel {
 		switch self {
 		case .userConfigured: return userConfigured
 		case .mcpSafeDefaults: return .default
-		case .providerOverride(.gemini(let level)): return level
+		case .providerOverride(.antigravity(let level)): return level
 		case .providerOverride: return .default
 		}
 	}
@@ -150,8 +150,8 @@ extension AgentProviderPermissionProfile {
 
 	func acpSessionModeID(for agent: DiscoverAgentKind) -> String? {
 		switch agent {
-		case .gemini:
-			return geminiSessionModeID
+		case .antigravity:
+			return antigravitySessionModeID
 		case .openCode:
 			return openCodeSessionModeID
 		case .cursor:

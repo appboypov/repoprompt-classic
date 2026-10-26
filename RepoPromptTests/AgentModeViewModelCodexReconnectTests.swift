@@ -7429,7 +7429,7 @@ private func makeIdleThreadSnapshot() -> CodexNativeSessionController.ThreadSnap
 
 private func makeUserInputRequest(id: String, questionID: String) -> AgentRequestUserInputRequest {
 	AgentRequestUserInputRequest(
-		requestID: .string(id),
+		requestID: .codex(.string(id)),
 		method: "item/tool/requestUserInput",
 		threadID: "test-thread",
 		turnID: "turn-1",

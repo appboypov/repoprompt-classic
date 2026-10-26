@@ -3193,7 +3193,7 @@ final class CodexNativeSessionController {
 		}
 
 		return AgentRequestUserInputRequest(
-			requestID: requestID,
+			requestID: .codex(requestID),
 			method: method,
 			threadID: threadID,
 			turnID: turnID,

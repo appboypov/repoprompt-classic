@@ -5,13 +5,14 @@ final class MCPClientIdentityTests: XCTestCase {
 	func testMatchesKnownClientFamilyAcrossCaseSeparatorAndVersionVariants() {
 		XCTAssertTrue(MCPClientIdentity.matches("claude-code", "Claude Code"))
 		XCTAssertTrue(MCPClientIdentity.matches("claude-code", "Claude Code 1.2.3"))
-		XCTAssertTrue(MCPClientIdentity.matches("gemini-cli-mcp-client", "gemini-cli"))
+		XCTAssertTrue(MCPClientIdentity.matches("antigravity-client", "Antigravity"))
+		XCTAssertTrue(MCPClientIdentity.matches("antigravity-client", "antigravity-client v1.0.0"))
 		XCTAssertTrue(MCPClientIdentity.matches("cursor", "cursor-agent"))
 	}
 
 	func testStorageKeyCanonicalizesKnownFamilies() {
 		XCTAssertEqual(MCPClientIdentity.storageKey("Claude Code"), "claude-code")
-		XCTAssertEqual(MCPClientIdentity.storageKey("gemini-cli"), "gemini-cli-mcp-client")
+		XCTAssertEqual(MCPClientIdentity.storageKey("Antigravity"), "antigravity-client")
 		XCTAssertEqual(MCPClientIdentity.storageKey("Cursor Agent"), "cursor")
 		XCTAssertEqual(MCPClientIdentity.storageKey("unknown-client"), "unknown-client")
 	}
@@ -19,7 +20,9 @@ final class MCPClientIdentityTests: XCTestCase {
 	func testDoesNotMatchLookalikeClientNames() {
 		XCTAssertFalse(MCPClientIdentity.matches("claude-code", "claudecoder"))
 		XCTAssertFalse(MCPClientIdentity.matches("cursor", "cursorless"))
-		XCTAssertFalse(MCPClientIdentity.matches("gemini-cli-mcp-client", "gemini-cli-helper"))
+		XCTAssertFalse(MCPClientIdentity.matches("antigravity-client", "antigravity-client-helper"))
+		XCTAssertFalse(MCPClientIdentity.matches("antigravity-client", "antigravityx"))
+		XCTAssertFalse(MCPClientIdentity.matches("antigravity-client", "gemini-cli-mcp-client"))
 	}
 
 
@@ -28,5 +31,6 @@ final class MCPClientIdentityTests: XCTestCase {
 		XCTAssertTrue(MCPClientIdentity.isHeadlessAgentClient("codex-mcp-client"))
 		XCTAssertTrue(MCPClientIdentity.isHeadlessAgentClient("cursor"))
 		XCTAssertTrue(MCPClientIdentity.isHeadlessAgentClient("cursor-agent"))
+		XCTAssertTrue(MCPClientIdentity.isHeadlessAgentClient("antigravity-client"))
 	}
 }

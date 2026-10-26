@@ -627,63 +627,21 @@ struct MCPIntegrationHelper {
     }
 
 
-	// MARK: – Gemini -------------------------------------------------------------
+	// MARK: – Antigravity ---------------------------------------------------------
 
-	@discardableResult
-	static func ensureGeminiServerForDiscovery() -> (success: Bool, wasAlreadyPresent: Bool) {
-		GeminiIntegrationConfiguration.ensureServerForDiscovery()
+	static func antigravityConfigContainsRepoPrompt() -> Bool {
+		AntigravityIntegrationConfiguration.configContainsRepoPrompt()
 	}
 
-	static func geminiConfigContainsRepoPrompt() -> Bool {
-		GeminiIntegrationConfiguration.configContainsRepoPrompt()
-	}
-
+	/// Installs the RepoPrompt MCP server into the agy CLI's global MCP config
+	/// (`~/.gemini/config/mcp_config.json`).
 	@discardableResult
-	static func installInGemini() -> (success: Bool, wasAlreadyPresent: Bool) {
-		let result = GeminiIntegrationConfiguration.installPersistentMCPConfig()
+	static func installInAntigravity() -> (success: Bool, wasAlreadyPresent: Bool) {
+		let result = AntigravityIntegrationConfiguration.installPersistentMCPConfig()
 		if result.success {
 			setMCPServerInstalled()
 		}
 		return result
-	}
-
-	// MARK: – Gemini System Settings (Environment Variable Approach) ---
-
-	/// Environment variable key used by gemini-cli to override system settings path.
-	/// System settings have highest priority and override user settings.
-	static let geminiSystemSettingsEnvKey = GeminiIntegrationConfiguration.systemSettingsEnvKey
-
-	/// Returns excluded tools for the given Gemini context
-	static func geminiExcludedTools(for context: CLIToolContext) -> [String] {
-		GeminiIntegrationConfiguration.excludedTools(for: context)
-	}
-
-	static func geminiPolicyFileURL(
-		for context: CLIToolContext,
-		includeRepoPromptMCPAllowance: Bool
-	) throws -> URL {
-		try GeminiIntegrationConfiguration.policyFileURL(
-			for: context,
-			includeRepoPromptMCPAllowance: includeRepoPromptMCPAllowance
-		)
-	}
-
-	/// Returns the persistent Gemini system settings file in Application Support.
-	/// Creates/updates the file if needed. Uses `GEMINI_CLI_SYSTEM_SETTINGS_PATH` env var.
-	/// This approach does NOT modify the user's `~/.gemini/settings.json`.
-	///
-	/// - Parameter context: The context (agent run or terminal) to determine tool exclusions.
-	/// - Returns: URL to the persistent settings file.
-	static func geminiSystemSettingsURL(
-		for context: CLIToolContext = .agentRun,
-		includeRepoPromptMCPServer: Bool = true,
-		includeRepoPromptMCPPolicyAllowance: Bool? = nil
-	) throws -> URL {
-		try GeminiIntegrationConfiguration.systemSettingsURL(
-			for: context,
-			includeRepoPromptMCPServer: includeRepoPromptMCPServer,
-			includeRepoPromptMCPPolicyAllowance: includeRepoPromptMCPPolicyAllowance
-		)
 	}
 
 	// MARK: – OpenCode CLI --------------------------------------------------------

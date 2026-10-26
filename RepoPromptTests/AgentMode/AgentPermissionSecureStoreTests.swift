@@ -133,7 +133,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		static let claudePermissionMode = "claudeCodePermissionMode"
 		static let claudeMCPStrictModeEnabled = "claudeCodeMCPStrictModeEnabled"
 
-		static let geminiSessionMode = "geminiACPSessionMode"
+		static let antigravitySessionMode = "antigravityACPSessionMode"
 		static let openCodeSessionMode = "openCodeACPSessionMode"
 		static let cursorPermissionLevel = "cursorACPToolPermissionLevel"
 
@@ -157,7 +157,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 			let permissiveLevel: AgentProviderPermissionLevelID = switch providerID {
 			case .codex: .codex(.fullAccess)
 			case .claude: .claude(.fullAccess)
-			case .gemini: .gemini(.fullAccess)
+			case .antigravity: .antigravity(.fullAccess)
 			case .openCode: .openCode(.fullAccess)
 			case .cursor: .cursor(.fullAccess)
 			}
@@ -177,7 +177,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		defaults.set(true, forKey: LegacyKeys.claudeBashToolEnabled)
 		defaults.set(false, forKey: LegacyKeys.claudeMCPStrictModeEnabled)
 
-		defaults.set(GeminiAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID, forKey: LegacyKeys.geminiSessionMode)
+		defaults.set(AntigravityAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID, forKey: LegacyKeys.antigravitySessionMode)
 		defaults.set(OpenCodeAgentConfig.managedFullAccessSessionModeID, forKey: LegacyKeys.openCodeSessionMode)
 		defaults.set(CursorAgentToolPreferences.PermissionLevel.fullAccess.rawValue, forKey: LegacyKeys.cursorPermissionLevel)
 	}
@@ -205,7 +205,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertFalse(defaults.bool(forKey: LegacyKeys.claudeBashToolEnabled), file: file, line: line)
 		XCTAssertTrue(defaults.bool(forKey: LegacyKeys.claudeMCPStrictModeEnabled), file: file, line: line)
 
-		XCTAssertEqual(defaults.string(forKey: LegacyKeys.geminiSessionMode), GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID, file: file, line: line)
+		XCTAssertEqual(defaults.string(forKey: LegacyKeys.antigravitySessionMode), AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID, file: file, line: line)
 		XCTAssertEqual(defaults.string(forKey: LegacyKeys.openCodeSessionMode), OpenCodeAgentConfig.managedSessionModeID, file: file, line: line)
 		XCTAssertEqual(defaults.string(forKey: LegacyKeys.cursorPermissionLevel), CursorAgentToolPreferences.PermissionLevel.managedDefault.rawValue, file: file, line: line)
 	}
@@ -222,7 +222,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 			let permissiveLevel: AgentProviderPermissionLevelID = switch providerID {
 			case .codex: .codex(.fullAccess)
 			case .claude: .claude(.fullAccess)
-			case .gemini: .gemini(.fullAccess)
+			case .antigravity: .antigravity(.fullAccess)
 			case .openCode: .openCode(.fullAccess)
 			case .cursor: .cursor(.fullAccess)
 			}
@@ -240,7 +240,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertTrue(defaults.bool(forKey: LegacyKeys.claudeBashToolEnabled), file: file, line: line)
 		XCTAssertFalse(defaults.bool(forKey: LegacyKeys.claudeMCPStrictModeEnabled), file: file, line: line)
 
-		XCTAssertEqual(defaults.string(forKey: LegacyKeys.geminiSessionMode), GeminiAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID, file: file, line: line)
+		XCTAssertEqual(defaults.string(forKey: LegacyKeys.antigravitySessionMode), AntigravityAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID, file: file, line: line)
 		XCTAssertEqual(defaults.string(forKey: LegacyKeys.openCodeSessionMode), OpenCodeAgentConfig.managedFullAccessSessionModeID, file: file, line: line)
 		XCTAssertEqual(defaults.string(forKey: LegacyKeys.cursorPermissionLevel), CursorAgentToolPreferences.PermissionLevel.fullAccess.rawValue, file: file, line: line)
 	}
@@ -249,7 +249,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertEqual(AgentPermissionSecureDomain.subagent.storageKey, "rp.agent.permissions.subagent.v1")
 		XCTAssertEqual(AgentPermissionSecureDomain.codex.storageKey, "rp.agent.permissions.codex.v1")
 		XCTAssertEqual(AgentPermissionSecureDomain.claude.storageKey, "rp.agent.permissions.claude.v1")
-		XCTAssertEqual(AgentPermissionSecureDomain.gemini.storageKey, "rp.agent.permissions.gemini.v1")
+		XCTAssertEqual(AgentPermissionSecureDomain.antigravity.storageKey, "rp.agent.permissions.antigravity.v1")
 		XCTAssertEqual(AgentPermissionSecureDomain.openCode.storageKey, "rp.agent.permissions.openCode.v1")
 		XCTAssertEqual(AgentPermissionSecureDomain.cursor.storageKey, "rp.agent.permissions.cursor.v1")
 	}
@@ -323,8 +323,8 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 				mcpStrictModeEnabled: false
 			)
 		)
-		secureStrings.values[AgentPermissionSecureDomain.gemini.storageKey] = try encode(
-			SecureGeminiPermissionDocument(sessionModeID: GeminiAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID)
+		secureStrings.values[AgentPermissionSecureDomain.antigravity.storageKey] = try encode(
+			SecureAntigravityPermissionDocument(sessionModeID: AntigravityAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID)
 		)
 		secureStrings.values[AgentPermissionSecureDomain.openCode.storageKey] = try encode(
 			SecureOpenCodePermissionDocument(permissionLevelRaw: OpenCodeAgentToolPreferences.PermissionLevel.fullAccess.rawValue)
@@ -344,14 +344,14 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertEqual(store.claudePermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.claudePermissions().bashToolEnabled, true)
 		XCTAssertEqual(store.claudePermissions().mcpStrictModeEnabled, false)
-		XCTAssertEqual(store.geminiPermissions().permissionLevel(), .fullAccess)
+		XCTAssertEqual(store.antigravityPermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.openCodePermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.cursorPermissions().permissionLevel(), .fullAccess)
 
 		_ = store.subagentPermissions()
 		_ = store.codexPermissions()
 		_ = store.claudePermissions()
-		_ = store.geminiPermissions()
+		_ = store.antigravityPermissions()
 		_ = store.openCodePermissions()
 		_ = store.cursorPermissions()
 
@@ -373,7 +373,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertEqual(store.claudePermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.claudePermissions().bashToolEnabled, true)
 		XCTAssertEqual(store.claudePermissions().mcpStrictModeEnabled, false)
-		XCTAssertEqual(store.geminiPermissions().permissionLevel(), .fullAccess)
+		XCTAssertEqual(store.antigravityPermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.openCodePermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.cursorPermissions().permissionLevel(), .fullAccess)
 		for domain in AgentPermissionSecureDomain.allCases {
@@ -405,7 +405,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 			document.bashToolEnabled = true
 			document.mcpStrictModeEnabled = false
 		})
-		XCTAssertTrue(store.setGeminiPermissionLevel(.fullAccess))
+		XCTAssertTrue(store.setAntigravityPermissionLevel(.fullAccess))
 		XCTAssertTrue(store.setOpenCodePermissionLevel(.fullAccess))
 		XCTAssertTrue(store.setCursorPermissionLevel(.fullAccess))
 
@@ -413,7 +413,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertEqual(store.providerSubagentPermissionLevel(for: .claude), .claude(.fullAccess))
 		XCTAssertEqual(store.codexPermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.claudePermissions().permissionLevel(), .fullAccess)
-		XCTAssertEqual(store.geminiPermissions().permissionLevel(), .fullAccess)
+		XCTAssertEqual(store.antigravityPermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.openCodePermissions().permissionLevel(), .fullAccess)
 		XCTAssertEqual(store.cursorPermissions().permissionLevel(), .fullAccess)
 
@@ -616,7 +616,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertEqual(claude.permissionLevel(), .requireApproval)
 		XCTAssertEqual(claude.bashToolEnabled, false)
 		XCTAssertEqual(claude.mcpStrictModeEnabled, true)
-		let gemini = try decode(SecureGeminiPermissionDocument.self, from: secureStrings.values[AgentPermissionSecureDomain.gemini.storageKey])
+		let gemini = try decode(SecureAntigravityPermissionDocument.self, from: secureStrings.values[AgentPermissionSecureDomain.antigravity.storageKey])
 		XCTAssertEqual(gemini.permissionLevel(), .default)
 		let openCode = try decode(SecureOpenCodePermissionDocument.self, from: secureStrings.values[AgentPermissionSecureDomain.openCode.storageKey])
 		XCTAssertEqual(openCode.permissionLevel(), .managedDefault)
@@ -787,7 +787,7 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		ClaudeAgentToolPreferences.setMCPStrictModeEnabled(false, defaults: defaults, secureStore: store)
 		ClaudeAgentToolPreferences.setToolSearchEnabled(false, defaults: defaults)
 
-		GeminiAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults, secureStore: store)
+		AntigravityAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults, secureStore: store)
 		OpenCodeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults, secureStore: store)
 		CursorAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults, secureStore: store)
 
@@ -806,10 +806,10 @@ final class AgentPermissionSecureStoreTests: XCTestCase {
 		XCTAssertFalse(ClaudeAgentToolPreferences.bashToolEnabled(defaults: defaults))
 		XCTAssertTrue(ClaudeAgentToolPreferences.mcpStrictModeEnabled(defaults: defaults))
 
-		XCTAssertEqual(GeminiAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: store), .fullAccess)
+		XCTAssertEqual(AntigravityAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: store), .fullAccess)
 		XCTAssertEqual(OpenCodeAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: store), .fullAccess)
 		XCTAssertEqual(CursorAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: store), .fullAccess)
-		XCTAssertEqual(GeminiAgentToolPreferences.permissionLevel(defaults: defaults), .default)
+		XCTAssertEqual(AntigravityAgentToolPreferences.permissionLevel(defaults: defaults), .default)
 		XCTAssertEqual(OpenCodeAgentToolPreferences.permissionLevel(defaults: defaults), .managedDefault)
 		XCTAssertEqual(CursorAgentToolPreferences.permissionLevel(defaults: defaults), .managedDefault)
 	}

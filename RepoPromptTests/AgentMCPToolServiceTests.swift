@@ -1513,7 +1513,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 			windowState.apiSettingsViewModel.isClaudeCodeConnected = false
 			windowState.apiSettingsViewModel.isCodexConnected = false
-			windowState.apiSettingsViewModel.isGeminiConnected = false
+			windowState.apiSettingsViewModel.isAntigravityConnected = false
 			windowState.apiSettingsViewModel.isOpenCodeConnected = false
 			windowState.apiSettingsViewModel.isCursorConnected = false
 
@@ -1576,7 +1576,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 			windowState.apiSettingsViewModel.isClaudeCodeConnected = false
 			windowState.apiSettingsViewModel.isCodexConnected = false
-			windowState.apiSettingsViewModel.isGeminiConnected = false
+			windowState.apiSettingsViewModel.isAntigravityConnected = false
 			windowState.apiSettingsViewModel.isOpenCodeConnected = false
 			windowState.apiSettingsViewModel.isCursorConnected = false
 			windowState.apiSettingsViewModel.test_setClaudeCodeCLIStatus(
@@ -1986,7 +1986,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		windowState.apiSettingsViewModel.isClaudeCodeConnected = true
 		windowState.apiSettingsViewModel.isCodexConnected = false
-		windowState.apiSettingsViewModel.isGeminiConnected = false
+		windowState.apiSettingsViewModel.isAntigravityConnected = false
 		windowState.apiSettingsViewModel.isOpenCodeConnected = false
 		windowState.apiSettingsViewModel.isCursorConnected = false
 
@@ -2018,7 +2018,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 		let claudeModels = claude["models"]?.arrayValue ?? []
 		XCTAssertFalse(claudeModels.isEmpty)
 
-		for disconnectedAgent in [DiscoverAgentKind.codexExec, .gemini, .openCode, .cursor] {
+		for disconnectedAgent in [DiscoverAgentKind.codexExec, .antigravity, .openCode, .cursor] {
 			let agent = try XCTUnwrap(agentsByName[disconnectedAgent.displayName])
 			XCTAssertEqual(agent["available"]?.boolValue, false, "\(disconnectedAgent.displayName) should reflect target-window disconnected state")
 			XCTAssertTrue((agent["models"]?.arrayValue ?? []).isEmpty, "\(disconnectedAgent.displayName) should not expose models while disconnected")
@@ -2066,7 +2066,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		windowState.apiSettingsViewModel.isClaudeCodeConnected = true
 		windowState.apiSettingsViewModel.isCodexConnected = false
-		windowState.apiSettingsViewModel.isGeminiConnected = false
+		windowState.apiSettingsViewModel.isAntigravityConnected = false
 		windowState.apiSettingsViewModel.isOpenCodeConnected = false
 		windowState.apiSettingsViewModel.isCursorConnected = false
 
@@ -2103,7 +2103,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		windowState.apiSettingsViewModel.isClaudeCodeConnected = true
 		windowState.apiSettingsViewModel.isCodexConnected = false
-		windowState.apiSettingsViewModel.isGeminiConnected = false
+		windowState.apiSettingsViewModel.isAntigravityConnected = false
 		windowState.apiSettingsViewModel.isOpenCodeConnected = false
 		windowState.apiSettingsViewModel.isCursorConnected = false
 
@@ -2808,7 +2808,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let destinationTabID = try await agentModeVM.prepareHandoffToNewTab(
 			upToItemID: firstAssistant.id,
-			destinationAgent: .gemini,
+			destinationAgent: .antigravity,
 			destinationModelRaw: AgentModel.defaultModel.rawValue,
 			destinationReasoningEffortRaw: nil
 		)
@@ -2855,7 +2855,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let destinationTabID = try await agentModeVM.prepareHandoffToNewTab(
 			upToItemID: latestAssistant.id,
-			destinationAgent: .gemini,
+			destinationAgent: .antigravity,
 			destinationModelRaw: AgentModel.defaultModel.rawValue,
 			destinationReasoningEffortRaw: nil
 		)
@@ -2893,7 +2893,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		await XCTAssertThrowsErrorAsync(try await agentModeVM.prepareHandoffToNewTab(
 			upToItemID: orphanAssistant.id,
-			destinationAgent: .gemini,
+			destinationAgent: .antigravity,
 			destinationModelRaw: AgentModel.defaultModel.rawValue,
 			destinationReasoningEffortRaw: nil
 		)) { error in
@@ -2922,7 +2922,7 @@ final class AgentMCPToolServiceTests: XCTestCase {
 
 		let destinationTabID = try await agentModeVM.prepareHandoffToNewTab(
 			upToItemID: legacyAssistant.id,
-			destinationAgent: .gemini,
+			destinationAgent: .antigravity,
 			destinationModelRaw: AgentModel.defaultModel.rawValue,
 			destinationReasoningEffortRaw: nil
 		)

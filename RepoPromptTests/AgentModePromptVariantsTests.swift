@@ -32,17 +32,17 @@ final class AgentModePromptVariantsTests: XCTestCase {
 		// --- Standard (no role) ---
 		PromptVariant(label: "standard_claude", taskLabelKind: nil, agentKind: .claudeCode, includeWaitTool: false, includeShareThoughts: false),
 		PromptVariant(label: "standard_codex", taskLabelKind: nil, agentKind: .codexExec, includeWaitTool: false, includeShareThoughts: false),
-		PromptVariant(label: "standard_gemini", taskLabelKind: nil, agentKind: .gemini, includeWaitTool: false, includeShareThoughts: false),
+		PromptVariant(label: "standard_gemini", taskLabelKind: nil, agentKind: .antigravity, includeWaitTool: false, includeShareThoughts: false),
 
 		// --- Explore role ---
 		PromptVariant(label: "explore_claude", taskLabelKind: .explore, agentKind: .claudeCode, includeWaitTool: false, includeShareThoughts: false),
 		PromptVariant(label: "explore_codex", taskLabelKind: .explore, agentKind: .codexExec, includeWaitTool: false, includeShareThoughts: false),
-		PromptVariant(label: "explore_gemini", taskLabelKind: .explore, agentKind: .gemini, includeWaitTool: false, includeShareThoughts: false),
+		PromptVariant(label: "explore_gemini", taskLabelKind: .explore, agentKind: .antigravity, includeWaitTool: false, includeShareThoughts: false),
 
 		// --- Engineer role ---
 		PromptVariant(label: "engineer_claude", taskLabelKind: .engineer, agentKind: .claudeCode, includeWaitTool: false, includeShareThoughts: false),
 		PromptVariant(label: "engineer_codex", taskLabelKind: .engineer, agentKind: .codexExec, includeWaitTool: false, includeShareThoughts: false),
-		PromptVariant(label: "engineer_gemini", taskLabelKind: .engineer, agentKind: .gemini, includeWaitTool: false, includeShareThoughts: false),
+		PromptVariant(label: "engineer_gemini", taskLabelKind: .engineer, agentKind: .antigravity, includeWaitTool: false, includeShareThoughts: false),
 
 		// --- Pair role (should match standard) ---
 		PromptVariant(label: "pair_claude", taskLabelKind: .pair, agentKind: .claudeCode, includeWaitTool: false, includeShareThoughts: false),
@@ -103,7 +103,7 @@ final class AgentModePromptVariantsTests: XCTestCase {
 			"workspace_context",
 		]
 
-		for agentKind in [DiscoverAgentKind.claudeCode, .codexExec, .gemini] {
+		for agentKind in [DiscoverAgentKind.claudeCode, .codexExec, .antigravity] {
 			let prompt = SystemPromptService.agentModePrompt(
 				agentKind: agentKind,
 				taskLabelKind: .explore
@@ -123,7 +123,7 @@ final class AgentModePromptVariantsTests: XCTestCase {
 		let forbiddenTerms = ["agent_run", "agent_manage"]
 		let requiredTerms = ["apply_edits", "file_actions", "ask_oracle", "agent_explore"]
 
-		for agentKind in [DiscoverAgentKind.claudeCode, .codexExec, .gemini] {
+		for agentKind in [DiscoverAgentKind.claudeCode, .codexExec, .antigravity] {
 			let prompt = SystemPromptService.agentModePrompt(
 				agentKind: agentKind,
 				taskLabelKind: .engineer
@@ -297,7 +297,7 @@ final class AgentModePromptVariantsTests: XCTestCase {
 	/// cannot produce or dispatch exports because ask_oracle / oracle_send /
 	/// context_builder and agent_run / agent_explore are all hidden from them.
 	func testExplorePromptHasNoDelegationWording() {
-		for agentKind in [DiscoverAgentKind.claudeCode, .codexExec, .gemini] {
+		for agentKind in [DiscoverAgentKind.claudeCode, .codexExec, .antigravity] {
 			let prompt = SystemPromptService.agentModePrompt(
 				agentKind: agentKind,
 				taskLabelKind: .explore
@@ -481,7 +481,7 @@ final class AgentModePromptVariantsTests: XCTestCase {
 	}
 
 	func testNonCodexVariantsDoNotUseCodexSetStatusToolName() {
-		for agentKind in Self.claudeFamilyAgentKinds + [DiscoverAgentKind.gemini] {
+		for agentKind in Self.claudeFamilyAgentKinds + [DiscoverAgentKind.antigravity] {
 			for taskLabel in AgentModelCatalog.TaskLabelKind.allCases + [nil] as [AgentModelCatalog.TaskLabelKind?] {
 				let prompt = SystemPromptService.agentModePrompt(
 					agentKind: agentKind,
@@ -500,7 +500,7 @@ final class AgentModePromptVariantsTests: XCTestCase {
 	func testGeminiVariantsAdvertiseSetStatusButNotRemovedReasoningTools() {
 		for taskLabel in AgentModelCatalog.TaskLabelKind.allCases + [nil] as [AgentModelCatalog.TaskLabelKind?] {
 			let prompt = SystemPromptService.agentModePrompt(
-				agentKind: .gemini,
+				agentKind: .antigravity,
 				taskLabelKind: taskLabel
 			)
 

@@ -708,7 +708,6 @@ extension AgentModeViewModel {
 				agentReasoningEffort: session.agentReasoningEffort,
 				lastRunState: session.lastRunState,
 				providerSessionID: session.providerSessionID,
-				geminiACPResumeMetadata: session.geminiACPResumeMetadata,
 				autoEditEnabled: session.autoEditEnabled,
 				providerTokenUsageByTurn: session.providerTokenUsageByTurn,
 				codexConversationID: session.codexConversationID,

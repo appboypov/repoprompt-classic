@@ -177,14 +177,6 @@ final class AgentModelResolutionTests: XCTestCase {
 		XCTAssertNil(resolved)
 	}
 
-	func testResolvesLegacyGemini3ProPreviewToGemini31Preview() {
-		let resolved = AgentModel.resolvedModel(
-			forRaw: "gemini-3-pro-preview",
-			agentKind: .gemini
-		)
-		XCTAssertEqual(resolved, .geminiPro3p1Preview)
-	}
-
 	func testOracleExportWorkflowDefaultsToExploreRole() {
 		XCTAssertEqual(AgentWorkflow.oracleExport.defaultTaskLabelKind, .explore)
 	}
@@ -194,7 +186,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: true,
@@ -221,7 +213,7 @@ final class AgentModelResolutionTests: XCTestCase {
 			availability: AgentModelCatalog.AvailabilityContext(
 				claudeCodeAvailable: false,
 				codexAvailable: false,
-				geminiAvailable: false,
+				antigravityAvailable: false,
 				openCodeAvailable: false,
 				cursorAvailable: false,
 				zaiConfigured: false,
@@ -249,7 +241,7 @@ final class AgentModelResolutionTests: XCTestCase {
 					availability: AgentModelCatalog.AvailabilityContext(
 						claudeCodeAvailable: false,
 						codexAvailable: false,
-						geminiAvailable: false,
+						antigravityAvailable: false,
 						openCodeAvailable: false,
 						cursorAvailable: false,
 						zaiConfigured: false,
@@ -799,7 +791,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: true,
 			zaiConfigured: true
 		)
@@ -814,7 +806,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: true,
+			antigravityAvailable: true,
 			openCodeAvailable: false,
 			zaiConfigured: true
 		)
@@ -825,11 +817,11 @@ final class AgentModelResolutionTests: XCTestCase {
 			availability: availability
 		)
 
-		XCTAssertEqual(normalized.agent, .gemini)
+		XCTAssertEqual(normalized.agent, .antigravity)
 		XCTAssertTrue(
 			AgentModelCatalog.isValid(
 				rawModel: normalized.modelRaw,
-				for: .gemini,
+				for: .antigravity,
 				availability: availability
 			)
 		)
@@ -852,22 +844,22 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: true,
 			zaiConfigured: false
 		)
 
 		XCTAssertEqual(AgentModelCatalog.selectableAgents(availability: availability), [.cursor])
-		XCTAssertTrue(AgentModelCatalog.hasUnconfiguredSupportedCLIProviders(availableAgents: [.codexExec, .claudeCode, .gemini, .openCode]))
-		XCTAssertFalse(AgentModelCatalog.hasUnconfiguredSupportedCLIProviders(availableAgents: [.codexExec, .claudeCode, .gemini, .openCode, .cursor]))
+		XCTAssertTrue(AgentModelCatalog.hasUnconfiguredSupportedCLIProviders(availableAgents: [.codexExec, .claudeCode, .antigravity, .openCode]))
+		XCTAssertFalse(AgentModelCatalog.hasUnconfiguredSupportedCLIProviders(availableAgents: [.codexExec, .claudeCode, .antigravity, .openCode, .cursor]))
 	}
 
 	func testSandboxedDelegateEditSurfaceExcludesCursorButGeneralSelectionKeepsIt() {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: true,
 			zaiConfigured: false
@@ -889,7 +881,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: true,
 			zaiConfigured: false
@@ -951,7 +943,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false
@@ -977,7 +969,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false
@@ -1003,7 +995,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false
@@ -1097,7 +1089,7 @@ final class AgentModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: true,
 			zaiConfigured: false
@@ -1125,15 +1117,15 @@ final class AgentModelResolutionTests: XCTestCase {
 		let codexAndCursor = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: true,
 			zaiConfigured: false
 		)
-		let geminiAndCursor = AgentModelCatalog.AvailabilityContext(
+		let antigravityAndCursor = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: true,
+			antigravityAvailable: true,
 			openCodeAvailable: false,
 			cursorAvailable: true,
 			zaiConfigured: false
@@ -1152,7 +1144,7 @@ final class AgentModelResolutionTests: XCTestCase {
 			AgentModelCatalog.resolveTaskLabelKind(.design, availability: codexAndCursor),
 			AgentModelCatalog.NormalizedAgentSelection(agent: .cursor, modelRaw: AgentModel.cursorComposer2.rawValue)
 		)
-		XCTAssertEqual(AgentModelCatalog.resolveTaskLabelKind(.design, availability: geminiAndCursor)?.agent, .gemini)
+		XCTAssertEqual(AgentModelCatalog.resolveTaskLabelKind(.design, availability: antigravityAndCursor)?.agent, .antigravity)
 	}
 
 	func testCursorChatModelsUseAutoFallbackAndDeduplicateACPAutoAliases() {

@@ -254,7 +254,7 @@ final class RecommendationWizardViewModel: ObservableObject {
             Publishers.MergeMany([
                 api.$isClaudeCodeConnected.map { _ in () }.eraseToAnyPublisher(),
                 api.$isCodexConnected.map { _ in () }.eraseToAnyPublisher(),
-                api.$isGeminiConnected.map { _ in () }.eraseToAnyPublisher(),
+                api.$isAntigravityConnected.map { _ in () }.eraseToAnyPublisher(),
                 api.$isCursorConnected.map { _ in () }.eraseToAnyPublisher(),
                 api.$isOpenAIKeyValid.map { _ in () }.eraseToAnyPublisher(),
             ])

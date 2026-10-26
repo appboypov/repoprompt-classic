@@ -442,7 +442,7 @@ enum ClaudeCodeAIModelCatalog {
 		AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false

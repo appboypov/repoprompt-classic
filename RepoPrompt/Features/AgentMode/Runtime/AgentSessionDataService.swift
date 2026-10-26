@@ -147,7 +147,6 @@ actor AgentSessionDataService {
 		let agentReasoningEffort: String?
 		let lastRunState: String?
 		let providerSessionID: String?
-		let geminiACPResumeMetadata: GeminiACPResumeMetadata?
 		let autoEditEnabled: Bool
 		let codexConversationID: String?
 		let codexRolloutPath: String?
@@ -1052,7 +1051,6 @@ actor AgentSessionDataService {
 				agentReasoningEffort: header.agentReasoningEffort,
 				lastRunState: AgentSessionRestoreSupport.coldRestoredLastRunStateRaw(header.lastRunState),
 				providerSessionID: header.providerSessionID,
-				geminiACPResumeMetadata: header.geminiACPResumeMetadata,
 				autoEditEnabled: header.autoEditEnabled,
 				codexConversationID: header.codexConversationID,
 				codexRolloutPath: header.codexRolloutPath,

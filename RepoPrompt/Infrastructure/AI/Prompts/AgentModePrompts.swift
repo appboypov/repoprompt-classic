@@ -372,15 +372,6 @@ at the head of that message.
 - For text-based reads (source code, configs, docs, logs), use MCP `RepoPrompt__read_file`.
 - Prefer MCP `RepoPrompt__read_file` for text so line ranges/path behavior stay consistent in RepoPrompt.
 """
-			case .gemini:
-				return """
-
-**Read policy (important):**
-- For non-text assets (images, screenshots, PDFs, other binary files), use Gemini's native `read_file` tool.
-- If the user message includes media references like `@path/to/file.png` (or other `@path` binary assets), ALWAYS open those paths with native `read_file`.
-- For text-based reads (source code, configs, docs, logs), use MCP `RepoPrompt__read_file`.
-- Prefer MCP `RepoPrompt__read_file` for text so line ranges/path behavior stay consistent in RepoPrompt.
-"""
 			default:
 				return ""
 			}

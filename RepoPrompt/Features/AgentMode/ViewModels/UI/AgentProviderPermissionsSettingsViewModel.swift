@@ -201,8 +201,8 @@ final class AgentProviderPermissionsSettingsViewModel: ObservableObject {
 			CodexAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
 		case .claude(let level):
 			ClaudeAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
-		case .gemini(let level):
-			GeminiAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
+		case .antigravity(let level):
+			AntigravityAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
 		case .openCode(let level):
 			OpenCodeAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
 		case .cursor(let level):

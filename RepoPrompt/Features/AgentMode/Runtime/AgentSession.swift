@@ -124,22 +124,6 @@ struct AgentTokenUsagePersist: Codable, Equatable, Sendable {
 // MARK: - Agent Session
 
 /// Persisted agent mode session containing the chat transcript and configuration
-struct GeminiACPResumeMetadata: Codable, Equatable, Sendable {
-	var runtimeSessionID: String?
-	var loadSessionID: String?
-	var loadSessionIDVerifiedAt: Date?
-
-	init(
-		runtimeSessionID: String? = nil,
-		loadSessionID: String? = nil,
-		loadSessionIDVerifiedAt: Date? = nil
-	) {
-		self.runtimeSessionID = runtimeSessionID
-		self.loadSessionID = loadSessionID
-		self.loadSessionIDVerifiedAt = loadSessionIDVerifiedAt
-	}
-}
-
 struct AgentSession: Codable, Identifiable, Sendable {
 	static let currentSerializationVersion = 4
 	static let legacyUnversionedSerializationVersion = 0
@@ -168,7 +152,7 @@ struct AgentSession: Codable, Identifiable, Sendable {
 	/// Snapshot of canonical vs default-presented transcript counts.
 	var transcriptProjectionCounts: AgentTranscriptProjectionCounts?
 	
-	/// Agent kind used for this session (e.g., "claudeCode", "codexExec", "gemini")
+	/// Agent kind used for this session (e.g., "claudeCode", "codexExec", "antigravity")
 	var agentKind: String?
 	
 	/// Model used for this session (e.g., "sonnet", "opus", "codexMedium")
@@ -183,10 +167,9 @@ struct AgentSession: Codable, Identifiable, Sendable {
 	/// Provider-specific resumable session identifier (e.g., Claude CLI session_id)
 	/// Used to resume conversations with --resume instead of replaying history
 	var providerSessionID: String?
-	var geminiACPResumeMetadata: GeminiACPResumeMetadata?
 	var autoEditEnabled: Bool
 
-	/// Persisted per-turn token usage for non-Codex providers (Claude/Gemini).
+	/// Persisted per-turn token usage for non-Codex providers (Claude/Antigravity).
 	/// Used to rebuild context usage after reopen/resume when tool payloads are pruned.
 	var providerTokenUsageByTurn: [AgentTokenUsagePersist]
 
@@ -235,7 +218,6 @@ struct AgentSession: Codable, Identifiable, Sendable {
 		agentReasoningEffort: String? = nil,
 		lastRunState: String? = nil,
 		providerSessionID: String? = nil,
-		geminiACPResumeMetadata: GeminiACPResumeMetadata? = nil,
 		autoEditEnabled: Bool = true,
 		providerTokenUsageByTurn: [AgentTokenUsagePersist] = [],
 		codexConversationID: String? = nil,
@@ -271,7 +253,6 @@ struct AgentSession: Codable, Identifiable, Sendable {
 		self.agentReasoningEffort = agentReasoningEffort
 		self.lastRunState = lastRunState
 		self.providerSessionID = providerSessionID
-		self.geminiACPResumeMetadata = geminiACPResumeMetadata
 		self.autoEditEnabled = autoEditEnabled
 		self.providerTokenUsageByTurn = providerTokenUsageByTurn
 		self.codexConversationID = codexConversationID
@@ -309,7 +290,6 @@ struct AgentSession: Codable, Identifiable, Sendable {
 		case agentReasoningEffort
 		case lastRunState
 		case providerSessionID
-		case geminiACPResumeMetadata
 		case autoEditEnabled
 		case providerTokenUsageByTurn
 		case codexConversationID
@@ -350,7 +330,6 @@ struct AgentSession: Codable, Identifiable, Sendable {
 		agentReasoningEffort = try container.decodeIfPresent(String.self, forKey: .agentReasoningEffort)
 		lastRunState = try container.decodeIfPresent(String.self, forKey: .lastRunState)
 		providerSessionID = try container.decodeIfPresent(String.self, forKey: .providerSessionID)
-		geminiACPResumeMetadata = try container.decodeIfPresent(GeminiACPResumeMetadata.self, forKey: .geminiACPResumeMetadata)
 		autoEditEnabled = try container.decode(Bool.self, forKey: .autoEditEnabled)
 		providerTokenUsageByTurn = try container.decodeIfPresent([AgentTokenUsagePersist].self, forKey: .providerTokenUsageByTurn) ?? []
 		codexConversationID = try container.decodeIfPresent(String.self, forKey: .codexConversationID)

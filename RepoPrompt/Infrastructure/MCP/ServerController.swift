@@ -48,7 +48,7 @@ final actor ServerController: ObservableObject {
 	private static let defaultAlwaysAllowedClients: Set<String> = [
 		"claude-code",
 		"codex-mcp-client",
-		"gemini-cli-mcp-client",
+		"antigravity-client",
 		"cursor",
 		"cursor-mcp-client",
 		"claude-ai"
@@ -219,7 +219,7 @@ final actor ServerController: ObservableObject {
 	/// Checks if a client is in the always-allowed list.
     ///
     /// Supports both exact matches and prefix matches. Prefix matching allows entries
-    /// like "gemini-cli" to match "gemini-cli-mcp-client" or versioned variants.
+    /// like "antigravity" to match "antigravity-client" or versioned variants.
     ///
     /// NOTE: Prefix matching broadens what gets auto-approved. Consider making this
     /// opt-in per entry if stricter control is needed in the future.

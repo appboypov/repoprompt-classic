@@ -136,7 +136,7 @@ final class AgentPermissionsFocusedViewModelTests: XCTestCase {
 		XCTAssertEqual(viewModel.revision, 1)
 	}
 
-	func testGeminiPermissionSetterRoutesThroughServiceAndFiresCallback() {
+	func testAntigravityPermissionSetterRoutesThroughServiceAndFiresCallback() {
 		let defaults = makeDefaults()
 		let service = makeService(defaults: defaults)
 
@@ -147,11 +147,11 @@ final class AgentPermissionsFocusedViewModelTests: XCTestCase {
 			onProviderPreferenceChanged: { callbackProviderID = $0 }
 		)
 
-		viewModel.setPermissionLevel(.gemini(.fullAccess))
+		viewModel.setPermissionLevel(.antigravity(.fullAccess))
 
-		XCTAssertEqual(callbackProviderID, .gemini)
+		XCTAssertEqual(callbackProviderID, .antigravity)
 		XCTAssertEqual(
-			GeminiAgentToolPreferences.permissionLevel(defaults: defaults),
+			AntigravityAgentToolPreferences.permissionLevel(defaults: defaults),
 			.fullAccess
 		)
 	}
@@ -388,7 +388,7 @@ final class AgentPermissionsFocusedViewModelTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: true,
-			geminiAvailable: true,
+			antigravityAvailable: true,
 			openCodeAvailable: true,
 			cursorAvailable: true,
 			zaiConfigured: false
@@ -569,7 +569,7 @@ final class AgentPermissionsFocusedViewModelTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false

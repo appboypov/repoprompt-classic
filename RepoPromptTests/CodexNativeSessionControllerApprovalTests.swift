@@ -391,7 +391,7 @@ final class CodexNativeSessionControllerApprovalTests: XCTestCase {
 
 	func testAgentRequestUserInputBuildResponseIncludesOtherAndUserNote() {
 		let request = AgentRequestUserInputRequest(
-			requestID: .string("rui-response"),
+			requestID: .codex(.string("rui-response")),
 			method: "item/tool/requestUserInput",
 			threadID: "thread-1",
 			turnID: "turn-1",

@@ -516,8 +516,8 @@ final class CodexAgentModeCoordinatorTranscriptDurabilityTests: XCTestCase {
 		await coordinator.test_handleCodexNativeEvent(.requestUserInput(makeUserInputRequest(id: "second", questionID: "q2")), session: session)
 
 		XCTAssertEqual(session.runState, .waitingForQuestion)
-		XCTAssertEqual(session.pendingUserInputRequest?.requestID, .string("first"))
-		XCTAssertEqual(session.queuedUserInputRequests.map(\.requestID), [.string("second")])
+		XCTAssertEqual(session.pendingUserInputRequest?.requestID, .codex(.string("first")))
+		XCTAssertEqual(session.queuedUserInputRequests.map(\.requestID), [.codex(.string("second"))])
 		assertAssistantTexts(["before "], in: session)
 	}
 
@@ -668,7 +668,7 @@ final class CodexAgentModeCoordinatorTranscriptDurabilityTests: XCTestCase {
 
 	private func makeUserInputRequest(id: String, questionID: String) -> AgentRequestUserInputRequest {
 		AgentRequestUserInputRequest(
-			requestID: .string(id),
+			requestID: .codex(.string(id)),
 			method: "item/tool/requestUserInput",
 			threadID: "thread-1",
 			turnID: "turn-1",

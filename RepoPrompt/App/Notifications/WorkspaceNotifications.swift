@@ -30,9 +30,9 @@ extension Notification.Name {
 	/// Posted when Codex CLI connection status changes
 	/// userInfo mirrors `claudeCodeConnectionChanged`
 	static let codexConnectionChanged = Notification.Name("codexConnectionChanged")
-	/// Posted when Gemini CLI connection status changes
+	/// Posted when Antigravity connection status changes
 	/// userInfo mirrors `claudeCodeConnectionChanged`
-	static let geminiConnectionChanged = Notification.Name("geminiConnectionChanged")
+	static let antigravityConnectionChanged = Notification.Name("antigravityConnectionChanged")
 	/// Posted when OpenCode CLI connection status changes
 	/// userInfo mirrors `claudeCodeConnectionChanged`
 	static let openCodeConnectionChanged = Notification.Name("openCodeConnectionChanged")

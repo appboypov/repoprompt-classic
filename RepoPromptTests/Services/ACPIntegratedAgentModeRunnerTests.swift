@@ -7,7 +7,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testHandleToolStreamEventConsumesExplicitRepoPromptProviderToolCall() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let invocationID = UUID()
 
 		let consumed = runner.handleToolStreamEvent(
@@ -29,7 +29,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testHandleToolStreamEventConsumesExplicitRepoPromptProviderToolResult() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let invocationID = UUID()
 
 		let consumed = runner.handleToolStreamEvent(
@@ -108,7 +108,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testHandleToolStreamEventDoesNotConsumeNonRepoPromptProviderToolCall() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 
 		let consumed = runner.handleToolStreamEvent(
 			.toolCall(.init(
@@ -227,7 +227,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testTrackerToolEventsAreRenderedForACPRepoPromptTools() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let invocationID = UUID()
 
 		runner.testHandleTrackerToolCall(
@@ -286,7 +286,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testTrackerToolResultCompletesExistingACPProviderToolCall() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let providerInvocationID = UUID()
 		let trackerInvocationID = UUID()
 		let providerArgs = #"{"detach":true,"op":"start"}"#
@@ -319,7 +319,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testProviderToolResultDoesNotDuplicateAfterTrackerResult() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let providerInvocationID = UUID()
 		let trackerInvocationID = UUID()
 		let providerArgs = #"{"detach":true,"op":"start"}"#
@@ -361,7 +361,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testProviderToolCallCorrelatesExistingTrackerToolCall() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let providerInvocationID = UUID()
 		let trackerInvocationID = UUID()
 		let providerArgs = #"{"detach":true,"op":"start"}"#
@@ -399,7 +399,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testDuplicateProviderInvocationIDAcrossTurnsDoesNotOverwritePreviousTerminalResult() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let reusedInvocationID = UUID(uuidString: "A1C44EA9-981C-5F3C-98A2-7391D06DBADE")!
 		let firstArgs = #"{"path":"README.md"}"#
 		let firstResult = #"{"status":"success","content":"first"}"#
@@ -444,7 +444,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testDuplicateProviderResultDeliveryWithinCurrentTurnUpdatesSameExecution() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let invocationID = UUID()
 		let args = #"{"path":"README.md"}"#
 		let firstResult = #"{"status":"success","content":"first"}"#
@@ -482,7 +482,7 @@ final class ACPIntegratedAgentModeRunnerTests: XCTestCase {
 	func testCurrentTurnRunningResultWithDuplicateInvocationButDifferentToolIsNotOverwritten() {
 		let runner = makeRunner()
 		let session = AgentModeViewModel.TabSession(tabID: UUID())
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		let reusedInvocationID = UUID()
 		let agentRunResult = #"{"status":"running"}"#
 		let readFileResult = #"{"status":"success","content":"hello"}"#

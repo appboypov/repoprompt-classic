@@ -181,7 +181,7 @@ struct AgentModeGeneralSettingsView: View {
 		let connected = AgentProviderBindingID.allCases.filter(isProviderConnected).count
 		let total = AgentProviderBindingID.allCases.count
 		if connected == 0 {
-			return "Connect a CLI agent (Claude Code, Codex, Gemini, OpenCode, Cursor) to run anything in Agent Mode."
+			return "Connect a CLI agent (Claude Code, Codex, Antigravity, OpenCode, Cursor) to run anything in Agent Mode."
 		}
 		return "\(connected) of \(total) CLI providers connected. Manage auth, installs, and models in CLI Providers."
 	}
@@ -224,7 +224,7 @@ struct AgentModeGeneralSettingsView: View {
 		switch provider {
 		case .claude:   return apiSettingsVM.isClaudeCodeConnected
 		case .codex:    return apiSettingsVM.isCodexConnected
-		case .gemini:   return apiSettingsVM.isGeminiConnected
+		case .antigravity:   return apiSettingsVM.isAntigravityConnected
 		case .openCode: return apiSettingsVM.isOpenCodeConnected
 		case .cursor:   return apiSettingsVM.isCursorConnected
 		}

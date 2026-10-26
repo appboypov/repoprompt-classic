@@ -38,9 +38,9 @@ enum MCPClientIdentity {
 		guard let normalized = normalized(raw) else { return nil }
 		if matchesFamily(normalized, tokens: ["claude", "code"]) { return "claude-code" }
 		if matchesFamily(normalized, tokens: ["codex", "mcp", "client"]) { return "codex-mcp-client" }
-		if matchesFamily(normalized, tokens: ["gemini", "cli", "mcp", "client"])
-			|| matchesFamily(normalized, tokens: ["gemini", "cli"]) {
-			return "gemini-cli-mcp-client"
+		if matchesFamily(normalized, tokens: ["antigravity", "client"])
+			|| matchesFamily(normalized, tokens: ["antigravity"]) {
+			return "antigravity-client"
 		}
 		if matchesFamily(normalized, tokens: ["cursor", "mcp", "client"])
 			|| matchesFamily(normalized, tokens: ["cursor", "agent"])
@@ -78,7 +78,7 @@ enum MCPClientIdentity {
 	static func isHeadlessAgentClient(_ raw: String?) -> Bool {
 		guard let family = canonicalFamilyID(raw) else { return false }
 		switch family {
-		case "claude-code", "codex-mcp-client", "gemini-cli-mcp-client", "cursor":
+		case "claude-code", "codex-mcp-client", "antigravity-client", "cursor":
 			return true
 		default:
 			return false

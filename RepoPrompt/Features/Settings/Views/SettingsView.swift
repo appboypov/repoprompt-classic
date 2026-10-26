@@ -685,7 +685,7 @@ enum SettingsTab: String, CaseIterable {
 					"claude cli", "codex cli", "claude max", "sourcegraph", "cli tools",
 					"local cli", "cli authentication", "claude login", "codex login",
 					"test connection", "cli connection", "command line tools", "agent mode",
-					"opencode", "cursor", "gemini cli", "glm", "z.ai", "zai", "claude code glm",
+					"opencode", "cursor", "antigravity", "glm", "z.ai", "zai", "claude code glm",
 					"anthropic glm"]
 		case .promptOrder:
 			return ["prompt order", "copy prompt order", "prompt priority", "prompt sequence", "reorder prompts",
@@ -737,7 +737,7 @@ enum SettingsTab: String, CaseIterable {
 					"clarifying questions", "ui clarifying questions", "mcp clarifying questions",
 					"question timeout", "ask_user timeout", "timeout",
 					"prompt enhancement", "rewrite", "augment", "preserve",
-					"auto plan", "plan generation", "claude code", "codex", "gemini cli",
+					"auto plan", "plan generation", "claude code", "codex", "antigravity",
 					"analysis budget", "plan token budget", "custom prompts",
 					"custom instructions", "ui runs", "mcp runs"]
 		case .agentMode:

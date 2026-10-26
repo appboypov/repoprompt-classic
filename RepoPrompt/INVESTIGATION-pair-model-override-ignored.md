@@ -56,7 +56,7 @@ Changing the Agent Mode Settings override for the Pair role is persisted correct
           SelectionCandidate(agent: .codexExec, modelRaw: AgentModel.gpt54High.rawValue),
           SelectionCandidate(agent: .claudeCode, modelRaw: AgentModel.claudeOpus.rawValue),
           SelectionCandidate(agent: .claudeCodeGLM, modelRaw: AgentModel.claudeOpus.rawValue),
-          SelectionCandidate(agent: .gemini, modelRaw: AgentModel.geminiPro3p1Preview.rawValue),
+          SelectionCandidate(agent: .antigravity, modelRaw: defaultModelRaw(for: .antigravity)),
       ]
   ```
 - `RepoPrompt/RepoPrompt/Models/Agent/ModelSelection/AgentModelCatalog.swift:593-606` loops over `candidateChain(for:)` and returns the first available candidate.

@@ -87,12 +87,6 @@ class SystemPromptService {
 				: "**Codemap coverage:** " + langs.map { $0.displayName }.joined(separator: ", ")
 		}()
 
-		// Gemini-specific: Tool name note for duplicate read_file variants.
-		let geminiToolNote = agentKind == .gemini ? """
-
-**Tool Name Note for Gemini:** A duplicate read tool may appear as `RepoPrompt__read_file` in your tool list. Prefer that tool when available. Example phrasing: "Reading more core logic files using the RepoPrompt__read_file tool."
-""" : ""
-
 		// Codex-specific tool restriction warning (detailed, early in prompt)
 		let codexEarlyWarning = agentKind == .codexExec ? """
 
@@ -483,7 +477,7 @@ You are the **Discover** agent. Your mission: **curate the perfect file selectio
 The files you select become the next model's entire world. The next model likely will NOT have tool access—they only see what you curate. When in doubt, include rather than exclude—better to have too much context than leave the model blind to critical dependencies.
 
 **Available tools:** `manage_selection`, `prompt`, `workspace_context`, `get_file_tree`, `get_code_structure`, `file_search`, `read_file`, `git`\(askUserTool).
-Do **not** perform implementation or code edits.\(geminiToolNote)
+Do **not** perform implementation or code edits.
 \(codexEarlyWarning)\(runIDInstruction)
 
 **Core Principles**
@@ -809,16 +803,6 @@ If you need a high-level plan, use `ask_oracle` with `mode:"plan"`. Selection is
 - If the user message includes media references like `@path/to/file.png` (or other `@path` binary assets), ALWAYS open those paths with the native `Read` tool.
 - For text-based reads (source code, configs, docs, logs), use MCP `RepoPrompt__read_file`.
 - Prefer MCP `RepoPrompt__read_file` for text so line ranges/path behavior stay consistent in RepoPrompt.
-"""
-		case .gemini:
-			providerReadPolicyGuidance = """
-
-**Read policy (important):**
-**Tool disambiguation (important):**
-Some tools exist as both Gemini's native `read_file` tool and RepoPrompt MCP tools. Use the correct version:
-- `read_file` — Use Gemini's native `read_file` tool for binary assets (images, screenshots, PDFs, other binary files). Use MCP `RepoPrompt__read_file` for text-based reads (source code, configs, docs, logs). Prefer the MCP version for text so line ranges and path behavior stay consistent in RepoPrompt.
-- `ask_user` — ALWAYS use the MCP version (`mcp__RepoPrompt__ask_user`). It routes through RepoPrompt's UI and supports structured options. Do not use native `ask_user`.
-- If the user message includes media references like `@path/to/file.png` (or other `@path` binary assets), ALWAYS open those paths with native `read_file`.
 """
 		default:
 			providerReadPolicyGuidance = ""
@@ -1505,12 +1489,8 @@ extension SystemPromptService {
 """
 			: ""
 
-		// Gemini-specific: MCP tools get prefixed with "RepoPrompt__" when there are built-in tools with the same name
-		let readFileToolName = (agentKind == .gemini) ? "read_file OR RepoPrompt__read_file" : DelegateEditToolNames.readFile
+		let readFileToolName = DelegateEditToolNames.readFile
 		let editToolName = DelegateEditToolNames.editFile
-		let geminiToolNote = (agentKind == .gemini)
-			? "\n- Note: A duplicate read tool may appear as 'RepoPrompt__read_file'. Prefer it when available. Example phrasing: \"Reading more core logic files using the RepoPrompt__read_file tool.\""
-			: ""
 
 		// Build detailed instructions for single-file, tools-only edits
 		return """
@@ -1521,7 +1501,7 @@ You are an MCP-enabled agent assigned to edit exactly one file.
 - Use \(editToolName) for every edit.
 - You may read and edit EXACTLY this file: \(filePath)
 - All operations must reference this exact path
-- Attempts to access any other path will fail\(geminiToolNote)
+- Attempts to access any other path will fail
 
 \(retryNotice)**Your Task:**
 <file_to_edit path="\(filePath)"/>

@@ -123,20 +123,20 @@ final class AgentProviderPreferenceSnapshotStore {
 			return AgentProviderRuntimePermissionBinding(
 				claudePermissionMode: permissionMode
 			)
-		case .gemini:
-			let level = effectiveGeminiPermissionLevel(profile: profile)
+		case .antigravity:
+			let level = effectiveAntigravityPermissionLevel(profile: profile)
 			let configuredSessionModeID: String = switch profile {
 			case .userConfigured:
-				GeminiAgentToolPreferences.sessionModeID(defaults: defaults, secureStore: securePermissions)
+				AntigravityAgentToolPreferences.sessionModeID(defaults: defaults, secureStore: securePermissions)
 			case .mcpSafeDefaults:
-				GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID
-			case .providerOverride(.gemini(let level)):
+				AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID
+			case .providerOverride(.antigravity(let level)):
 				level.sessionModeID
 			case .providerOverride:
-				GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID
+				AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID
 			}
 			return AgentProviderRuntimePermissionBinding(
-				acpSessionModeID: geminiRuntimeSessionModeID(
+				acpSessionModeID: antigravityRuntimeSessionModeID(
 					configuredSessionModeID,
 					effectiveLevel: level
 				),
@@ -165,8 +165,8 @@ final class AgentProviderPreferenceSnapshotStore {
 			CodexAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
 		case .claude(let level):
 			ClaudeAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
-		case .gemini(let level):
-			GeminiAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
+		case .antigravity(let level):
+			AntigravityAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
 		case .openCode(let level):
 			OpenCodeAgentToolPreferences.setPermissionLevel(level, defaults: defaults, secureStore: securePermissions)
 		case .cursor(let level):
@@ -298,17 +298,17 @@ final class AgentProviderPreferenceSnapshotStore {
 					)
 				}
 			)
-		case .gemini:
-			let effective = effectiveGeminiPermissionLevel(profile: profile)
+		case .antigravity:
+			let effective = effectiveAntigravityPermissionLevel(profile: profile)
 			return AgentPermissionChromeBinding(
 				providerID: providerID,
 				displayName: effective.displayName,
 				iconName: effective.iconName,
 				isWarning: effective.isWarning,
 				externallyManagedReason: externallyManagedReason,
-				options: GeminiAgentToolPreferences.PermissionLevel.allCases.map { level in
+				options: AntigravityAgentToolPreferences.PermissionLevel.allCases.map { level in
 					AgentPermissionOptionBinding(
-						id: .gemini(level),
+						id: .antigravity(level),
 						title: level.displayName,
 						iconName: level.iconName,
 						detailText: nil,
@@ -490,31 +490,31 @@ final class AgentProviderPreferenceSnapshotStore {
 		}
 	}
 
-	private func geminiRuntimeSessionModeID(
+	private func antigravityRuntimeSessionModeID(
 		_ configuredSessionModeID: String?,
-		effectiveLevel: GeminiAgentToolPreferences.PermissionLevel
+		effectiveLevel: AntigravityAgentToolPreferences.PermissionLevel
 	) -> String {
-		let defaultSessionModeID = GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID
+		let defaultSessionModeID = AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID
 		guard effectiveLevel != .fullAccess else {
 			return defaultSessionModeID
 		}
 		let trimmed = configuredSessionModeID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 		guard !trimmed.isEmpty,
-			trimmed.caseInsensitiveCompare(GeminiAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID) != .orderedSame else {
+			trimmed.caseInsensitiveCompare(AntigravityAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID) != .orderedSame else {
 			return defaultSessionModeID
 		}
 		return trimmed
 	}
 
-	private func effectiveGeminiPermissionLevel(
+	private func effectiveAntigravityPermissionLevel(
 		profile: AgentProviderPermissionProfile
-	) -> GeminiAgentToolPreferences.PermissionLevel {
+	) -> AntigravityAgentToolPreferences.PermissionLevel {
 		switch profile {
 		case .userConfigured:
-			return GeminiAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: securePermissions)
+			return AntigravityAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: securePermissions)
 		case .mcpSafeDefaults:
 			return .default
-		case .providerOverride(.gemini(let level)):
+		case .providerOverride(.antigravity(let level)):
 			return level
 		case .providerOverride:
 			return .default
@@ -555,7 +555,7 @@ final class AgentProviderPreferenceSnapshotStore {
 		switch providerID {
 		case .codex: return .codexExec
 		case .claude: return .claudeCode
-		case .gemini: return .gemini
+		case .antigravity: return .antigravity
 		case .openCode: return .openCode
 		case .cursor: return .cursor
 		}

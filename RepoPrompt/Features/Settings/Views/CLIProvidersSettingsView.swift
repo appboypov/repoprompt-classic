@@ -38,13 +38,12 @@ struct CLIProvidersSettingsView: View {
 	@State private var isLoadingClaudeCode = false
 	@State private var isLoadingCodex = false
 	@State private var isLoggingIntoCodex = false
-	@State private var isLoadingGemini = false
+	@State private var isLoadingAntigravity = false
 	@State private var isLoadingOpenCode = false
 	@State private var isLoadingCursor = false
 	@State private var isLoadingZAI = false
 	@State private var showClaudeCodeTraceDump = false
 	@State private var showCodexTraceDump = false
-	@State private var showGeminiTraceDump = false
 	@State private var showOpenCodeTraceDump = false
 	@State private var showCursorTraceDump = false
 	@State private var isClaudePromptSettingsExpanded = false
@@ -56,7 +55,7 @@ struct CLIProvidersSettingsView: View {
 	@State private var isKimiCodeExpanded: Bool = false
 	@State private var isCustomCompatibleExpanded: Bool = false
 	@State private var isCodexExpanded: Bool = false
-	@State private var isGeminiExpanded: Bool = false
+	@State private var isAntigravityExpanded: Bool = false
 	@State private var isOpenCodeExpanded: Bool = false
 	@State private var isCursorExpanded: Bool = false
 	@State private var hasSetInitialExpansion = false
@@ -76,7 +75,7 @@ struct CLIProvidersSettingsView: View {
 	private var shouldShowStatusBanner: Bool {
 		return viewModel.isClaudeCodeConnected
 			|| viewModel.isCodexConnected
-			|| viewModel.isGeminiConnected
+			|| viewModel.isAntigravityConnected
 			|| viewModel.isOpenCodeConnected
 			|| viewModel.isCursorConnected
 	}
@@ -109,7 +108,7 @@ struct CLIProvidersSettingsView: View {
 						.font(.title2)
 						.fontWeight(.semibold)
 
-					Text("Primary way to add Agent Mode model support. Connect Claude Code, Codex, Gemini, OpenCode, or Cursor to leverage your existing subscriptions — OpenCode can also proxy any API key.")
+					Text("Primary way to add Agent Mode model support. Connect Claude Code, Codex, Antigravity, OpenCode, or Cursor to leverage your existing subscriptions — OpenCode can also proxy any API key.")
 						.font(.subheadline)
 						.foregroundColor(.secondary)
 						.fixedSize(horizontal: false, vertical: true)
@@ -134,7 +133,7 @@ struct CLIProvidersSettingsView: View {
 				codexCard
 				claudeCodeCard
 				claudeCompatibleBackendsSection
-				geminiCard
+				antigravityCard
 				openCodeCard
 				cursorCard
 			}
@@ -154,7 +153,7 @@ struct CLIProvidersSettingsView: View {
 						isKimiCodeExpanded = shouldExpandCompatibleBackendInitially(.kimi)
 						isCustomCompatibleExpanded = shouldExpandCompatibleBackendInitially(.custom)
 						isCodexExpanded = !viewModel.isCodexConnected
-						isGeminiExpanded = !viewModel.isGeminiConnected
+						isAntigravityExpanded = !viewModel.isAntigravityConnected
 						isOpenCodeExpanded = !viewModel.isOpenCodeConnected
 						isCursorExpanded = !viewModel.isCursorConnected
 						hasSetInitialExpansion = true
@@ -176,13 +175,6 @@ struct CLIProvidersSettingsView: View {
 					message: Text(alertMessage),
 					primaryButton: .default(Text("Save Trace to Downloads"), action: dumpCodexTrace),
 					secondaryButton: .cancel(Text("OK"), action: { showCodexTraceDump = false })
-				)
-			} else if showGeminiTraceDump && viewModel.hasGeminiTrace() {
-				return Alert(
-					title: Text("CLI Provider Management"),
-					message: Text(alertMessage),
-					primaryButton: .default(Text("Save Trace to Downloads"), action: dumpGeminiTrace),
-					secondaryButton: .cancel(Text("OK"), action: { showGeminiTraceDump = false })
 				)
 			} else if showOpenCodeTraceDump && viewModel.hasOpenCodeTrace() {
 				return Alert(
@@ -210,7 +202,6 @@ struct CLIProvidersSettingsView: View {
 			if !newValue {
 				showClaudeCodeTraceDump = false
 				showCodexTraceDump = false
-				showGeminiTraceDump = false
 				showOpenCodeTraceDump = false
 				showCursorTraceDump = false
 			}
@@ -396,8 +387,8 @@ struct CLIProvidersSettingsView: View {
 			return strict
 				? "\(level.displayName) · Strict MCP (RepoPrompt only)"
 				: "\(level.displayName) · External MCP allowed"
-		case .gemini:
-			let level = GeminiAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: secureStore)
+		case .antigravity:
+			let level = AntigravityAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: secureStore)
 			return "Session mode: \(level.displayName)"
 		case .openCode:
 			let level = OpenCodeAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: secureStore)
@@ -473,7 +464,7 @@ struct CLIProvidersSettingsView: View {
 			} else {
 				permissionControlsUnavailableRow()
 			}
-		case .gemini, .openCode, .cursor:
+		case .antigravity, .openCode, .cursor:
 			EmptyView()
 		}
 	}
@@ -1723,62 +1714,70 @@ struct CLIProvidersSettingsView: View {
 		}
 	}
 
-	// MARK: - Gemini Card
+	// MARK: - Antigravity Card
 
-	private var geminiCard: some View {
+	private var antigravityCard: some View {
 		providerCard(
-			title: "Gemini CLI",
-			subtitle: "Uses your existing Gemini CLI installation with your Google account authentication.",
-			infoURL: "https://geminicli.com/",
-			isConnected: viewModel.isGeminiConnected,
-			isExpanded: $isGeminiExpanded
+			title: "Antigravity",
+			subtitle: "Runs Google's Antigravity agent server with your Google account. RepoPrompt downloads the server and keeps its own sign-in.",
+			infoURL: "https://antigravity.google/",
+			isConnected: viewModel.isAntigravityConnected,
+			isExpanded: $isAntigravityExpanded
 		) {
 			VStack(alignment: .leading, spacing: 12) {
-				if viewModel.isGeminiConnected {
+				if viewModel.isAntigravityConnected {
 					HStack(spacing: 8) {
-						Button(action: { testGeminiConnection() }) {
-							if isLoadingGemini {
-								ProgressView()
-									.scaleEffect(0.6)
-									.frame(height: 16)
-							} else {
-								Label("Test Connection", systemImage: "antenna.radiowaves.left.and.right")
-							}
-						}
-						.disabled(isLoadingGemini)
-						.buttonStyle(CustomButtonStyle())
+						Text(antigravitySignedInText)
+							.font(.caption)
+							.foregroundColor(.secondary)
 
 						Spacer()
 
-						Button(action: { signOutFromGemini() }) {
+						Button(action: { signOutFromAntigravity() }) {
 							Text("Sign Out")
 								.foregroundColor(.secondary)
 						}
 						.buttonStyle(CustomButtonStyle())
 					}
 
-					permissionSummaryLinkRow(for: .gemini)
+					permissionSummaryLinkRow(for: .antigravity)
 				} else {
 					HStack(spacing: 10) {
-						Button(action: { testGeminiConnection() }) {
-							if isLoadingGemini {
-								ProgressView()
-									.scaleEffect(0.6)
-									.frame(height: 16)
-							} else {
-								Label("Connect", systemImage: "link")
+						if viewModel.isAntigravityDownloaded {
+							Button(action: { signInToAntigravity() }) {
+								if isLoadingAntigravity {
+									ProgressView()
+										.scaleEffect(0.6)
+										.frame(height: 16)
+								} else {
+									Label("Sign In", systemImage: "person.crop.circle.badge.checkmark")
+								}
 							}
+							.disabled(isLoadingAntigravity)
+							.buttonStyle(CustomButtonStyle())
+						} else {
+							Button(action: { downloadAntigravity() }) {
+								if isLoadingAntigravity {
+									ProgressView()
+										.scaleEffect(0.6)
+										.frame(height: 16)
+								} else {
+									Label("Download", systemImage: "arrow.down.circle")
+								}
+							}
+							.disabled(isLoadingAntigravity)
+							.buttonStyle(CustomButtonStyle())
 						}
-						.disabled(isLoadingGemini)
-						.buttonStyle(CustomButtonStyle())
 
-						if let error = viewModel.geminiError, !error.isEmpty {
+						if let error = viewModel.antigravityError, !error.isEmpty {
 							Text(error)
 								.font(.caption)
 								.foregroundColor(.red)
 								.fixedSize(horizontal: false, vertical: true)
 						} else {
-							Text("Run `gemini auth login` in your terminal to authenticate.")
+							Text(viewModel.isAntigravityDownloaded
+								? "Sign in opens your browser. Finish the Google sign-in there."
+								: "Downloads Google's Antigravity server (about 110 MB).")
 								.font(.caption)
 								.foregroundColor(.secondary)
 						}
@@ -1786,6 +1785,13 @@ struct CLIProvidersSettingsView: View {
 				}
 			}
 		}
+	}
+
+	private var antigravitySignedInText: String {
+		if let planName = viewModel.antigravityAccountPlanName, !planName.isEmpty {
+			return "Signed in · \(planName)"
+		}
+		return "Signed in"
 	}
 
 	// MARK: - OpenCode Card
@@ -2242,60 +2248,56 @@ struct CLIProvidersSettingsView: View {
 		}
 	}
 
-	private func testGeminiConnection() {
-		isLoadingGemini = true
+	private func downloadAntigravity() {
+		isLoadingAntigravity = true
 		Task {
 			do {
-				let ok = try await viewModel.testGeminiConnection()
+				try await viewModel.downloadAntigravity()
 				await MainActor.run {
-					isLoadingGemini = false
-					if ok {
-						alertMessage = "Gemini CLI connected."
-						showGeminiTraceDump = false
-					}
+					isLoadingAntigravity = false
+					alertMessage = "Antigravity downloaded. Sign in to use it."
+					showAlert = true
+				}
+			} catch {
+				await MainActor.run {
+					isLoadingAntigravity = false
+					alertMessage = error.asFriendlyString()
+					showAlert = true
+				}
+			}
+		}
+	}
+
+	private func signInToAntigravity() {
+		isLoadingAntigravity = true
+		Task {
+			do {
+				try await viewModel.signInToAntigravity()
+				await MainActor.run {
+					isLoadingAntigravity = false
+					alertMessage = "Signed in to Antigravity."
 					showAlert = true
 					onAPIKeyUpdated?()
 				}
 			} catch {
 				await MainActor.run {
-					isLoadingGemini = false
+					isLoadingAntigravity = false
 					alertMessage = error.asFriendlyString()
-					showGeminiTraceDump = viewModel.hasGeminiTrace()
 					showAlert = true
 				}
 			}
 		}
 	}
 
-	private func dumpGeminiTrace() {
-		do {
-			let url = try viewModel.dumpGeminiTrace()
-			alertMessage = "Trace saved to Downloads/\(url.lastPathComponent)."
-		} catch let error as CLIProcessLogCollectorError {
-			switch error {
-			case .noEntries:
-				alertMessage = "No trace data is available to export yet."
-			case .downloadsDirectoryUnavailable:
-				alertMessage = "Unable to locate the Downloads folder."
-			}
-		} catch {
-			alertMessage = "Failed to export trace: \(error.localizedDescription)"
-		}
-		showGeminiTraceDump = false
-		showAlert = true
-	}
-
-	private func signOutFromGemini() {
-		viewModel.isGeminiConnected = false
-		viewModel.geminiError = nil
-		UserDefaults.standard.set(false, forKey: "GeminiCLIConnected")
-		NotificationCenter.default.post(name: .geminiConnectionChanged, object: nil, userInfo: ["windowID": windowID])
+	private func signOutFromAntigravity() {
 		Task {
-			await viewModel.updateAvailableModels()
+			await viewModel.signOutFromAntigravity()
+			await MainActor.run {
+				alertMessage = "Signed out from Antigravity"
+				showAlert = true
+				onAPIKeyUpdated?()
+			}
 		}
-		alertMessage = "Signed out from Gemini CLI"
-		showAlert = true
-		onAPIKeyUpdated?()
 	}
 
 	private func testOpenCodeConnection() {

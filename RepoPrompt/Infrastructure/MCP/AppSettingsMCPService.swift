@@ -1332,8 +1332,8 @@ private enum AppSettingsMCPRegistry {
 			return .claudeCode
 		case .codexExec:
 			return .codex
-		case .gemini:
-			return .geminiCli
+		case .antigravity:
+			return .antigravity
 		case .openCode:
 			return .openCode
 		case .cursor:
@@ -1357,7 +1357,7 @@ private enum AppSettingsMCPRegistry {
 		case .zAI: return "zAI"
 		case .claudeCode: return "claudeCode"
 		case .codex: return "codex"
-		case .geminiCli: return "geminiCli"
+		case .antigravity: return "antigravity"
 		case .openCode: return "openCode"
 		case .cursor: return "cursor"
 		}

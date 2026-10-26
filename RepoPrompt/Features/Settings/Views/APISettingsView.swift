@@ -15,7 +15,7 @@ struct APISettingsView: View {
 	@State private var isLoadingOpenAI = false
 	@State private var isLoadingOpenAIBaseURL = false
 	@State private var isLoadingOllama = false
-	@State private var isLoadingGemini = false
+	@State private var isLoadingAntigravity = false
 	@State private var isLoadingAzure = false
 	@State private var isLoadingDeepSeek = false
 	@State private var isLoadingFireworks = false
@@ -250,7 +250,7 @@ struct APISettingsView: View {
 					isValid: $viewModel.isGeminiKeyValid,
 					saveAction: validateAndSaveGeminiKey,
 					deleteAction: deleteGeminiKey,
-					isLoading: isLoadingGemini,
+					isLoading: isLoadingAntigravity,
 					infoURL: "https://aistudio.google.com",
 					customModel: $viewModel.geminiCustomModel
 				)
@@ -822,7 +822,7 @@ struct APISettingsView: View {
 	}
 	
 	private func validateAndSaveGeminiKey() {
-		isLoadingGemini = true
+		isLoadingAntigravity = true
 		validateAndSaveKey(key: viewModel.geminiApiKey, for: .gemini) {
 			try await viewModel.validateGeminiKey()
 		}
@@ -870,7 +870,7 @@ struct APISettingsView: View {
 					}
 					isLoadingAnthropic = false
 					isLoadingOpenAI = false
-					isLoadingGemini = false
+					isLoadingAntigravity = false
 					isLoadingDeepSeek = false
 					isLoadingFireworks = false
 					isLoadingGrok = false
@@ -883,7 +883,7 @@ struct APISettingsView: View {
 					showAlert = true
 					isLoadingAnthropic = false
 					isLoadingOpenAI = false
-					isLoadingGemini = false
+					isLoadingAntigravity = false
 					isLoadingDeepSeek = false
 					isLoadingFireworks = false
 					isLoadingGrok = false

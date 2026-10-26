@@ -71,7 +71,7 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 		XCTAssertEqual(DiscoverAgentKind.claudeCodeGLM.providerBindingID, .claude)
 		XCTAssertEqual(DiscoverAgentKind.kimiCode.providerBindingID, .claude)
 		XCTAssertEqual(DiscoverAgentKind.customClaudeCompatible.providerBindingID, .claude)
-		XCTAssertEqual(DiscoverAgentKind.gemini.providerBindingID, .gemini)
+		XCTAssertEqual(DiscoverAgentKind.antigravity.providerBindingID, .antigravity)
 		XCTAssertEqual(DiscoverAgentKind.openCode.providerBindingID, .openCode)
 		XCTAssertEqual(DiscoverAgentKind.cursor.providerBindingID, .cursor)
 	}
@@ -96,7 +96,7 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 		CodexAgentToolPreferences.setApprovalPolicy(.onFailure, defaults: defaults)
 		CodexAgentToolPreferences.setApprovalReviewer(.autoReview, defaults: defaults)
 		ClaudeAgentToolPreferences.setPermissionMode("customClaudeMode", defaults: defaults)
-		GeminiAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
+		AntigravityAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		OpenCodeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		CursorAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 
@@ -114,8 +114,8 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 		let customClaudeCompatible = store.runtimePermission(for: .customClaudeCompatible, profile: .userConfigured)
 		XCTAssertEqual(customClaudeCompatible.claudePermissionMode, "customClaudeMode")
 
-		let gemini = store.runtimePermission(for: .gemini, profile: .userConfigured)
-		XCTAssertEqual(gemini.acpSessionModeID, GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID)
+		let gemini = store.runtimePermission(for: .antigravity, profile: .userConfigured)
+		XCTAssertEqual(gemini.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
 		XCTAssertTrue(gemini.autoApproveAllACPToolPermissions)
 		XCTAssertTrue(gemini.acceptsPendingACPApprovalWhenActivated)
 
@@ -140,7 +140,7 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 
 		store.setPermissionLevel(.codex(.fullAccess))
 		store.setPermissionLevel(.claude(.fullAccess))
-		store.setPermissionLevel(.gemini(.fullAccess))
+		store.setPermissionLevel(.antigravity(.fullAccess))
 		store.setPermissionLevel(.openCode(.fullAccess))
 		store.setPermissionLevel(.cursor(.fullAccess))
 		store.setCodexBashToolEnabled(true)
@@ -158,8 +158,8 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 		XCTAssertEqual(claude.claudePermissionMode, ClaudeAgentToolPreferences.PermissionLevel.fullAccess.permissionMode)
 		XCTAssertEqual(ClaudeAgentToolPreferences.permissionLevel(defaults: defaults), .requireApproval)
 
-		let gemini = store.runtimePermission(for: .gemini, profile: .userConfigured)
-		XCTAssertEqual(gemini.acpSessionModeID, GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID)
+		let gemini = store.runtimePermission(for: .antigravity, profile: .userConfigured)
+		XCTAssertEqual(gemini.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
 		XCTAssertTrue(gemini.autoApproveAllACPToolPermissions)
 		XCTAssertTrue(gemini.acceptsPendingACPApprovalWhenActivated)
 
@@ -197,7 +197,7 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 
 		CodexAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		ClaudeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
-		GeminiAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
+		AntigravityAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		OpenCodeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		CursorAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 
@@ -209,8 +209,8 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 		let claude = store.runtimePermission(for: .claudeCode, profile: .mcpSafeDefaults)
 		XCTAssertEqual(claude.claudePermissionMode, ClaudeAgentToolPreferences.PermissionLevel.requireApproval.permissionMode)
 
-		let gemini = store.runtimePermission(for: .gemini, profile: .mcpSafeDefaults)
-		XCTAssertEqual(gemini.acpSessionModeID, GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID)
+		let gemini = store.runtimePermission(for: .antigravity, profile: .mcpSafeDefaults)
+		XCTAssertEqual(gemini.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
 		XCTAssertFalse(gemini.autoApproveAllACPToolPermissions)
 		XCTAssertFalse(gemini.acceptsPendingACPApprovalWhenActivated)
 
@@ -230,14 +230,14 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 
 		CodexAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		ClaudeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
-		GeminiAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
+		AntigravityAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		OpenCodeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		CursorAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 
 		let cases: [(DiscoverAgentKind, AgentProviderPermissionLevelID, String)] = [
 			(.codexExec, .codex(.defaultPermission), "Default"),
 			(.claudeCode, .claude(.requireApproval), "Require Approval"),
-			(.gemini, .gemini(.default), "Default"),
+			(.antigravity, .antigravity(.default), "Default"),
 			(.openCode, .openCode(.managedDefault), "Default"),
 			(.cursor, .cursor(.managedDefault), "Default")
 		]
@@ -510,8 +510,8 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 			.providerOverride(.codex(.readOnly))
 		)
 		XCTAssertEqual(
-			service.permissionProfileForMCPActivation(isSubagent: true, provider: .gemini),
-			.providerOverride(.gemini(.default))
+			service.permissionProfileForMCPActivation(isSubagent: true, provider: .antigravity),
+			.providerOverride(.antigravity(.default))
 		)
 		// The legacy nil-provider variant falls back to Safe Managed when the global is custom.
 		XCTAssertEqual(
@@ -531,7 +531,7 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 
 		CodexAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
 		ClaudeAgentToolPreferences.setPermissionLevel(.fullAccess, defaults: defaults)
-		GeminiAgentToolPreferences.setPermissionLevel(.default, defaults: defaults)
+		AntigravityAgentToolPreferences.setPermissionLevel(.default, defaults: defaults)
 		OpenCodeAgentToolPreferences.setPermissionLevel(.managedDefault, defaults: defaults)
 		CursorAgentToolPreferences.setPermissionLevel(.managedDefault, defaults: defaults)
 
@@ -543,8 +543,8 @@ final class AgentProviderPreferenceSnapshotStoreTests: XCTestCase {
 		let claude = store.runtimePermission(for: .claudeCode, profile: .providerOverride(.claude(.autoApproveEdits)))
 		XCTAssertEqual(claude.claudePermissionMode, ClaudeAgentToolPreferences.PermissionLevel.autoApproveEdits.permissionMode)
 
-		let gemini = store.runtimePermission(for: .gemini, profile: .providerOverride(.gemini(.fullAccess)))
-		XCTAssertEqual(gemini.acpSessionModeID, GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID)
+		let gemini = store.runtimePermission(for: .antigravity, profile: .providerOverride(.antigravity(.fullAccess)))
+		XCTAssertEqual(gemini.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
 		XCTAssertTrue(gemini.autoApproveAllACPToolPermissions)
 		XCTAssertTrue(gemini.acceptsPendingACPApprovalWhenActivated)
 

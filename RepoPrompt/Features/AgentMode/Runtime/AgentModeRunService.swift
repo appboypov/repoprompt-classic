@@ -920,8 +920,8 @@ final class AgentModeRunService {
 			if acpController != nil {
 				session.acpController = nil
 				// Preserve the ACP provider session ID on user cancellation. Providers
-				// that accept their own IDs (Cursor/OpenCode) resume with session/load;
-				// Gemini may reject RepoPrompt's stored ACP UUID, in which case the ACP
+				// that accept their own IDs (Antigravity/Cursor/OpenCode) resume with session/load;
+				// a provider that no longer knows the stored ID, in which case the ACP
 				// controller falls back to session/new and prepends local handoff context.
 				AgentModeProcessRunIdentity.clearProcessRunID(for: session)
 			}

@@ -6,9 +6,9 @@ enum ACPAgentProviderFactory {
 		modelString: String?
 	) -> (any ACPAgentProvider)? {
 		switch agentKind {
-		case .gemini:
-			return GeminiACPAgentProvider(
-				config: GeminiAgentConfig(
+		case .antigravity:
+			return AntigravityACPAgentProvider(
+				config: AntigravityAgentConfig(
 					modelString: modelString,
 					enableDebugLogging: DiscoverAgentService.enableDebugLogging
 				)

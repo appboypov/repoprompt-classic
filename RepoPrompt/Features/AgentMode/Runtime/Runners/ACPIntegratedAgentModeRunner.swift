@@ -319,7 +319,7 @@ final class ACPIntegratedAgentModeRunner {
 			// activeHeadlessRunAttemptID to still be present here.
 			return true
 		} catch {
-			let identity = await controller.refreshProviderSessionIdentityAfterPromptInterruption()
+			let identity = await controller.currentProviderSessionIdentity()
 			applyProviderSessionIdentity(identity, session: session)
 			let normalized = await controller.normalizeError(error)
 			let normalizedText = displayText(for: normalized)
@@ -411,17 +411,12 @@ final class ACPIntegratedAgentModeRunner {
 			}
 			var initialMessageForPromptTurn = initialMessageForRun
 			if bootstrap.didFallbackToNewSessionAfterLoadFailure {
-				// A preserved ACP ID can be stale for providers such as Gemini, whose
-				// session/load accepts persisted chat IDs rather than RepoPrompt's ACP UUID.
-				// Recover with a fresh provider session plus local transcript handoff.
+				// A preserved ACP ID can be gone from the provider. Recover with a fresh
+				// provider session plus local transcript handoff.
 				hooks.stageResumeRecoveryHandoffIfNeeded(session)
 				initialMessageForPromptTurn = hooks.prependPendingHandoffIfNeeded(initialMessageForRun, session)
 			}
-			applyProviderSessionIdentity(
-				bootstrap.providerSessionIdentity,
-				invalidatedResumeSessionID: bootstrap.invalidatedResumeSessionID,
-				session: session
-			)
+			applyProviderSessionIdentity(bootstrap.providerSessionIdentity, session: session)
 			_ = syncACPSelectedModelFromRegistryIfNeeded(agentKind: runRequest.agentKind, session: session)
 			session.isDirty = true
 			hooks.scheduleSave(session.tabID)
@@ -626,7 +621,7 @@ final class ACPIntegratedAgentModeRunner {
 			applyProviderSessionIdentity(identity, session: session)
 			log("controller.prompt returned; awaiting event consumer", runID: runID)
 		} catch {
-			let identity = await controller.refreshProviderSessionIdentityAfterPromptInterruption()
+			let identity = await controller.currentProviderSessionIdentity()
 			applyProviderSessionIdentity(identity, session: session)
 			let normalizedError = await controller.normalizeError(error)
 			let normalizedText = displayText(for: normalizedError)
@@ -667,13 +662,9 @@ final class ACPIntegratedAgentModeRunner {
 
 	private func applyProviderSessionIdentity(
 		_ identity: ACPProviderSessionIdentity,
-		invalidatedResumeSessionID: String? = nil,
 		session: AgentModeViewModel.TabSession
 	) {
-		guard session.applyACPProviderSessionIdentity(
-			identity,
-			invalidatedResumeSessionID: invalidatedResumeSessionID
-		) else { return }
+		guard session.applyACPProviderSessionIdentity(identity) else { return }
 		session.isDirty = true
 		hooks.scheduleSave(session.tabID)
 		hooks.updateBindings(session)
@@ -694,7 +685,7 @@ final class ACPIntegratedAgentModeRunner {
 		controller: ACPAgentSessionController,
 		runID: UUID
 	) async throws {
-		guard runRequest.agentKind == .openCode || runRequest.agentKind == .cursor else { return }
+		guard runRequest.agentKind == .openCode || runRequest.agentKind == .cursor || runRequest.agentKind == .antigravity else { return }
 		guard let model = runRequest.modelString?.trimmingCharacters(in: .whitespacesAndNewlines),
 			!model.isEmpty,
 			model.caseInsensitiveCompare(AgentModel.defaultModel.rawValue) != .orderedSame else {
@@ -742,7 +733,30 @@ final class ACPIntegratedAgentModeRunner {
 				session.pendingApproval = request
 				session.runState = .waitingForApproval
 				setRunningStatus(nil, source: nil, session: session, urgent: true)
+			case .userInputRequested(let request):
+				let alreadyPending = session.pendingUserInputRequest?.requestID == request.requestID
+				let alreadyQueued = session.queuedUserInputRequests.contains { $0.requestID == request.requestID }
+				guard !alreadyPending, !alreadyQueued else { continue }
+				if session.pendingUserInputRequest == nil {
+					session.pendingUserInputRequest = request
+				} else {
+					session.queuedUserInputRequests.append(request)
+				}
+				session.runState = .waitingForQuestion
+				setRunningStatus(nil, source: nil, session: session, urgent: true)
 			case .approvalCancelled(let requestID):
+				if session.pendingUserInputRequest?.requestID == requestID {
+					session.pendingUserInputRequest = session.queuedUserInputRequests.isEmpty
+						? nil
+						: session.queuedUserInputRequests.removeFirst()
+					if session.pendingUserInputRequest == nil, session.runState == .waitingForQuestion {
+						session.runState = .running
+						setRunningStatus("Thinking…", source: .transport, session: session, urgent: true)
+					} else {
+						hooks.updateBindings(session)
+					}
+				}
+				session.queuedUserInputRequests.removeAll { $0.requestID == requestID }
 				if session.pendingApproval?.requestID == requestID {
 					session.pendingApproval = nil
 					if session.runState == .waitingForApproval {
@@ -829,8 +843,8 @@ final class ACPIntegratedAgentModeRunner {
 		if terminalState != .completed {
 			session.acpController = nil
 			// Keep providerSessionID bound to this RepoPrompt agent session even
-			// after cancellation/failure. Cursor/OpenCode can reload these IDs;
-			// Gemini invalid-ID load failures recover through session/new + handoff.
+			// after cancellation/failure. ACP providers can reload these IDs; a
+			// missing ID recovers through session/new + handoff.
 			AgentModeProcessRunIdentity.clearProcessRunID(for: session)
 		} else if session.acpController == nil {
 			// Completed but controller was already cleared (shouldn't happen normally)

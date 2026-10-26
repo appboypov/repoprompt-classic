@@ -392,7 +392,7 @@ final class AgentModePermissionPreferencesTests: XCTestCase {
 			.requireApproval
 		)
 		XCTAssertEqual(
-			AgentModeViewModel.AgentPermissionProfile.mcpSafeDefaults.geminiPermissionLevel(userConfigured: .fullAccess),
+			AgentModeViewModel.AgentPermissionProfile.mcpSafeDefaults.antigravityPermissionLevel(userConfigured: .fullAccess),
 			.default
 		)
 		XCTAssertEqual(

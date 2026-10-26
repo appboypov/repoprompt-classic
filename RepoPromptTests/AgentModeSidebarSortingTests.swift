@@ -844,14 +844,14 @@ final class AgentModeSidebarSortingTests: XCTestCase {
 
 	func testClearBindingsPreservesSelection() {
 		let vm = makeViewModel()
-		vm.selectedAgent = .gemini
-		vm.selectedModelRaw = AgentModel.geminiPro25.rawValue
+		vm.selectedAgent = .antigravity
+		vm.selectedModelRaw = AgentModel.defaultModel.rawValue
 		vm.selectedReasoningEffortRaw = CodexReasoningEffort.high.rawValue
 
 		vm.test_clearBindings()
 
-		XCTAssertEqual(vm.selectedAgent, .gemini)
-		XCTAssertEqual(vm.selectedModelRaw, AgentModel.geminiPro25.rawValue)
+		XCTAssertEqual(vm.selectedAgent, .antigravity)
+		XCTAssertEqual(vm.selectedModelRaw, AgentModel.defaultModel.rawValue)
 		XCTAssertEqual(vm.selectedReasoningEffortRaw, CodexReasoningEffort.high.rawValue)
 	}
 

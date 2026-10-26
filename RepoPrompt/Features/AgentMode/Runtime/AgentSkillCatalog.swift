@@ -13,7 +13,7 @@ struct AgentSkillDefinition: Equatable, Hashable, Identifiable, Sendable {
 		case globalClaudeSkills = 2
 		case globalClaudeCommands = 3
 
-		// Codex / Gemini roots (generic .agents namespace)
+		// Codex / Antigravity roots (generic .agents namespace)
 		case workspaceAgentsSkills = 10
 		case workspaceAgentsSlash = 11
 		case globalAgentsSkills = 12
@@ -423,8 +423,8 @@ final class AgentSkillCatalog {
 				precedenceRank: 7
 			)
 
-		case .codexExec, .gemini, .openCode, .cursor:
-			// Codex, Gemini, OpenCode, and Cursor continue to share only the generic `.agents` namespace.
+		case .codexExec, .antigravity, .openCode, .cursor:
+			// Codex, Antigravity, OpenCode, and Cursor continue to share only the generic `.agents` namespace.
 			appendWorkspaceRoots(
 				relativeRoot: ".agents/skills",
 				source: .workspaceAgentsSkills,

@@ -137,19 +137,19 @@ struct AgentPermissionCapabilitySummaryBuilder {
 				approvalModeDescription: "Permission mode: \(permissionMode)",
 				warnings: warnings
 			)
-		case .gemini:
-			let level = geminiPermissionLevel(profile: profile)
+		case .antigravity:
+			let level = antigravityPermissionLevel(profile: profile)
 			let warnings = level == .fullAccess
-				? ["Gemini session mode is Full Access — tool calls auto-accept."]
+				? ["Antigravity session mode is Full Access — tool calls auto-accept."]
 				: []
 			return AgentPermissionCapabilitySummary(
 				providerID: providerID,
 				providerName: providerID.displayName,
 				isAvailable: isAvailable,
 				fileMutation: "ACP session mode: \(level.displayName)",
-				shell: "Handled by Gemini CLI",
+				shell: "Handled by Antigravity",
 				externalMCP: "Third-party MCP: not supported",
-				search: "Managed by Gemini CLI",
+				search: "Managed by Antigravity",
 				approvalModeDescription: "Auto-accept: \(level == .fullAccess ? "on" : "off")",
 				warnings: warnings
 			)
@@ -204,7 +204,7 @@ struct AgentPermissionCapabilitySummaryBuilder {
 		switch providerID {
 		case .codex: return availability.codexAvailable
 		case .claude: return availability.claudeCodeAvailable
-		case .gemini: return availability.geminiAvailable
+		case .antigravity: return availability.antigravityAvailable
 		case .openCode: return availability.openCodeAvailable
 		case .cursor: return availability.cursorAvailable
 		}
@@ -243,13 +243,13 @@ struct AgentPermissionCapabilitySummaryBuilder {
 		}
 	}
 
-	private func geminiPermissionLevel(profile: AgentProviderPermissionProfile) -> GeminiAgentToolPreferences.PermissionLevel {
+	private func antigravityPermissionLevel(profile: AgentProviderPermissionProfile) -> AntigravityAgentToolPreferences.PermissionLevel {
 		switch profile {
 		case .userConfigured:
-			return GeminiAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: securePermissions)
+			return AntigravityAgentToolPreferences.permissionLevel(defaults: defaults, secureStore: securePermissions)
 		case .mcpSafeDefaults:
 			return .default
-		case .providerOverride(.gemini(let level)):
+		case .providerOverride(.antigravity(let level)):
 			return level
 		case .providerOverride:
 			return .default

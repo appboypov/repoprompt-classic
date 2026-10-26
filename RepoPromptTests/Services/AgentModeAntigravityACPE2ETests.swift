@@ -3,21 +3,21 @@ import MCP
 @_spi(TestSupport) @testable import RepoPrompt
 
 @MainActor
-final class AgentModeGeminiACPE2ETests: XCTestCase {
+final class AgentModeAntigravityACPE2ETests: XCTestCase {
 	override func setUp() {
 		super.setUp()
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 	}
 
 	override func tearDown() {
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		super.tearDown()
 	}
 
-	func testGeminiACPAgentModeCompletesEndToEndAfterRouting() async throws {
+	func testAntigravityACPAgentModeCompletesEndToEndAfterRouting() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .success, routeStrategy: .auto, recorder: recorder)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Reply with OK")
 
@@ -42,10 +42,10 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		XCTAssertTrue(session.items.contains(where: { ($0.text ?? "").contains("OK from success scenario") }))
 	}
 
-	func testGeminiACPAgentModePermissionFlowWaitsAndResumes() async throws {
+	func testAntigravityACPAgentModePermissionFlowWaitsAndResumes() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .permissionThenComplete, routeStrategy: .auto, recorder: recorder)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Need permission")
 
@@ -72,14 +72,14 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		XCTAssertFalse(permissionResponses.isEmpty, "Expected client response to permission request")
 	}
 
-	func testGeminiACPAgentModeWaitsForPermissionUntilDecisionSubmitted() async throws {
+	func testAntigravityACPAgentModeWaitsForPermissionUntilDecisionSubmitted() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(
 			scenario: .permissionThenComplete,
 			routeStrategy: .auto,
 			recorder: recorder
 		)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Need permission")
 
@@ -104,15 +104,15 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		}
 	}
 
-	func testGeminiACPAgentModeWithoutRoutingNeverStartsPromptAndCanBeCancelled() async throws {
+	func testAntigravityACPAgentModeWithoutRoutingNeverStartsPromptAndCanBeCancelled() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .success, routeStrategy: .manual, recorder: recorder)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Route later")
 
 		let bootstrapped = await waitForCondition(timeoutSeconds: 5.0) {
-			session.geminiACPResumeMetadata.runtimeSessionID == harness.sessionID && session.acpController != nil
+			session.providerSessionID == harness.sessionID && session.acpController != nil
 		}
 		if !bootstrapped {
 			XCTFail(await recorder.summary())
@@ -135,10 +135,10 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		}
 	}
 
-	func testGeminiACPShowsStatusImmediatelyAndWhileWaitingForRouting() async throws {
+	func testAntigravityACPShowsStatusImmediatelyAndWhileWaitingForRouting() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .success, routeStrategy: .manual, recorder: recorder)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Show status")
 
@@ -151,7 +151,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		}
 
 		let waitingForRouting = await waitForCondition(timeoutSeconds: 5.0) {
-			session.geminiACPResumeMetadata.runtimeSessionID == harness.sessionID
+			session.providerSessionID == harness.sessionID
 				&& session.acpController != nil
 				&& session.runningStatusText == "Waiting for connection…"
 		}
@@ -165,19 +165,19 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		}
 	}
 
-	func testGeminiACPAgentModePromptRequestCanHangAfterPromptStartsUntilCancelled() async throws {
+	func testAntigravityACPAgentModePromptRequestCanHangAfterPromptStartsUntilCancelled() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(
 			scenario: .noPromptResponse,
 			routeStrategy: .auto,
 			recorder: recorder,
 			environmentOverrides: [
-				"ACP_TEST_LOAD_ERROR": "Internal error",
-				"ACP_TEST_LOAD_ERROR_CODE": "-32603",
-				"ACP_TEST_LOAD_ERROR_DATA_MESSAGE": "Invalid session identifier stale-gemini-acp-session. Searched for sessions in ~/.gemini/tmp/studio/chats. Use --list-sessions, --resume {number}, --resume {uuid}, or --resume latest."
+				"ACP_TEST_LOAD_ERROR": "Invalid params",
+				"ACP_TEST_LOAD_ERROR_CODE": "-32602",
+				"ACP_TEST_LOAD_ERROR_DATA_MESSAGE": "Session stale-antigravity-acp-session not found"
 			]
 		)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Hang after prompt")
 
@@ -189,7 +189,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		if !promptStarted {
 			XCTFail(await recorder.summary())
 		}
-		let phaseStarted = await recorder.hasPhaseStarted("prompt")
+		let phaseStarted = await recorder.waitForPhaseStarted("prompt", timeout: 5.0)
 		let phaseCompleted = await recorder.hasPhaseCompleted("prompt")
 		if !(phaseStarted && !phaseCompleted) {
 			XCTFail(await recorder.summary())
@@ -240,7 +240,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 			.filter { $0.kind == .error }
 			.compactMap(\.text)
 			.joined(separator: "\n")
-		XCTAssertFalse(finalErrorText.localizedCaseInsensitiveContains("invalid session identifier"), finalErrorText)
+		XCTAssertFalse(finalErrorText.localizedCaseInsensitiveContains("not found"), finalErrorText)
 
 		let methods = try harness.requestMethodSequence()
 		XCTAssertEqual(methods.filter { $0 == "session/new" }.count, 2)
@@ -249,14 +249,14 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		XCTAssertEqual(session.providerSessionID, harness.sessionID)
 	}
 
-	func testGeminiACPAgentModeStreamingProgressCompletesSuccessfully() async throws {
+	func testAntigravityACPAgentModeStreamingProgressCompletesSuccessfully() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(
 			scenario: .streamingProgressThenComplete,
 			routeStrategy: .auto,
 			recorder: recorder
 		)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Stream and finish")
 
@@ -274,10 +274,10 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		XCTAssertFalse(errorText.localizedCaseInsensitiveContains("timed out"), errorText)
 	}
 
-	func testGeminiACPSecondTurnUsesSessionLoad() async throws {
+	func testAntigravityACPSecondTurnUsesSessionLoad() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .success, routeStrategy: .auto, recorder: recorder)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "First turn")
 		let firstCompleted = await waitForCondition(timeoutSeconds: 8.0) {
@@ -306,16 +306,16 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 		XCTAssertGreaterThanOrEqual(methods.filter { $0 == "session/load" }.count, 1)
 	}
 
-	func testGeminiACPBootstrapMetadataBecomesLivePickerSource() async throws {
+	func testAntigravityACPBootstrapMetadataBecomesLivePickerSource() async throws {
 		let recorder = ACPAppPathRecorder()
-		let modelsJSON = #"{"currentModelId":"gemini-2.5-pro-exp-0827","availableModels":[{"modelId":"gemini-2.5-pro-exp-0827","name":"Gemini 2.5 Pro Experimental","description":"Experimental Gemini Pro build"},{"modelId":"gemini-2.5-flash","name":"Gemini 2.5 Flash","description":"Fast Gemini model"}]}"#
+		let modelsJSON = #"{"currentModelId":"gemini-3.0-flash-high","availableModels":[{"modelId":"gemini-3.0-flash-high","name":"Gemini 3 Flash (High)","description":"Fast model, high thinking"},{"modelId":"gemini-3.0-flash-low","name":"Gemini 3 Flash (Low)","description":"Fast model, low thinking"}]}"#
 		let harness = try makeHarness(
 			scenario: .success,
 			routeStrategy: .auto,
 			recorder: recorder,
 			environmentOverrides: ["ACP_TEST_MODELS_JSON": modelsJSON]
 		)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Use live models")
 
@@ -327,29 +327,28 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 			XCTFail(await recorder.summary())
 		}
 
-		let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .gemini)
-		XCTAssertEqual(discoveredModels?.currentModelRaw, "gemini-2.5-pro-exp-0827")
-		XCTAssertEqual(session.selectedModelRaw, "gemini-2.5-pro-exp-0827")
+		let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)
+		XCTAssertEqual(discoveredModels?.currentModelRaw, "gemini-3.0-flash-high")
+		XCTAssertEqual(session.selectedModelRaw, "gemini-3.0-flash-high")
 
-		let options = harness.viewModel.modelOptions(for: .gemini)
+		let options = harness.viewModel.modelOptions(for: .antigravity)
 		XCTAssertEqual(options.map(\.rawValue), [
-			"gemini-2.5-pro-exp-0827",
-			"gemini-2.5-flash"
+			"gemini-3.0-flash-high",
+			"gemini-3.0-flash-low"
 		])
-		XCTAssertFalse(options.contains(where: { $0.rawValue == "gemini-3-flash-preview" }))
 		XCTAssertEqual(
 			harness.viewModel.modelDisplayName(
 				rawModel: session.selectedModelRaw,
-				agentKind: .gemini
+				agentKind: .antigravity
 			),
-			"Gemini 2.5 Pro Experimental"
+			"Gemini 3 Flash (High)"
 		)
 	}
 
-	func testGeminiACPTrackerCallbacksRenderRepoPromptTools() async throws {
+	func testAntigravityACPTrackerCallbacksRenderRepoPromptTools() async throws {
 		let recorder = ACPAppPathRecorder()
 		let harness = try makeHarness(scenario: .noPromptResponse, routeStrategy: .auto, recorder: recorder)
-		let session = await harness.prepareGeminiSession()
+		let session = await harness.prepareAntigravitySession()
 
 		await harness.viewModel.startAgentRun(tabID: harness.tabID, initialMessage: "Track MCP tools")
 
@@ -361,7 +360,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 			XCTFail(await recorder.summary())
 		}
 		guard let runID = session.runID else {
-			return XCTFail("Expected active Gemini run ID")
+			return XCTFail("Expected active Antigravity run ID")
 		}
 
 		let invocationID = UUID()
@@ -396,26 +395,17 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 	}
 
 	private func makeHarness(
-		scenario: MockGeminiACPScenario,
+		scenario: MockAntigravityACPScenario,
 		routeStrategy: RouteStrategy,
 		recorder: ACPAppPathRecorder,
 		environmentOverrides: [String: String] = [:],
 		requestTimeouts: ACPAgentSessionController.RequestTimeouts = .default
-	) throws -> GeminiACPHarness {
+	) throws -> AntigravityACPHarness {
 		let tempDirectory = try makeTempDirectory()
 		let scriptURL = tempDirectory.appendingPathComponent("mock-acp-server.sh")
-		let logURL = tempDirectory.appendingPathComponent("agent-mode-gemini-acp.jsonl")
-		let sessionID = "gemini-session-\(UUID().uuidString)"
-		let geminiRoot = tempDirectory.appendingPathComponent("gemini-home", isDirectory: true)
-		try FileManager.default.createDirectory(at: geminiRoot, withIntermediateDirectories: true)
-		GeminiACPResumeIDResolver.test_setGlobalGeminiDirectoryURL(geminiRoot)
-		var effectiveEnvironmentOverrides = environmentOverrides
-		effectiveEnvironmentOverrides["ACP_TEST_GEMINI_CHAT_TMP_DIR"] = geminiRoot.appendingPathComponent("tmp", isDirectory: true).path
-		effectiveEnvironmentOverrides["ACP_TEST_GEMINI_WORKSPACE_PATH"] = tempDirectory.path
-		effectiveEnvironmentOverrides["ACP_TEST_GEMINI_WRITE_CHAT_ON_PROMPT"] = effectiveEnvironmentOverrides["ACP_TEST_GEMINI_WRITE_CHAT_ON_PROMPT"] ?? "true"
-		addTeardownBlock {
-			GeminiACPResumeIDResolver.test_setGlobalGeminiDirectoryURL(nil)
-		}
+		let logURL = tempDirectory.appendingPathComponent("agent-mode-antigravity-acp.jsonl")
+		let sessionID = "antigravity-session-\(UUID().uuidString)"
+		let effectiveEnvironmentOverrides = environmentOverrides
 		let fixtureURL = try mockACPServerFixtureURL()
 		try FileManager.default.copyItem(at: fixtureURL, to: scriptURL)
 		try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: Int(0o755))], ofItemAtPath: scriptURL.path)
@@ -425,8 +415,8 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 			testWorkspacePath: tempDirectory.path,
 			codexControllerFactory: { _, _, _, _, _, _ in NoopCodexController() },
 			acpProviderFactory: { agent, _ in
-				guard agent == .gemini else { return nil }
-				return ScriptBackedGeminiACPProvider(
+				guard agent == .antigravity else { return nil }
+				return ScriptBackedAntigravityACPProvider(
 					scriptURL: scriptURL,
 					logURL: logURL,
 					scenario: scenario.rawValue,
@@ -470,7 +460,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 				await recorder.recordServerEnable()
 			}
 		)
-		return GeminiACPHarness(
+		return AntigravityACPHarness(
 			viewModel: vm,
 			tabID: UUID(),
 			tempDirectory: tempDirectory,
@@ -482,7 +472,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 
 	private func makeTempDirectory() throws -> URL {
 		let url = FileManager.default.temporaryDirectory
-			.appendingPathComponent("AgentModeGeminiACPE2ETests-\(UUID().uuidString)", isDirectory: true)
+			.appendingPathComponent("AgentModeAntigravityACPE2ETests-\(UUID().uuidString)", isDirectory: true)
 		try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
 		addTeardownBlock {
 			try? FileManager.default.removeItem(at: url)
@@ -540,7 +530,7 @@ final class AgentModeGeminiACPE2ETests: XCTestCase {
 }
 
 @MainActor
-private struct GeminiACPHarness {
+private struct AntigravityACPHarness {
 	let viewModel: AgentModeViewModel
 	let tabID: UUID
 	let tempDirectory: URL
@@ -548,10 +538,10 @@ private struct GeminiACPHarness {
 	let sessionID: String
 	let recorder: ACPAppPathRecorder
 
-	func prepareGeminiSession() async -> AgentModeViewModel.TabSession {
+	func prepareAntigravitySession() async -> AgentModeViewModel.TabSession {
 		let session = await viewModel.ensureSessionReady(tabID: tabID)
-		session.selectedAgent = .gemini
-		session.selectedModelRaw = "gemini-3-flash-preview"
+		session.selectedAgent = .antigravity
+		session.selectedModelRaw = AgentModel.defaultModel.rawValue
 		return session
 	}
 
@@ -576,7 +566,7 @@ private enum RouteStrategy {
 	case manual
 }
 
-private enum MockGeminiACPScenario: String {
+private enum MockAntigravityACPScenario: String {
 	case success = "success"
 	case permissionThenComplete = "permission_then_complete"
 	case noPromptResponse = "no_prompt_response"
@@ -672,8 +662,8 @@ private struct PolicyInstallCall {
 	let purpose: MCPRunPurpose
 }
 
-private struct ScriptBackedGeminiACPProvider: ACPAgentProvider {
-	private let base = GeminiACPAgentProvider(config: GeminiAgentConfig(modelString: "mock-model", enableDebugLogging: false))
+private struct ScriptBackedAntigravityACPProvider: ACPAgentProvider {
+	private let base = AntigravityACPAgentProvider(config: AntigravityAgentConfig(modelString: "mock-model", enableDebugLogging: false))
 	let scriptURL: URL
 	let logURL: URL
 	let scenario: String
@@ -681,7 +671,7 @@ private struct ScriptBackedGeminiACPProvider: ACPAgentProvider {
 	let workingDirectory: String
 	let environmentOverrides: [String: String]
 
-	var providerID: ACPProviderID { .gemini }
+	var providerID: ACPProviderID { .antigravity }
 
 	func support(for _: ACPRunRequest) async -> ACPSupportResult {
 		.supported

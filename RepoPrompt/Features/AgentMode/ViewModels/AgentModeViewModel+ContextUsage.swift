@@ -6,8 +6,8 @@ extension AgentModeViewModel {
 		switch agent {
 		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
 			return claudeContextUsageEstimator
-		case .gemini:
-			return geminiContextUsageEstimator
+		case .antigravity:
+			return antigravityContextUsageEstimator
 		case .codexExec, .openCode, .cursor:
 			return nil
 		}
@@ -106,7 +106,7 @@ extension AgentModeViewModel {
 		)
 	}
 
-	nonisolated static func contextUsageFromGeminiProviderTokens(
+	nonisolated static func contextUsageFromAntigravityProviderTokens(
 		_ usage: [AgentTokenUsagePersist],
 		modelContextWindow: Int?
 	) -> AgentContextUsage? {

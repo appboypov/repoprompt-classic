@@ -1300,7 +1300,7 @@ class GlobalSettingsStore: ObservableObject {
 	/// This is the only way to update the global discover agent/model - workspace settings
 	/// should NOT be used for this purpose.
 	/// - Parameters:
-	///   - agentRaw: The agent rawValue (e.g., "claudeCode", "codexExec", "gemini")
+	///   - agentRaw: The agent rawValue (e.g., "claudeCode", "codexExec", "antigravity")
 	///   - modelRaw: The model rawValue for the selected agent
 	///   - markUserDefined: If true, marks this as a user-defined selection (prevents auto-apply override)
 	func setGlobalDiscoverAgentSelection(
@@ -1490,7 +1490,7 @@ class GlobalSettingsStore: ObservableObject {
 			RecommendationProviderKind.codex.rawValue,
 			RecommendationProviderKind.openAI.rawValue,
 			"anthropic",
-			RecommendationProviderKind.geminiCLI.rawValue,
+			RecommendationProviderKind.antigravity.rawValue,
 		]
 		if storedSet.isSuperset(of: legacyAllProviders) {
 			return Set(RecommendationProviderKind.allCases)

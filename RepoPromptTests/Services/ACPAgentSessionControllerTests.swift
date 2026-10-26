@@ -7,13 +7,13 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 
 	override func setUp() {
 		super.setUp()
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		AgentACPModelRegistry.shared.test_reset(providerID: .openCode)
 		AgentACPModelRegistry.shared.test_reset(providerID: .cursor)
 	}
 
 	override func tearDown() {
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		AgentACPModelRegistry.shared.test_reset(providerID: .openCode)
 		AgentACPModelRegistry.shared.test_reset(providerID: .cursor)
 		super.tearDown()
@@ -127,7 +127,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 			let bootstrap = try await controller.bootstrap()
 			XCTAssertEqual(bootstrap.sessionID, harness.sessionID)
 			XCTAssertTrue(bootstrap.loadSessionSupported)
-			let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .gemini)
+			let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)
 			XCTAssertEqual(discoveredModels?.currentModelRaw, "gemini-2.5-pro-exp-0827")
 			XCTAssertEqual(discoveredModels?.options.map(\.rawValue), [
 				"gemini-2.5-flash",
@@ -293,34 +293,11 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		)
 	}
 
-	func testGeminiSessionLoadMissingSessionDataMessageFallsBackToNewSession() async throws {
+	func testAntigravitySessionLoadMissingSessionDataMessageFallsBackToNewSession() async throws {
 		try await assertSessionLoadMissingSessionFallsBackToNewSession(
-			providerID: .gemini,
+			providerID: .antigravity,
 			modelString: "mock-model",
-			existingSessionID: "missing-gemini-session"
-		)
-	}
-
-	func testGeminiSessionLoadInvalidIdentifierFallsBackToNewSession() async throws {
-		let existingSessionID = "missing-gemini-acp-session"
-		try await assertSessionLoadMissingSessionFallsBackToNewSession(
-			providerID: .gemini,
-			modelString: "mock-model",
-			existingSessionID: existingSessionID,
-			loadError: "Internal error",
-			loadErrorCode: "-32603",
-			loadErrorDataMessage: "Invalid session identifier \(existingSessionID). Searched for sessions in ~/.gemini/tmp/studio/chats. Use --list-sessions, --resume {number}, --resume {uuid}, or --resume latest."
-		)
-	}
-
-	func testGeminiSessionLoadNoPreviousSessionsFallsBackToNewSession() async throws {
-		try await assertSessionLoadMissingSessionFallsBackToNewSession(
-			providerID: .gemini,
-			modelString: "mock-model",
-			existingSessionID: "missing-gemini-previous-session",
-			loadError: "Internal error",
-			loadErrorCode: "-32603",
-			loadErrorDataMessage: "No previous sessions found"
+			existingSessionID: "missing-antigravity-session"
 		)
 	}
 
@@ -332,9 +309,9 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		)
 	}
 
-	func testGeminiAndOpenCodeNonNotFoundSessionLoadFailuresDoNotFallback() async throws {
+	func testAntigravityAndOpenCodeNonNotFoundSessionLoadFailuresDoNotFallback() async throws {
 		for (providerID, modelString, existingSessionID) in [
-			(ACPProviderID.gemini, "mock-model", "gemini-session-load-fails"),
+			(ACPProviderID.antigravity, "mock-model", "antigravity-session-load-fails"),
 			(ACPProviderID.openCode, "Default", "opencode-session-load-fails")
 		] {
 			let loadError = "Invalid params"
@@ -370,10 +347,10 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		}
 	}
 
-	func testGeminiSessionLoadInternalErrorWithoutInvalidIdentifierDoesNotFallback() async throws {
-		let existingSessionID = "gemini-session-load-backend-fails"
+	func testAntigravitySessionLoadInternalErrorDoesNotFallback() async throws {
+		let existingSessionID = "antigravity-session-load-backend-fails"
 		let loadError = "Internal error"
-		let loadDetail = "Gemini backend unavailable for session \(existingSessionID)"
+		let loadDetail = "Antigravity backend unavailable for session \(existingSessionID)"
 		let harness = try makeMockHarness(
 			scenario: .bootstrap,
 			resumeSessionID: existingSessionID,
@@ -383,14 +360,14 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 				"ACP_TEST_LOAD_ERROR_CODE": "-32603",
 				"ACP_TEST_LOAD_ERROR_DATA_MESSAGE": loadDetail
 			],
-			providerID: .gemini
+			providerID: .antigravity
 		)
 		let controller = try harness.makeController(modelString: "mock-model")
 		let recorder = EventRecorder(stream: await controller.events)
 
 		do {
 			_ = try await controller.bootstrap()
-			XCTFail("Expected Gemini session/load to fail without fallback for arbitrary -32603 errors")
+			XCTFail("Expected Antigravity session/load to fail without fallback for arbitrary -32603 errors")
 		} catch {
 			let message = error.localizedDescription
 			XCTAssertTrue(message.contains(loadError), message)
@@ -656,13 +633,13 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		XCTAssertTrue(resultDescription.contains("opt-reject-once"), resultDescription)
 	}
 
-	func testGeminiHeadlessProviderStreamsPromptWithDefaultModeAndMCPInjection() async throws {
+	func testAntigravityHeadlessProviderStreamsPromptWithDefaultModeAndMCPInjection() async throws {
 		let harness = try makeMockHarness(
 			scenario: .success,
 			environmentOverrides: ["ACP_TEST_CURRENT_MODE_ID": "yolo"],
-			providerID: .gemini
+			providerID: .antigravity
 		)
-		let provider = makeGeminiHeadlessProvider(
+		let provider = makeAntigravityHeadlessProvider(
 			harness: harness,
 			modelString: "gemini-2.5-flash"
 		)
@@ -685,7 +662,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 
 		let setMode = try XCTUnwrap(entries.first(where: { ($0["method"] as? String) == "session/set_mode" }))
 		let setModeParams = try XCTUnwrap(setMode["params"] as? [String: Any])
-		XCTAssertEqual(setModeParams["modeId"] as? String, GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID)
+		XCTAssertEqual(setModeParams["modeId"] as? String, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
 
 		let sessionNew = try XCTUnwrap(entries.first(where: { ($0["method"] as? String) == "session/new" }))
 		let sessionParams = try XCTUnwrap(sessionNew["params"] as? [String: Any])
@@ -697,40 +674,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		XCTAssertEqual(promptBlocks.first?["text"] as? String, "System\n\nHello")
 	}
 
-	func testGeminiHeadlessProviderDiscoversDurableLoadIDDifferentFromRuntimeUsingArrayContent() async throws {
-		let durableID = "durable-gemini-\(UUID().uuidString)"
-		let harness = try makeMockHarness(
-			scenario: .success,
-			environmentOverrides: [
-				"ACP_TEST_GEMINI_DURABLE_SESSION_ID": durableID,
-				"ACP_TEST_GEMINI_CHAT_CONTENT_FORMAT": "array",
-				"ACP_TEST_GEMINI_CHAT_USER_TEXT": "RepoPrompt mock prompt"
-			],
-			providerID: .gemini
-		)
-		XCTAssertNotEqual(durableID, harness.sessionID)
-		let provider = makeGeminiHeadlessProvider(harness: harness, modelString: "gemini-2.5-flash")
-
-		let firstStream = try await provider.streamAgentMessage(
-			AgentMessage(systemPrompt: "", userMessage: "RepoPrompt mock prompt", resumeSessionID: nil),
-			runID: UUID()
-		)
-		let firstResults = try await collectStreamResults(from: firstStream)
-		XCTAssertTrue(firstResults.contains(where: { $0.type == "message_stop" && $0.providerSessionID == durableID }))
-
-		let secondStream = try await provider.streamAgentMessage(
-			AgentMessage(systemPrompt: "", userMessage: "Follow up", resumeSessionID: durableID),
-			runID: UUID()
-		)
-		_ = try await collectStreamResults(from: secondStream)
-
-		let entries = try harness.readLoggedEntries()
-		let load = try XCTUnwrap(entries.first(where: { ($0["method"] as? String) == "session/load" }))
-		let loadParams = try XCTUnwrap(load["params"] as? [String: Any])
-		XCTAssertEqual(loadParams["sessionId"] as? String, durableID)
-	}
-
-	func testGeminiHeadlessProviderAutoApprovesPermissionWithProceedOption() async throws {
+	func testAntigravityHeadlessProviderAutoApprovesPermissionWithProceedOption() async throws {
 		let harness = try makeMockHarness(
 			scenario: .permission,
 			environmentOverrides: [
@@ -739,9 +683,9 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 				"ACP_TEST_PERMISSION_RAW_INPUT_JSON": #"{"path":"README.md"}"#,
 				"ACP_TEST_PERMISSION_OPTIONS_JSON": #"[{"optionId":"proceed_once","kind":"allow_once"},{"optionId":"proceed_always_server","kind":"allow_always"},{"optionId":"reject_once","kind":"reject_once"}]"#
 			],
-			providerID: .gemini
+			providerID: .antigravity
 		)
-		let provider = makeGeminiHeadlessProvider(harness: harness, modelString: nil)
+		let provider = makeAntigravityHeadlessProvider(harness: harness, modelString: nil)
 
 		let stream = try await provider.streamAgentMessage(
 			AgentMessage(systemPrompt: "", userMessage: "Needs permission", resumeSessionID: nil),
@@ -760,14 +704,14 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		XCTAssertEqual(outcome["optionId"] as? String, "proceed_always_server")
 	}
 
-	func testGeminiHeadlessProviderUsesSessionLoadForResume() async throws {
-		let existingSessionID = "existing-gemini-headless-session"
+	func testAntigravityHeadlessProviderUsesSessionLoadForResume() async throws {
+		let existingSessionID = "existing-antigravity-headless-session"
 		let harness = try makeMockHarness(
 			scenario: .success,
 			resumeSessionID: existingSessionID,
-			providerID: .gemini
+			providerID: .antigravity
 		)
-		let provider = makeGeminiHeadlessProvider(
+		let provider = makeAntigravityHeadlessProvider(
 			harness: harness,
 			modelString: "gemini-2.5-flash"
 		)
@@ -796,25 +740,158 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		XCTAssertEqual(promptBlocks.first?["text"] as? String, "Follow up")
 	}
 
-	func testDiscoverAgentServiceGeminiFactoryUsesACPHeadlessProvider() {
-		let provider = DiscoverAgentService.shared.makeProvider(
-			for: .gemini,
-			modelString: "gemini-2.5-flash",
-			workspacePath: "/tmp/gemini-acp-headless"
+	func testLaunchEnvironmentScrubsRemovedKeysAndPrefixesButKeepsLaunchOverrides() async throws {
+		setenv("RP_TEST_REMOVED_KEY", "leak", 1)
+		setenv("GOOGLE_RP_TEST_TOKEN", "leak", 1)
+		setenv("AGY_ACP_RP_TEST", "leak", 1)
+		defer {
+			unsetenv("RP_TEST_REMOVED_KEY")
+			unsetenv("GOOGLE_RP_TEST_TOKEN")
+			unsetenv("AGY_ACP_RP_TEST")
+		}
+		let dumpURL = try makeTempDirectory().appendingPathComponent("env.txt")
+		let harness = try makeMockHarness(
+			scenario: .bootstrap,
+			environmentOverrides: [
+				"ACP_TEST_ENV_DUMP_PATH": dumpURL.path,
+				"GOOGLE_RP_TEST_OVERRIDE": "kept"
+			]
+		)
+		let controller = try harness.makeController(
+			removedEnvironmentKeys: ["RP_TEST_REMOVED_KEY"],
+			removedEnvironmentKeyPrefixes: ["GOOGLE_", "AGY_ACP_"]
 		)
 
-		XCTAssertTrue(provider is GeminiACPHeadlessAgentProvider)
+		_ = try await controller.bootstrap()
+		await controller.shutdown()
+
+		let lines = try String(contentsOf: dumpURL, encoding: .utf8).split(separator: "\n").map(String.init)
+		XCTAssertFalse(lines.contains { $0.hasPrefix("RP_TEST_REMOVED_KEY=") })
+		XCTAssertFalse(lines.contains { $0.hasPrefix("GOOGLE_RP_TEST_TOKEN=") })
+		XCTAssertFalse(lines.contains { $0.hasPrefix("AGY_ACP_RP_TEST=") })
+		XCTAssertTrue(lines.contains("GOOGLE_RP_TEST_OVERRIDE=kept"))
 	}
 
-	func testGeminiHeadlessProviderDisposeCancelsActivePrompt() async {
+	func testAntigravityQuestionUnderFullAccessBecomesUserInputRequestAndSendsChosenOption() async throws {
+		let harness = try makeMockHarness(
+			scenario: .permission,
+			environmentOverrides: [
+				"ACP_TEST_PERMISSION_TOOL_CALL_ID": "interaction_1",
+				"ACP_TEST_PERMISSION_TITLE": "Which branch should I use?",
+				"ACP_TEST_PERMISSION_KIND": "other",
+				"ACP_TEST_PERMISSION_OPTIONS_JSON": #"[{"optionId":"answer_0","name":"main","kind":"allow_once"},{"optionId":"answer_1","name":"develop","kind":"allow_once"}]"#
+			],
+			providerID: .antigravity
+		)
+		let controller = try harness.makeController(autoApproveAllToolPermissions: true)
+		let recorder = EventRecorder(stream: await controller.events)
+
+		do {
+			_ = try await controller.bootstrap()
+			let promptTask = Task {
+				try await controller.prompt(AgentMessage(userMessage: "Ask me a question"))
+			}
+			let pendingRequest = await recorder.waitForUserInputRequest(timeout: 2.0)
+			let request = try XCTUnwrap(pendingRequest)
+			XCTAssertEqual(request.requestID, .acp("900"))
+			XCTAssertEqual(request.questions.map(\.id), ["interaction_1"])
+			XCTAssertEqual(request.questions.first?.question, "Which branch should I use?")
+			XCTAssertEqual(request.questions.first?.options.map(\.label), ["main", "develop"])
+			let events = await recorder.snapshot()
+			XCTAssertTrue(approvals(from: events).isEmpty)
+			XCTAssertFalse(
+				try harness.readLoggedEntries().contains(where: { jsonRPCID($0) == 900 && $0["result"] != nil }),
+				"Full Access must never answer a question for the user."
+			)
+
+			await controller.respondToUserInputRequest(
+				id: "900",
+				response: AgentRequestUserInputResponse(answersByQuestionID: ["interaction_1": ["develop"]])
+			)
+			try await promptTask.value
+			let reachedTerminal = await recorder.waitForTerminal(timeout: 2.0, expected: .completed)
+			XCTAssertTrue(reachedTerminal)
+
+			let entries = try harness.readLoggedEntries()
+			let response = try XCTUnwrap(entries.first(where: { jsonRPCID($0) == 900 && $0["result"] != nil }))
+			let result = try XCTUnwrap(response["result"] as? [String: Any])
+			let outcome = try XCTUnwrap(result["outcome"] as? [String: Any])
+			XCTAssertEqual(outcome["outcome"] as? String, "selected")
+			XCTAssertEqual(outcome["optionId"] as? String, "answer_1")
+		} catch {
+			await controller.shutdown()
+			await recorder.cancel()
+			throw error
+		}
+
+		await controller.shutdown()
+		await recorder.cancel()
+	}
+
+	func testAntigravityQuestionAnswerWithoutMatchingOptionCancelsRequest() async throws {
+		let harness = try makeMockHarness(
+			scenario: .permission,
+			environmentOverrides: [
+				"ACP_TEST_PERMISSION_TOOL_CALL_ID": "interaction_2",
+				"ACP_TEST_PERMISSION_KIND": "other",
+				"ACP_TEST_PERMISSION_OPTIONS_JSON": #"[{"optionId":"answer_0","name":"Yes","kind":"allow_once"}]"#
+			],
+			providerID: .antigravity
+		)
+		let controller = try harness.makeController()
+		let recorder = EventRecorder(stream: await controller.events)
+
+		do {
+			_ = try await controller.bootstrap()
+			let promptTask = Task {
+				try await controller.prompt(AgentMessage(userMessage: "Ask me a question"))
+			}
+			let pendingRequest = await recorder.waitForUserInputRequest(timeout: 2.0)
+			XCTAssertNotNil(pendingRequest)
+
+			await controller.respondToUserInputRequest(
+				id: "900",
+				response: AgentRequestUserInputResponse(answersByQuestionID: ["interaction_2": []])
+			)
+			_ = try? await promptTask.value
+
+			let entries = try await waitForLoggedEntries(harness: harness) { entries in
+				entries.contains(where: { jsonRPCID($0) == 900 && $0["result"] != nil })
+			}
+			let response = try XCTUnwrap(entries.first(where: { jsonRPCID($0) == 900 && $0["result"] != nil }))
+			let result = try XCTUnwrap(response["result"] as? [String: Any])
+			let outcome = try XCTUnwrap(result["outcome"] as? [String: Any])
+			XCTAssertEqual(outcome["outcome"] as? String, "cancelled")
+			XCTAssertNil(outcome["optionId"])
+		} catch {
+			await controller.shutdown()
+			await recorder.cancel()
+			throw error
+		}
+
+		await controller.shutdown()
+		await recorder.cancel()
+	}
+
+	func testDiscoverAgentServiceAntigravityFactoryUsesACPHeadlessProvider() {
+		let provider = DiscoverAgentService.shared.makeProvider(
+			for: .antigravity,
+			modelString: "gemini-2.5-flash",
+			workspacePath: "/tmp/antigravity-acp-headless"
+		)
+
+		XCTAssertTrue(provider is AntigravityACPHeadlessAgentProvider)
+	}
+
+	func testAntigravityHeadlessProviderDisposeCancelsActivePrompt() async {
 		var harnessForCancellationCheck: MockHarness?
 		do {
 			let harness = try makeMockHarness(
 				scenario: .toolCallDelayedUpdateThenHang,
-				providerID: .gemini
+				providerID: .antigravity
 			)
 			harnessForCancellationCheck = harness
-			let provider = makeGeminiHeadlessProvider(harness: harness, modelString: nil)
+			let provider = makeAntigravityHeadlessProvider(harness: harness, modelString: nil)
 			let stream = try await provider.streamAgentMessage(
 				AgentMessage(systemPrompt: "", userMessage: "Hang until disposed", resumeSessionID: nil),
 				runID: UUID()
@@ -851,7 +928,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		}
 	}
 
-	func testGeminiFullAccessAutoApprovesNativePermissionWithoutApprovalEvent() async throws {
+	func testAntigravityFullAccessAutoApprovesNativePermissionWithoutApprovalEvent() async throws {
 		let harness = try makeMockHarness(
 			scenario: .permission,
 			environmentOverrides: [
@@ -860,7 +937,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 				"ACP_TEST_PERMISSION_RAW_INPUT_JSON": #"{"path":"README.md"}"#,
 				"ACP_TEST_PERMISSION_OPTIONS_JSON": #"[{"optionId":"proceed_once","kind":"allow_once"},{"optionId":"proceed_always_server","kind":"allow_always"},{"optionId":"reject_once","kind":"reject_once"}]"#
 			],
-			providerID: .gemini
+			providerID: .antigravity
 		)
 		let controller = try harness.makeController(
 			modelString: "gemini-2.5-flash",
@@ -870,7 +947,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 
 		do {
 			_ = try await controller.bootstrap()
-			try await controller.prompt(AgentMessage(userMessage: "Trigger a Gemini permission request"))
+			try await controller.prompt(AgentMessage(userMessage: "Trigger an Antigravity permission request"))
 			let reachedTerminal = await recorder.waitForTerminal(timeout: 2.0, expected: .completed)
 			XCTAssertTrue(reachedTerminal)
 
@@ -1595,7 +1672,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 			let bootstrap = try await controller.bootstrap()
 			XCTAssertEqual(bootstrap.sessionID, existingSessionID)
 			XCTAssertTrue(bootstrap.loadSessionSupported)
-			let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .gemini)
+			let discoveredModels = AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)
 			XCTAssertEqual(discoveredModels?.currentModelRaw, "gemini-2.5-pro-exp-0827")
 			XCTAssertEqual(
 				discoveredModels?.option(matching: "gemini-2.5-flash")?.displayName,
@@ -1677,7 +1754,7 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		await recorder.cancel()
 	}
 
-	func testGeminiJSONReasoningChunkIsEmittedBeforeDelayedContent() async throws {
+	func testJSONReasoningChunkIsEmittedBeforeDelayedContent() async throws {
 		let harness = try makeMockHarness(scenario: .jsonReasoningBeforeDelayedContent)
 		let controller = try harness.makeController()
 		let recorder = EventRecorder(stream: await controller.events)
@@ -1840,196 +1917,6 @@ final class ACPAgentSessionControllerTests: XCTestCase {
 		await recorder.cancel()
 	}
 
-	func testLiveGeminiACPFlashRoundTrip_optIn() async throws {
-		try XCTSkipUnless(
-			ProcessInfo.processInfo.environment["RUN_GEMINI_ACP_LIVE"] == "1",
-			"Live Gemini ACP test is opt-in (set RUN_GEMINI_ACP_LIVE=1)"
-		)
-
-		let workspaceURL = try makeTempDirectory()
-		let model = ProcessInfo.processInfo.environment["GEMINI_ACP_MODEL"] ?? "gemini-2.5-flash"
-		let runRequest = ACPRunRequest(
-			agentKind: .gemini,
-			modelString: model,
-			workspacePath: workspaceURL.path,
-			resumeSessionID: nil,
-			attachments: [],
-			taskLabelKind: nil
-		)
-		let provider = LiveGeminiACPTestProvider(
-			base: GeminiACPAgentProvider(
-				config: GeminiAgentConfig(
-					modelString: model,
-					enableDebugLogging: ProcessInfo.processInfo.environment["GEMINI_ACP_DEBUG"] == "1"
-				)
-			)
-		)
-
-		switch await provider.support(for: runRequest) {
-		case .supported:
-			break
-		case .unsupported(let reason):
-			throw XCTSkip("Gemini ACP runtime unavailable: \(reason)")
-		}
-
-		let controller = try ACPAgentSessionController(provider: provider, runRequest: runRequest)
-		let recorder = EventRecorder(stream: await controller.events)
-
-		do {
-			let bootstrap = try await controller.bootstrap()
-			XCTAssertFalse(bootstrap.sessionID.isEmpty)
-
-			try await controller.prompt(
-				AgentMessage(userMessage: "Reply with exactly LIVE_GEMINI_ACP_OK and nothing else.")
-			)
-			let reachedTerminal = await recorder.waitForTerminal(timeout: 30.0, expected: .completed)
-			XCTAssertTrue(reachedTerminal)
-
-			let events = await recorder.snapshot()
-			let transcript = streamResults(from: events)
-				.filter { $0.type == "content" }
-				.compactMap(\.text)
-				.joined()
-			XCTAssertTrue(
-				transcript.localizedCaseInsensitiveContains("LIVE_GEMINI_ACP_OK"),
-				"Expected live Gemini ACP transcript to contain LIVE_GEMINI_ACP_OK, got: \(transcript)"
-			)
-		} catch {
-			await controller.shutdown()
-			await recorder.cancel()
-			throw error
-		}
-
-		await controller.shutdown()
-		let didFinish = await recorder.waitForFinish(timeout: 5.0)
-		XCTAssertTrue(didFinish)
-		await recorder.cancel()
-	}
-
-	func testLiveGeminiACPBootstrapDiagnostics_optIn() async throws {
-		try XCTSkipUnless(
-			ProcessInfo.processInfo.environment["RUN_GEMINI_ACP_LIVE"] == "1",
-			"Live Gemini ACP diagnostic test is opt-in (set RUN_GEMINI_ACP_LIVE=1)"
-		)
-
-		let workspaceURL = try makeTempDirectory()
-		let model = ProcessInfo.processInfo.environment["GEMINI_ACP_MODEL"] ?? "gemini-2.5-flash"
-		let initialConfig = GeminiAgentConfig(
-			commandName: ProcessInfo.processInfo.environment["GEMINI_CLI_PATH"] ?? "gemini",
-			modelString: model,
-			enableDebugLogging: true
-		)
-		let initialProvider = GeminiACPAgentProvider(config: initialConfig)
-		let runRequest = ACPRunRequest(
-			agentKind: .gemini,
-			modelString: model,
-			workspacePath: workspaceURL.path,
-			resumeSessionID: nil,
-			attachments: [],
-			taskLabelKind: nil
-		)
-
-		switch await initialProvider.support(for: runRequest) {
-		case .supported:
-			break
-		case .unsupported(let reason):
-			throw XCTSkip("Gemini ACP runtime unavailable: \(reason)")
-		}
-
-		let diagLogURL = FileManager.default.temporaryDirectory.appendingPathComponent("acp-diag-\(UUID().uuidString).log")
-		func diagLog(_ msg: String) {
-			let line = "[\(ISO8601DateFormatter().string(from: Date()))] \(msg)\n"
-			print(line, terminator: "")
-			if let data = line.data(using: .utf8) {
-				if FileManager.default.fileExists(atPath: diagLogURL.path) {
-					if let handle = try? FileHandle(forWritingTo: diagLogURL) {
-						handle.seekToEndOfFile()
-						handle.write(data)
-						handle.closeFile()
-					}
-				} else {
-					try? data.write(to: diagLogURL)
-				}
-			}
-		}
-		diagLog("Diagnostic log: \(diagLogURL.path)")
-
-		let resolvedCLIPath = try await resolveRealCLIPath(
-			commandName: initialConfig.commandName,
-			additionalPathHints: initialConfig.additionalPathHints,
-			enableDebugLogging: initialConfig.enableDebugLogging
-		)
-		diagLog("[ACP-DIAG] Resolved Gemini CLI path: \(resolvedCLIPath)")
-
-		let provider = GeminiACPAgentProvider(
-			config: GeminiAgentConfig(
-				commandName: resolvedCLIPath,
-				additionalPathHints: [],
-				modelString: model,
-				enableDebugLogging: true
-			)
-		)
-		let launchConfiguration = try provider.makeLaunchConfiguration(for: runRequest)
-		diagLog("[ACP-DIAG] launch arguments: \(launchConfiguration.arguments)")
-		diagLog("[ACP-DIAG] launch workingDirectory: \(launchConfiguration.workingDirectory ?? "<nil>")")
-		diagLog("[ACP-DIAG] launch environment keys: \(launchConfiguration.environment.keys.sorted())")
-		let diagnostics = ACPDiagnosticRecorder()
-		let controller = try ACPAgentSessionController(
-			provider: provider,
-			runRequest: runRequest,
-			diagnosticSink: { event in
-				Task {
-					await diagnostics.record(event)
-				}
-			}
-		)
-		let recorder = EventRecorder(
-			stream: await controller.events,
-			onEvent: { event in
-				diagLog("[ACP-EVENT] \(String(describing: event))")
-			}
-		)
-
-		do {
-			let bootstrapTask = Task { try await controller.bootstrap() }
-			try await diagnostics.waitForPhaseCompletion("launch", timeout: 30.0)
-			try await diagnostics.waitForPhaseCompletion("initialize", timeout: 30.0)
-			try await diagnostics.waitForPhaseCompletion("authenticate", timeout: 30.0)
-			try await diagnostics.waitForPhaseCompletion("session/new", timeout: 30.0)
-			let bootstrap = try await bootstrapTask.value
-			diagLog("[ACP-DIAG] bootstrap completed with sessionID=\(bootstrap.sessionID)")
-
-			let promptTask = Task {
-				try await controller.prompt(AgentMessage(userMessage: "Reply with OK"))
-			}
-			try await diagnostics.waitForPhaseCompletion("prompt", timeout: 30.0)
-			try await promptTask.value
-
-			let reachedTerminal = await recorder.waitForTerminal(timeout: 30.0, expected: .completed)
-			let diagnosticSummary = await diagnostics.summary()
-			XCTAssertTrue(reachedTerminal, diagnosticSummary)
-
-			let events = await recorder.snapshot()
-			let transcript = streamResults(from: events)
-				.filter { $0.type == "content" }
-				.compactMap(\.text)
-				.joined()
-			diagLog("[ACP-DIAG] final transcript=\(transcript)")
-		} catch {
-			diagLog("[ACP-DIAG] FAILURE: \(error)")
-			diagLog(await diagnostics.summary())
-			await controller.shutdown()
-			await recorder.cancel()
-			throw error
-		}
-
-		diagLog(await diagnostics.summary())
-		await controller.shutdown()
-		let didFinish = await recorder.waitForFinish(timeout: 10.0)
-		let finalDiagnosticSummary = await diagnostics.summary()
-		XCTAssertTrue(didFinish, finalDiagnosticSummary)
-		await recorder.cancel()
-	}
 }
 
 private extension ACPAgentSessionControllerTests {
@@ -2063,9 +1950,11 @@ private extension ACPAgentSessionControllerTests {
 			requestTimeouts: ACPAgentSessionController.RequestTimeouts = .default,
 			modelString: String = "mock-model",
 			autoApproveAllToolPermissions: Bool = false,
-			diagnostics: ACPDiagnosticRecorder? = nil
+			diagnostics: ACPDiagnosticRecorder? = nil,
+			removedEnvironmentKeys: Set<String> = [],
+			removedEnvironmentKeyPrefixes: [String] = []
 		) throws -> ACPAgentSessionController {
-			let provider = MockACPAgentProvider(
+			var provider = MockACPAgentProvider(
 				scriptURL: scriptURL,
 				logURL: logURL,
 				scenario: scenario.rawValue,
@@ -2077,14 +1966,16 @@ private extension ACPAgentSessionControllerTests {
 				launchAdditionalPathHints: launchAdditionalPathHints,
 				includeRepoPromptMCPServer: true
 			)
+			provider.removedEnvironmentKeys = removedEnvironmentKeys
+			provider.removedEnvironmentKeyPrefixes = removedEnvironmentKeyPrefixes
 			let agentKind: DiscoverAgentKind
 			switch providerID {
 			case .openCode:
 				agentKind = .openCode
 			case .cursor:
 				agentKind = .cursor
-			case .gemini:
-				agentKind = .gemini
+			case .antigravity:
+				agentKind = .antigravity
 			}
 			let request = ACPRunRequest(
 				agentKind: agentKind,
@@ -2223,24 +2114,23 @@ private extension ACPAgentSessionControllerTests {
 		)
 	}
 
-	func makeGeminiHeadlessProvider(
+	func makeAntigravityHeadlessProvider(
 		harness: MockHarness,
 		modelString: String?
-	) -> GeminiACPHeadlessAgentProvider {
-		let providerFactory = MockGeminiHeadlessACPProviderFactory(harness: harness)
-		return GeminiACPHeadlessAgentProvider(
-			config: GeminiAgentConfig(
+	) -> AntigravityACPHeadlessAgentProvider {
+		let providerFactory = MockAntigravityHeadlessACPProviderFactory(harness: harness)
+		return AntigravityACPHeadlessAgentProvider(
+			config: AntigravityAgentConfig(
 				modelString: modelString,
 				enableDebugLogging: false,
-				toolContext: .agentRun,
 				includeRepoPromptMCPServer: true
 			),
 			workspacePath: harness.tempDirectory.path,
 			providerFactory: { config in providerFactory.makeProvider(includeRepoPromptMCPServer: config.includeRepoPromptMCPServer) },
 			controllerFactory: { provider, request, diagnosticSink in
-				XCTAssertEqual(request.agentKind, .gemini)
+				XCTAssertEqual(request.agentKind, .antigravity)
 				XCTAssertEqual(request.workspacePath, harness.tempDirectory.path)
-				XCTAssertEqual(request.sessionModeID, GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID)
+				XCTAssertEqual(request.sessionModeID, AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID)
 				XCTAssertTrue(request.autoApproveAllToolPermissions)
 				return try ACPAgentSessionController(
 					provider: provider,
@@ -2256,25 +2146,14 @@ private extension ACPAgentSessionControllerTests {
 		resumeSessionID: String? = nil,
 		environmentOverrides: [String: String] = [:],
 		mcpServerCommand: String = "/bin/echo",
-		providerID: ACPProviderID = .gemini,
+		providerID: ACPProviderID = .antigravity,
 		launchAdditionalPathHints: [String] = []
 	) throws -> MockHarness {
 		let tempDirectory = try makeTempDirectory()
 		let scriptURL = tempDirectory.appendingPathComponent("mock-acp-server.sh")
 		let logURL = tempDirectory.appendingPathComponent("client-requests.jsonl")
 		let sessionID = "mock-session-\(UUID().uuidString)"
-		var effectiveEnvironmentOverrides = environmentOverrides
-		if providerID == .gemini {
-			let geminiRoot = tempDirectory.appendingPathComponent("gemini-home", isDirectory: true)
-			try FileManager.default.createDirectory(at: geminiRoot, withIntermediateDirectories: true)
-			GeminiACPResumeIDResolver.test_setGlobalGeminiDirectoryURL(geminiRoot)
-			effectiveEnvironmentOverrides["ACP_TEST_GEMINI_CHAT_TMP_DIR"] = geminiRoot.appendingPathComponent("tmp", isDirectory: true).path
-			effectiveEnvironmentOverrides["ACP_TEST_GEMINI_WORKSPACE_PATH"] = tempDirectory.path
-			effectiveEnvironmentOverrides["ACP_TEST_GEMINI_WRITE_CHAT_ON_PROMPT"] = effectiveEnvironmentOverrides["ACP_TEST_GEMINI_WRITE_CHAT_ON_PROMPT"] ?? "true"
-			addTeardownBlock {
-				GeminiACPResumeIDResolver.test_setGlobalGeminiDirectoryURL(nil)
-			}
-		}
+		let effectiveEnvironmentOverrides = environmentOverrides
 		try FileManager.default.copyItem(at: try mockACPServerFixtureURL(), to: scriptURL)
 		try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: Int(0o755))], ofItemAtPath: scriptURL.path)
 		return MockHarness(
@@ -2371,7 +2250,7 @@ private extension ACPAgentSessionControllerTests {
 		}
 	}
 
-	func approvalCancelledIDs(from events: [NormalizedAgentRuntimeEvent]) -> [AgentApprovalRequestID] {
+	func approvalCancelledIDs(from events: [NormalizedAgentRuntimeEvent]) -> [AgentInteractionRequestID] {
 		events.compactMap {
 			guard case .approvalCancelled(let requestID) = $0 else { return nil }
 			return requestID
@@ -2397,25 +2276,6 @@ private extension ACPAgentSessionControllerTests {
 		return streamResults(from: events).contains(where: {
 			$0.type == "reasoning" && $0.reasoning == expectedReasoning
 		})
-	}
-
-	func resolveRealCLIPath(
-		commandName: String,
-		additionalPathHints: [String],
-		enableDebugLogging: Bool
-	) async throws -> String {
-		let environment = await ProcessEnvironmentBuilder.build(
-			ProcessEnvironmentRequest(
-				purpose: .acpAgent(providerID: ACPProviderID.gemini.rawValue),
-				enableDebugLogging: enableDebugLogging
-			)
-		).environment
-		return CommandPathResolver.resolve(
-			commandName,
-			environment: environment,
-			additionalPaths: additionalPathHints,
-			preferredBasenames: [commandName]
-		)
 	}
 }
 
@@ -2461,7 +2321,7 @@ private final class MockCursorHeadlessACPProviderFactory: @unchecked Sendable {
 	}
 }
 
-private final class MockGeminiHeadlessACPProviderFactory: @unchecked Sendable {
+private final class MockAntigravityHeadlessACPProviderFactory: @unchecked Sendable {
 	private let scriptURL: URL
 	private let logURL: URL
 	private let scenario: String
@@ -2491,7 +2351,7 @@ private final class MockGeminiHeadlessACPProviderFactory: @unchecked Sendable {
 			workingDirectory: workingDirectory,
 			environmentOverrides: environmentOverrides,
 			mcpServerCommand: mcpServerCommand,
-			providerID: .gemini,
+			providerID: .antigravity,
 			launchAdditionalPathHints: launchAdditionalPathHints,
 			includeRepoPromptMCPServer: includeRepoPromptMCPServer
 		)
@@ -2509,6 +2369,8 @@ private struct MockACPAgentProvider: ACPAgentProvider {
 	let providerID: ACPProviderID
 	let launchAdditionalPathHints: [String]
 	let includeRepoPromptMCPServer: Bool
+	var removedEnvironmentKeys: Set<String> = []
+	var removedEnvironmentKeyPrefixes: [String] = []
 
 	func support(for _: ACPRunRequest) async -> ACPSupportResult {
 		.supported
@@ -2530,7 +2392,9 @@ private struct MockACPAgentProvider: ACPAgentProvider {
 			environment: environment,
 			workingDirectory: workingDirectory,
 			additionalPathHints: launchAdditionalPathHints,
-			enableDebugLogging: false
+			enableDebugLogging: false,
+			removedEnvironmentKeys: removedEnvironmentKeys,
+			removedEnvironmentKeyPrefixes: removedEnvironmentKeyPrefixes
 		)
 	}
 
@@ -2645,7 +2509,7 @@ private struct MockACPAgentProvider: ACPAgentProvider {
 
 	func preferredAuthMethodID(context: ACPAuthenticationContext) -> String? {
 		switch providerID {
-		case .gemini:
+		case .antigravity:
 			for preferredID in ["use_gemini_api", "use_gemini"] {
 				if let match = context.authMethodIDs.first(where: { $0.lowercased() == preferredID }) {
 					return match
@@ -2688,52 +2552,6 @@ private struct MockACPAgentProvider: ACPAgentProvider {
 	}
 }
 
-private struct LiveGeminiACPTestProvider: ACPAgentProvider {
-	let base: GeminiACPAgentProvider
-
-	var providerID: ACPProviderID { base.providerID }
-
-	func support(for request: ACPRunRequest) async -> ACPSupportResult {
-		await base.support(for: request)
-	}
-
-	func makeLaunchConfiguration(for request: ACPRunRequest) throws -> ACPLaunchConfiguration {
-		try base.makeLaunchConfiguration(for: request)
-	}
-
-	func makeSessionConfiguration(
-		for request: ACPRunRequest,
-		mcpServer _: RepoPromptMCPServerConfiguration
-	) throws -> ACPSessionConfiguration {
-		let workingDirectory = request.workspacePath?
-			.trimmingCharacters(in: .whitespacesAndNewlines)
-			.nonEmpty
-			?? FileManager.default.temporaryDirectory.path
-		let mode: ACPSessionConfiguration.Mode
-		if let resume = request.resumeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines), !resume.isEmpty {
-			mode = .load(existingSessionID: resume)
-		} else {
-			mode = .new
-		}
-		return ACPSessionConfiguration(mode: mode, workingDirectory: workingDirectory, mcpServers: [])
-	}
-
-	func buildPromptBlocks(for message: AgentMessage, request: ACPRunRequest) throws -> [[String: Any]] {
-		try base.buildPromptBlocks(for: message, request: request)
-	}
-
-	func normalizeSessionUpdate(
-		_ payload: [String: Any],
-		sessionID: String
-	) -> [NormalizedAgentRuntimeEvent] {
-		base.normalizeSessionUpdate(payload, sessionID: sessionID)
-	}
-
-	func normalizeError(_ error: Error) -> Error {
-		base.normalizeError(error)
-	}
-}
-
 private actor EventRecorder {
 	private var events: [NormalizedAgentRuntimeEvent] = []
 	private var finished = false
@@ -2764,6 +2582,26 @@ private actor EventRecorder {
 			}
 		}
 		return nil
+	}
+
+	func firstUserInputRequest() -> AgentRequestUserInputRequest? {
+		for event in events {
+			if case .userInputRequested(let request) = event {
+				return request
+			}
+		}
+		return nil
+	}
+
+	func waitForUserInputRequest(timeout: TimeInterval) async -> AgentRequestUserInputRequest? {
+		let deadline = Date().addingTimeInterval(timeout)
+		while Date() < deadline {
+			if let request = firstUserInputRequest() {
+				return request
+			}
+			try? await Task.sleep(nanoseconds: 20_000_000)
+		}
+		return firstUserInputRequest()
 	}
 
 	func waitForApprovalRequest(timeout: TimeInterval) async -> Bool {

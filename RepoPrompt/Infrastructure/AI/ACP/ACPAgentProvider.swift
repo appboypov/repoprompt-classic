@@ -1,7 +1,7 @@
 import Foundation
 
 enum ACPProviderID: String, Sendable, Hashable {
-	case gemini
+	case antigravity
 	case openCode
 	case cursor
 }
@@ -51,37 +51,16 @@ struct ACPDiscoveredSessionModels: Sendable, Equatable {
 	}
 }
 
-/// Describes whether an ACP session identifier is known to be safe for a future
-/// `session/load`. Cursor/OpenCode use their runtime session ID directly; Gemini
-/// may need to prove or discover a separate durable chat ID before cold resume.
-enum ACPLoadSessionIDConfidence: Sendable, Equatable {
-	case unavailable
-	case candidate
-	case verified
-}
-
-/// Runtime-to-load identity reported by the ACP controller to the runner.
-/// Keep this intentionally small: Gemini is currently the only provider that
-/// distinguishes runtime and load IDs, while Cursor/OpenCode set both to the
-/// same verified value.
+/// ACP session identity reported by the ACP controller to the runner. The
+/// session ID is the one a later `session/load` resumes.
 struct ACPProviderSessionIdentity: Sendable, Equatable {
 	let providerID: ACPProviderID
-	let runtimeSessionID: String?
-	let loadSessionID: String?
-	let loadSessionIDConfidence: ACPLoadSessionIDConfidence
+	let sessionID: String?
 
-	init(
-		providerID: ACPProviderID,
-		runtimeSessionID: String? = nil,
-		loadSessionID: String? = nil,
-		loadSessionIDConfidence: ACPLoadSessionIDConfidence = .unavailable
-	) {
+	init(providerID: ACPProviderID, sessionID: String? = nil) {
 		self.providerID = providerID
-		let runtime = runtimeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
-		let load = loadSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
-		self.runtimeSessionID = runtime?.isEmpty == false ? runtime : nil
-		self.loadSessionID = load?.isEmpty == false ? load : nil
-		self.loadSessionIDConfidence = load == nil || load?.isEmpty == true ? .unavailable : loadSessionIDConfidence
+		let trimmed = sessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
+		self.sessionID = trimmed?.isEmpty == false ? trimmed : nil
 	}
 }
 
@@ -139,6 +118,10 @@ struct ACPLaunchConfiguration: Sendable, Equatable {
 	let additionalPathHints: [String]
 	let enableDebugLogging: Bool
 	let cleanupArtifact: ACPLaunchCleanupArtifact?
+	/// Inherited variables the agent process must not see.
+	let removedEnvironmentKeys: Set<String>
+	/// Prefixes of inherited variables the agent process must not see.
+	let removedEnvironmentKeyPrefixes: [String]
 
 	init(
 		providerID: ACPProviderID,
@@ -148,7 +131,9 @@ struct ACPLaunchConfiguration: Sendable, Equatable {
 		workingDirectory: String?,
 		additionalPathHints: [String],
 		enableDebugLogging: Bool,
-		cleanupArtifact: ACPLaunchCleanupArtifact? = nil
+		cleanupArtifact: ACPLaunchCleanupArtifact? = nil,
+		removedEnvironmentKeys: Set<String> = [],
+		removedEnvironmentKeyPrefixes: [String] = []
 	) {
 		self.providerID = providerID
 		self.command = command
@@ -158,6 +143,8 @@ struct ACPLaunchConfiguration: Sendable, Equatable {
 		self.additionalPathHints = additionalPathHints
 		self.enableDebugLogging = enableDebugLogging
 		self.cleanupArtifact = cleanupArtifact
+		self.removedEnvironmentKeys = removedEnvironmentKeys
+		self.removedEnvironmentKeyPrefixes = removedEnvironmentKeyPrefixes
 	}
 }
 
@@ -175,7 +162,8 @@ struct ACPSessionConfiguration: Sendable, Equatable {
 enum NormalizedAgentRuntimeEvent: Sendable {
 	case stream(AIStreamResult)
 	case approvalRequested(AgentApprovalRequest)
-	case approvalCancelled(AgentApprovalRequestID)
+	case approvalCancelled(AgentInteractionRequestID)
+	case userInputRequested(AgentRequestUserInputRequest)
 	case terminal(state: AgentSessionRunState, errorText: String?)
 }
 
@@ -197,12 +185,19 @@ protocol ACPAgentProvider: Sendable {
 		sessionID: String
 	) -> [NormalizedAgentRuntimeEvent]
 	func preferredAuthMethodID(context: ACPAuthenticationContext) -> String?
+	/// The account's plan name, when the provider reports it in the
+	/// `session/new` or `session/load` result.
+	func accountPlanName(fromSessionResponse response: [String: Any]) -> String?
 	func cleanupLaunchArtifacts(for configuration: ACPLaunchConfiguration) async
 	func normalizeError(_ error: Error) -> Error
 }
 
 extension ACPAgentProvider {
 	func preferredAuthMethodID(context _: ACPAuthenticationContext) -> String? {
+		nil
+	}
+
+	func accountPlanName(fromSessionResponse _: [String: Any]) -> String? {
 		nil
 	}
 

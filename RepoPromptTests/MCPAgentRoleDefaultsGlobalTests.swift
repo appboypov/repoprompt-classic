@@ -22,7 +22,7 @@ final class MCPAgentRoleDefaultsGlobalTests: XCTestCase {
 	private let availability = AgentModelCatalog.AvailabilityContext(
 		claudeCodeAvailable: true,
 		codexAvailable: true,
-		geminiAvailable: true,
+		antigravityAvailable: true,
 		zaiConfigured: false
 	)
 
@@ -149,8 +149,8 @@ final class MCPAgentRoleDefaultsGlobalTests: XCTestCase {
 		]
 		let existingGlobal = [
 			AgentModelCatalog.TaskLabelKind.pair.rawValue: AgentModelSelectionID(
-				agentRaw: DiscoverAgentKind.gemini.rawValue,
-				modelRaw: AgentModel.geminiPro3p1Preview.rawValue
+				agentRaw: DiscoverAgentKind.antigravity.rawValue,
+				modelRaw: AgentModel.defaultModel.rawValue
 			).rawValue
 		]
 
@@ -170,8 +170,8 @@ final class MCPAgentRoleDefaultsGlobalTests: XCTestCase {
 			modelRaw: AgentModel.claudeOpus.rawValue
 		).rawValue
 		let geminiID = AgentModelSelectionID(
-			agentRaw: DiscoverAgentKind.gemini.rawValue,
-			modelRaw: AgentModel.geminiPro3p1Preview.rawValue
+			agentRaw: DiscoverAgentKind.antigravity.rawValue,
+			modelRaw: AgentModel.defaultModel.rawValue
 		).rawValue
 		var first = ChatGlobalSettings(workspaceID: UUID())
 		first.mcpAgentRoleOverrides = [AgentModelCatalog.TaskLabelKind.pair.rawValue: claudeID]

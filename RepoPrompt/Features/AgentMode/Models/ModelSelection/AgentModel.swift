@@ -78,12 +78,6 @@ enum AgentModel: String, CaseIterable, Codable {
 	case kimiCode = "kimi-code"
 	case customClaudeCompatible = "custom-claude-compatible"
 
-	// Gemini models
-	case geminiFlash25 = "gemini-2.5-flash"
-	case geminiPro25 = "gemini-2.5-pro"
-	case geminiPro3p1Preview = "gemini-3.1-pro-preview"
-	case gemini3FlashPreview = "gemini-3-flash-preview"
-
 	// Cursor models
 	case cursorAuto = "auto"
 	case cursorComposer2 = "composer-2"
@@ -129,10 +123,6 @@ enum AgentModel: String, CaseIterable, Codable {
 		case .glm5: return "GLM 5.1"
 		case .kimiCode: return "Kimi Code"
 		case .customClaudeCompatible: return "CC Custom"
-		case .geminiFlash25: return "Gemini Flash 2.5"
-		case .geminiPro25: return "Gemini Pro 2.5"
-		case .geminiPro3p1Preview: return "Gemini Pro 3.1 Preview"
-		case .gemini3FlashPreview: return "Gemini Flash 3.0 Preview"
 		case .cursorAuto: return "Auto"
 		case .cursorComposer2: return "Composer 2"
 		case .defaultModel: return "Default"
@@ -177,10 +167,6 @@ enum AgentModel: String, CaseIterable, Codable {
 		case .glm5: return "GLM 5.1 tier via Z.ai. Strongest GLM tier, good for complex tasks."
 		case .kimiCode: return "Kimi Code backend. RepoPrompt does not pass a model flag."
 		case .customClaudeCompatible: return "Custom Claude-compatible backend. RepoPrompt does not pass a model flag when configured for no-model behavior."
-		case .geminiFlash25: return "Legacy Gemini 2.5 Flash kept for compatibility; prefer Gemini Flash 3.0 for exploration."
-		case .geminiPro25: return "Legacy Gemini 2.5 Pro kept for compatibility; prefer Gemini 3.1 Pro for complex analysis."
-		case .geminiPro3p1Preview: return "Latest Gemini Pro. Enhanced capabilities for complex work."
-		case .gemini3FlashPreview: return "Fast next-gen Gemini. Good for exploration and rapid iteration."
 		case .cursorAuto: return "Let Cursor choose the best model automatically. Built-in fallback for Cursor ACP runs when dynamic model metadata is unavailable."
 		case .cursorComposer2: return "Cursor's Composer 2 model. Available when Cursor exposes it through ACP model metadata."
 		case .defaultModel: return "Use the agent's default model. Good starting point when unsure."
@@ -209,9 +195,7 @@ enum AgentModel: String, CaseIterable, Codable {
 				.claudeSonnet, .claudeSonnet46, .claudeSonnet45,
 				.claudeHaiku, .claudeHaiku45,
 			]
-		case .gemini:
-			models = [.defaultModel, .gemini3FlashPreview, .geminiPro3p1Preview, .geminiFlash25, .geminiPro25]
-		case .openCode:
+		case .antigravity, .openCode:
 			models = [.defaultModel]
 		case .cursor:
 			models = [.cursorAuto, .cursorComposer2]
@@ -265,11 +249,6 @@ enum AgentModel: String, CaseIterable, Codable {
 				return exact
 			}
 			return nil
-		}
-
-		if agentKind == .gemini,
-			normalized.caseInsensitiveCompare("gemini-3-pro-preview") == .orderedSame {
-			return .geminiPro3p1Preview
 		}
 
 		if let exact = AgentModel(rawValue: normalized), exact.isValidFor(agentKind) {

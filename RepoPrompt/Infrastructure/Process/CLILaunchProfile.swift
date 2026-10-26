@@ -11,10 +11,6 @@ enum CLILaunchProfiles {
 		"~/.claude/local"
 	]
 
-	static let geminiProviderSpecificPaths: [String] = [
-		"~/.gemini/bin"
-	]
-
 	static let openCodeProviderSpecificPaths: [String] = []
 	static let cursorProviderSpecificPaths: [String] = []
 
@@ -48,12 +44,6 @@ enum CLILaunchProfiles {
 		commandName: "codex",
 		preferredBasenames: ["codex"],
 		supplementalSearchPaths: codexSupplementalSearchPaths
-	)
-
-	static let gemini = CLILaunchProfile(
-		commandName: "gemini",
-		preferredBasenames: ["gemini"],
-		supplementalSearchPaths: nativeDefaultsSupplemented(with: geminiProviderSpecificPaths)
 	)
 
 	static let openCode = CLILaunchProfile(

@@ -2,7 +2,7 @@ import Foundation
 
 enum ContextUsageSnapshotSource: String, Codable, Equatable, Sendable {
 	case claudeUsageEvent
-	case geminiUsageEvent
+	case antigravityUsageEvent
 	case codexNativeUsage
 	case turnFinalization
 	case persistedTurns

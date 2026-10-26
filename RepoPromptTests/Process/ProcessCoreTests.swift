@@ -383,10 +383,6 @@ final class ProcessCoreTests: XCTestCase {
 		XCTAssertTrue(CLILaunchProfiles.codex.supplementalSearchPaths.contains("~/.bun/bin"))
 		XCTAssertTrue(CLILaunchProfiles.codex.supplementalSearchPaths.contains("/Applications/Codex.app/Contents/Resources"))
 
-		XCTAssertEqual(CLILaunchProfiles.gemini.commandName, "gemini")
-		XCTAssertEqual(CLILaunchProfiles.gemini.preferredBasenames, ["gemini"])
-		XCTAssertEqual(CLILaunchProfiles.gemini.supplementalSearchPaths, CLIPathHints.nativeDefaultsSupplemented(with: CLIPathHints.gemini))
-
 		XCTAssertEqual(CLILaunchProfiles.openCode.commandName, "opencode")
 		XCTAssertEqual(CLILaunchProfiles.openCode.preferredBasenames, ["opencode"])
 		XCTAssertEqual(CLILaunchProfiles.openCode.supplementalSearchPaths, CLIPathHints.nativeDefaultsSupplemented(with: CLIPathHints.openCode))
@@ -446,10 +442,8 @@ final class ProcessCoreTests: XCTestCase {
 
 	func testNonCodexProviderHintsOnlyContainProviderSpecificLocations() {
 		XCTAssertEqual(CLIPathHints.claudeCode, ["~/.claude/local"])
-		XCTAssertEqual(CLIPathHints.gemini, ["~/.gemini/bin"])
 		XCTAssertEqual(CLIPathHints.openCode, [])
 
-		XCTAssertFalse(CLIPathHints.gemini.contains("/opt/homebrew/bin"), "Homebrew is provided by native defaults, not Gemini-specific hints")
 		XCTAssertFalse(CLIPathHints.openCode.contains("~/.bun/bin"), "Bun is provided by native defaults, not OpenCode-specific hints")
 		XCTAssertFalse(CLIPathHints.openCode.contains("~/.local/bin"), "Local user bins are provided by native defaults, not OpenCode-specific hints")
 		XCTAssertFalse(CLIPathHints.openCode.contains("/opt/homebrew/bin"), "Homebrew is provided by native defaults, not OpenCode-specific hints")
@@ -458,7 +452,6 @@ final class ProcessCoreTests: XCTestCase {
 	func testEffectiveNonCodexProviderPathsUseNativeDefaultsPlusProviderSpecificHints() {
 		let cases: [(name: String, hints: [String], providerSpecific: [String])] = [
 			("Claude Code", CLIPathHints.claudeCode, ["~/.claude/local"]),
-			("Gemini", CLIPathHints.gemini, ["~/.gemini/bin"]),
 			("OpenCode", CLIPathHints.openCode, [])
 		]
 
@@ -2192,60 +2185,18 @@ func testCodexParseJSONLEventHandlesMalformedJSON() {
 		}
 	}
 
-	func testGeminiParseInitEventCapturesSessionIDForCompletion() throws {
-		let provider = GeminiAgentProvider(runner: mockRunner(), config: GeminiAgentConfig())
-		let initJSON = #"{"type":"init","session_id":"gem-session-123"}"#
-		let resultJSON = #"{"type":"result","status":"success","stats":{"input_tokens":12,"output_tokens":7}}"#
-
-		_ = try provider.test_parseStreamEvents(Data(initJSON.utf8))
-		let events = try provider.test_parseStreamEvents(Data(resultJSON.utf8))
-
-		XCTAssertEqual(events.count, 1)
-		if case let .completion(usage, _, sessionID) = events[0] {
-			XCTAssertEqual(usage?.inputTokens, 12)
-			XCTAssertEqual(usage?.outputTokens, 7)
-			XCTAssertEqual(sessionID, "gem-session-123")
-		} else {
-			XCTFail("Expected completion event")
-		}
-	}
-
-	func testGeminiBuildArgumentsIncludesResumeFlag() {
-		let provider = GeminiAgentProvider(runner: mockRunner(), config: GeminiAgentConfig())
-
-		let args = provider.test_buildArguments(resumeSessionID: "gem-session-123")
-
-		let resumeIndex = args.firstIndex(of: "--resume")
-		XCTAssertNotNil(resumeIndex)
-		if let resumeIndex {
-			XCTAssertTrue(args.indices.contains(resumeIndex + 1))
-			XCTAssertEqual(args[resumeIndex + 1], "gem-session-123")
-		}
-	}
-
-	func testGeminiEscapeSpecialCharactersPreservesAtFileReferences() {
-		let provider = GeminiAgentProvider(runner: mockRunner(), config: GeminiAgentConfig())
-		let input = "@/tmp/image.png @./local.png @../up.png @C:/Windows/file.png"
-
-		let escaped = provider.test_escapeSpecialCharacters(input)
-
-		XCTAssertEqual(escaped, input)
-	}
-
-	func testGeminiEscapeSpecialCharactersEscapesNonReferenceAtCharacters() {
-		let provider = GeminiAgentProvider(runner: mockRunner(), config: GeminiAgentConfig())
-		let input = "Email me at a@b.com and mention @teammate."
-
-		let escaped = provider.test_escapeSpecialCharacters(input)
-
-		XCTAssertEqual(escaped, "Email me at a[at]b.com and mention [at]teammate.")
-	}
-
-	func testGeminiACPLaunchConfigurationUsesACPAndNoMCPSettingsInjection() throws {
-		let provider = GeminiACPAgentProvider(config: GeminiAgentConfig(modelString: "gemini-2.5-pro"))
+	func testAntigravityACPLaunchConfigurationUsesOwnProfileAndScrubsInheritedGoogleEnvironment() throws {
+		let profileHome = FileManager.default.temporaryDirectory
+			.appendingPathComponent("antigravity-profile-\(UUID().uuidString)", isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: profileHome) }
+		let provider = AntigravityACPAgentProvider(config: AntigravityAgentConfig(
+			serverPath: "/tmp/antigravity/agy_acp_server.par",
+			profileHomePath: profileHome.path,
+			modelString: "gemini-3.0-flash-high"
+		))
 		let request = ACPRunRequest(
-			agentKind: .gemini,
-			modelString: "gemini-2.5-pro",
+			agentKind: .antigravity,
+			modelString: "gemini-3.0-flash-high",
 			workspacePath: "/tmp/workspace",
 			resumeSessionID: nil,
 			attachments: [],
@@ -2254,48 +2205,34 @@ func testCodexParseJSONLEventHandlesMalformedJSON() {
 
 		let launch = try provider.makeLaunchConfiguration(for: request)
 
-		XCTAssertEqual(launch.providerID, .gemini)
-		XCTAssertEqual(Array(launch.arguments.prefix(4)), ["--acp", "--skip-trust", "--allowed-mcp-server-names", "RepoPrompt"])
-		XCTAssertTrue(launch.arguments.contains("--model"))
-		XCTAssertTrue(launch.arguments.contains("gemini-2.5-pro"))
+		XCTAssertEqual(launch.providerID, .antigravity)
+		XCTAssertEqual(launch.command, "/tmp/antigravity/agy_acp_server.par")
+		XCTAssertEqual(launch.arguments, [], "The model is set through session/set_model, never a launch flag.")
 		XCTAssertEqual(launch.workingDirectory, "/tmp/workspace")
-		XCTAssertEqual(launch.additionalPathHints, CLIPathHints.nativeDefaultsSupplemented(with: CLIPathHints.gemini))
-
-		XCTAssertEqual(Set(launch.environment.keys), [MCPIntegrationHelper.geminiSystemSettingsEnvKey])
-		let settingsPath = try XCTUnwrap(launch.environment[MCPIntegrationHelper.geminiSystemSettingsEnvKey])
-		let settingsData = try Data(contentsOf: URL(fileURLWithPath: settingsPath))
-		let settingsJSON = try XCTUnwrap(
-			JSONSerialization.jsonObject(with: settingsData) as? [String: Any]
+		XCTAssertEqual(launch.environment["GEMINI_HOME"], profileHome.path)
+		XCTAssertTrue(launch.removedEnvironmentKeys.contains("GEMINI_API_KEY"))
+		XCTAssertEqual(launch.removedEnvironmentKeyPrefixes, ["GOOGLE_", "AGY_ACP_"])
+		XCTAssertTrue(
+			FileManager.default.fileExists(atPath: AntigravityIntegrationConfiguration.profileMCPConfigURL(profileHomeURL: profileHome).path),
+			"The profile gets an empty MCP config so the server only starts the servers RepoPrompt passes."
 		)
-
-		XCTAssertNil(settingsJSON["mcpServers"], "ACP launch should not inject RepoPrompt MCP through Gemini settings.")
 	}
 
-	func testGeminiACPLaunchConfigurationOmitsModelWhenResumingSession() throws {
-		let provider = GeminiACPAgentProvider(config: GeminiAgentConfig(modelString: "gemini-2.5-pro"))
-		let request = ACPRunRequest(
-			agentKind: .gemini,
-			modelString: "gemini-2.5-flash",
-			workspacePath: "/tmp/workspace",
-			resumeSessionID: "session-123",
-			attachments: [],
-			taskLabelKind: nil
+	func testAntigravityACPAccountPlanNameReadsTierFromSessionMeta() {
+		let provider = AntigravityACPAgentProvider(config: AntigravityAgentConfig())
+
+		XCTAssertEqual(
+			provider.accountPlanName(fromSessionResponse: ["_meta": ["antigravity": ["tier": ["name": " Google AI Pro "]]]]),
+			"Google AI Pro"
 		)
-
-		let launch = try provider.makeLaunchConfiguration(for: request)
-
-		XCTAssertEqual(launch.providerID, .gemini)
-		XCTAssertTrue(launch.arguments.contains("--acp"))
-		XCTAssertTrue(launch.arguments.contains("--skip-trust"))
-		XCTAssertFalse(launch.arguments.contains("--model"))
-		XCTAssertFalse(launch.arguments.contains("gemini-2.5-flash"))
-		XCTAssertFalse(launch.arguments.contains("gemini-2.5-pro"))
+		XCTAssertNil(provider.accountPlanName(fromSessionResponse: ["_meta": ["antigravity": ["tier": ["name": "  "]]]]))
+		XCTAssertNil(provider.accountPlanName(fromSessionResponse: ["sessionId": "session-1"]))
 	}
 
-	func testGeminiACPSessionConfigurationUsesLoadModeForResume() throws {
-		let provider = GeminiACPAgentProvider(config: GeminiAgentConfig())
+	func testAntigravityACPSessionConfigurationUsesLoadModeForResume() throws {
+		let provider = AntigravityACPAgentProvider(config: AntigravityAgentConfig())
 		let request = ACPRunRequest(
-			agentKind: .gemini,
+			agentKind: .antigravity,
 			modelString: nil,
 			workspacePath: "/tmp/workspace",
 			resumeSessionID: "session-123",
@@ -2319,10 +2256,10 @@ func testCodexParseJSONLEventHandlesMalformedJSON() {
 		XCTAssertEqual(session.mcpServers, [mcpServer])
 	}
 
-	func testGeminiACPBuildPromptBlocksOmitsSystemPromptOnFollowUp() throws {
-		let provider = GeminiACPAgentProvider(config: GeminiAgentConfig())
+	func testAntigravityACPBuildPromptBlocksOmitsSystemPromptOnFollowUp() throws {
+		let provider = AntigravityACPAgentProvider(config: AntigravityAgentConfig())
 		let freshRequest = ACPRunRequest(
-			agentKind: .gemini,
+			agentKind: .antigravity,
 			modelString: nil,
 			workspacePath: "/tmp/workspace",
 			resumeSessionID: nil,
@@ -2330,7 +2267,7 @@ func testCodexParseJSONLEventHandlesMalformedJSON() {
 			taskLabelKind: nil
 		)
 		let followUpRequest = ACPRunRequest(
-			agentKind: .gemini,
+			agentKind: .antigravity,
 			modelString: nil,
 			workspacePath: "/tmp/workspace",
 			resumeSessionID: "session-123",
@@ -2346,12 +2283,12 @@ func testCodexParseJSONLEventHandlesMalformedJSON() {
 		XCTAssertEqual(followUpBlocks.first?["text"] as? String, "User message")
 	}
 
-	func testGeminiACPBuildPromptBlocksEmbedsLocalImageAttachments() throws {
-		let provider = GeminiACPAgentProvider(config: GeminiAgentConfig())
+	func testAntigravityACPBuildPromptBlocksEmbedsLocalImageAttachments() throws {
+		let provider = AntigravityACPAgentProvider(config: AntigravityAgentConfig())
 		let imageURL = try makeTemporaryImage(named: "screenshot.png", bytes: [0x89, 0x50, 0x4E, 0x47])
 		let attachment = AgentImageAttachment(source: .localFile(path: imageURL.path), title: "screenshot.png")
 		let request = ACPRunRequest(
-			agentKind: .gemini,
+			agentKind: .antigravity,
 			modelString: nil,
 			workspacePath: "/tmp/workspace",
 			resumeSessionID: nil,
@@ -2373,8 +2310,8 @@ func testCodexParseJSONLEventHandlesMalformedJSON() {
 		XCTAssertEqual(blocks[1]["uri"] as? String, imageURL.absoluteString)
 	}
 
-	func testGeminiACPUpdateNormalizationMapsContentReasoningAndToolLifecycle() {
-		let provider = GeminiACPAgentProvider(config: GeminiAgentConfig())
+	func testAntigravityACPUpdateNormalizationMapsContentReasoningAndToolLifecycle() {
+		let provider = AntigravityACPAgentProvider(config: AntigravityAgentConfig())
 
 		let contentEvents = provider.normalizeSessionUpdate(
 			[

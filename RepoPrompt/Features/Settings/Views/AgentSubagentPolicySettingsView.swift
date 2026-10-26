@@ -250,7 +250,7 @@ struct AgentSubagentPolicySettingsView: View {
 
 	/// Width used for the provider identity column in the Custom grid. Fixed so
 	/// the picker column starts at the same x-position regardless of whether the
-	/// label is "Claude Code", "Codex CLI", "Gemini CLI", or a wider future name.
+	/// label is "Claude Code", "Codex CLI", "Antigravity", or a wider future name.
 	private static let customProviderColumnWidth: CGFloat = 150
 
 	/// Horizontal spacing between the provider column, picker column, and

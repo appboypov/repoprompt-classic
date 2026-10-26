@@ -1283,8 +1283,8 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 	func testContextBuilderModelCandidatesDefaultToCurrentAgent() async throws {
 		let harness = try await makeHarness()
 		harness.store.setGlobalDiscoverAgentSelection(
-			agentRaw: DiscoverAgentKind.gemini.rawValue,
-			modelRaw: AgentModel.geminiPro3p1Preview.rawValue,
+			agentRaw: DiscoverAgentKind.antigravity.rawValue,
+			modelRaw: AgentModel.defaultModel.rawValue,
 			markUserDefined: true
 		)
 
@@ -1297,17 +1297,17 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 		XCTAssertFalse(options.isEmpty)
 		for option in options {
 			let object = try XCTUnwrap(option.objectValue)
-			XCTAssertEqual(object["agent"]?.stringValue, DiscoverAgentKind.gemini.rawValue)
+			XCTAssertEqual(object["agent"]?.stringValue, DiscoverAgentKind.antigravity.rawValue)
 		}
 		let filters = try XCTUnwrap(envelope["filters"]?.objectValue)
-		XCTAssertEqual(filters["agent"]?.stringValue, DiscoverAgentKind.gemini.rawValue)
+		XCTAssertEqual(filters["agent"]?.stringValue, DiscoverAgentKind.antigravity.rawValue)
 	}
 
 	func testContextBuilderModelCandidatesHonorExplicitAgentFilter() async throws {
 		let harness = try await makeHarness()
 		harness.store.setGlobalDiscoverAgentSelection(
-			agentRaw: DiscoverAgentKind.gemini.rawValue,
-			modelRaw: AgentModel.geminiPro3p1Preview.rawValue,
+			agentRaw: DiscoverAgentKind.antigravity.rawValue,
+			modelRaw: AgentModel.defaultModel.rawValue,
 			markUserDefined: true
 		)
 
@@ -1428,19 +1428,19 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 
 		// Now switch to gemini where nothing is remembered — default model for backend is used.
 		XCTAssertNil(
-			harness.store.globalDiscoverRememberedModelRaw(for: DiscoverAgentKind.gemini.rawValue),
+			harness.store.globalDiscoverRememberedModelRaw(for: DiscoverAgentKind.antigravity.rawValue),
 			"precondition: gemini should not have a remembered model"
 		)
 		_ = try await call(harness.tool, [
 			"op": .string("set"),
 			"key": .string("context_builder.agent"),
-			"value": .string(DiscoverAgentKind.gemini.rawValue)
+			"value": .string(DiscoverAgentKind.antigravity.rawValue)
 		])
 		let afterSwitch = harness.store.globalDiscoverAgentSelection()
-		XCTAssertEqual(afterSwitch.agentRaw, DiscoverAgentKind.gemini.rawValue)
+		XCTAssertEqual(afterSwitch.agentRaw, DiscoverAgentKind.antigravity.rawValue)
 		XCTAssertEqual(
 			afterSwitch.modelRaw,
-			AgentModelCatalog.defaultModelRaw(for: .gemini),
+			AgentModelCatalog.defaultModelRaw(for: .antigravity),
 			"falling back to AgentModelCatalog.defaultModelRaw(for:) when no remembered model exists"
 		)
 	}
@@ -1486,8 +1486,8 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 	func testContextBuilderModelOptionsDefaultToCurrentBackend() async throws {
 		let harness = try await makeHarness()
 		harness.store.setGlobalDiscoverAgentSelection(
-			agentRaw: DiscoverAgentKind.gemini.rawValue,
-			modelRaw: AgentModel.geminiPro3p1Preview.rawValue,
+			agentRaw: DiscoverAgentKind.antigravity.rawValue,
+			modelRaw: AgentModel.defaultModel.rawValue,
 			markUserDefined: true
 		)
 
@@ -1500,10 +1500,10 @@ final class AppSettingsMCPServiceTests: XCTestCase {
 		XCTAssertFalse(defaultOptions.isEmpty)
 		for option in defaultOptions {
 			let object = try XCTUnwrap(option.objectValue)
-			XCTAssertEqual(object["agent"]?.stringValue, DiscoverAgentKind.gemini.rawValue)
+			XCTAssertEqual(object["agent"]?.stringValue, DiscoverAgentKind.antigravity.rawValue)
 		}
 		let defaultFilters = try XCTUnwrap(defaultEnvelope["filters"]?.objectValue)
-		XCTAssertEqual(defaultFilters["agent"]?.stringValue, DiscoverAgentKind.gemini.rawValue)
+		XCTAssertEqual(defaultFilters["agent"]?.stringValue, DiscoverAgentKind.antigravity.rawValue)
 
 		let defaultNotes = try XCTUnwrap(defaultEnvelope["notes"]?.arrayValue).compactMap(\.stringValue)
 		XCTAssertEqual(defaultNotes.count, 2, "Context Builder candidates should not introduce additional notes")

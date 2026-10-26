@@ -431,9 +431,9 @@ struct MCPSettingsView: View {
 							let result = MCPIntegrationHelper.installInCodex()
 							showFeedback(result.success ? (result.wasAlreadyPresent ? "Codex already configured" : "Codex configured") : "Codex config failed", isError: !result.success)
 						}
-						Button("Gemini CLI") {
-							let result = MCPIntegrationHelper.installInGemini()
-							showFeedback(result.success ? (result.wasAlreadyPresent ? "Gemini already configured" : "Gemini configured") : "Gemini config failed", isError: !result.success)
+						Button("Antigravity") {
+							let result = MCPIntegrationHelper.installInAntigravity()
+							showFeedback(result.success ? (result.wasAlreadyPresent ? "Antigravity already configured" : "Antigravity configured") : "Antigravity config failed", isError: !result.success)
 						}
 						Button("OpenCode") {
 							let result = MCPIntegrationHelper.installInOpenCode()

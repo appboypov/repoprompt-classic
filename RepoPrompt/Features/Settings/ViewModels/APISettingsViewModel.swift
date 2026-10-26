@@ -232,10 +232,9 @@ public class APISettingsViewModel: ObservableObject {
 	@Published private(set) var codexConnectionPhase: CodexConnectionPhase = UserDefaults.standard.bool(forKey: "CodexCLIConnected") ? .connected(resolvedExecutable: nil) : .idle
 	@Published private(set) var availableCodexModels: [CodexAppServerClient.RemoteModel] = []
 	private var codexLogCollector: CLIProcessLogCollector?
-	// Gemini CLI
-	@Published var isGeminiConnected: Bool = UserDefaults.standard.bool(forKey: "GeminiCLIConnected")
-	@Published var geminiError: String? = nil
-	private var geminiLogCollector: CLIProcessLogCollector?
+	// Antigravity
+	@Published var isAntigravityConnected: Bool = APISettingsViewModel.antigravityIsReady()
+	@Published var antigravityError: String? = nil
 	// OpenCode CLI / ACP
 	@Published var isOpenCodeConnected: Bool = UserDefaults.standard.bool(forKey: "OpenCodeCLIConnected")
 	@Published var openCodeError: String? = nil
@@ -314,7 +313,7 @@ public class APISettingsViewModel: ObservableObject {
 		AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: isClaudeCodeConnected,
 			codexAvailable: isCodexConnected,
-			geminiAvailable: isGeminiConnected,
+			antigravityAvailable: isAntigravityConnected,
 			openCodeAvailable: isOpenCodeConnected,
 			cursorAvailable: isCursorConnected,
 			zaiConfigured: compatibleBackendIsActive(.glmZAI),
@@ -350,7 +349,7 @@ public class APISettingsViewModel: ObservableObject {
 		Publishers.MergeMany([
 			NotificationCenter.default.publisher(for: .claudeCodeConnectionChanged).map { _ in () },
 			NotificationCenter.default.publisher(for: .codexConnectionChanged).map { _ in () },
-			NotificationCenter.default.publisher(for: .geminiConnectionChanged).map { _ in () },
+			NotificationCenter.default.publisher(for: .antigravityConnectionChanged).map { _ in () },
 			NotificationCenter.default.publisher(for: .openCodeConnectionChanged).map { _ in () },
 			NotificationCenter.default.publisher(for: .cursorConnectionChanged).map { _ in () }
 		])
@@ -368,7 +367,7 @@ public class APISettingsViewModel: ObservableObject {
 			claudeCodeCLIStatus = .binaryPresent
 		}
 		isCodexConnected = UserDefaults.standard.bool(forKey: "CodexCLIConnected")
-		isGeminiConnected = UserDefaults.standard.bool(forKey: "GeminiCLIConnected")
+		isAntigravityConnected = Self.antigravityIsReady()
 		isOpenCodeConnected = UserDefaults.standard.bool(forKey: "OpenCodeCLIConnected")
 		isCursorConnected = UserDefaults.standard.bool(forKey: "CursorCLIConnected")
 		guard wasCursorConnected != isCursorConnected else { return }
@@ -958,8 +957,8 @@ public class APISettingsViewModel: ObservableObject {
 			}
 			// Load Codex CLI connection state
 			isCodexConnected = UserDefaults.standard.bool(forKey: "CodexCLIConnected")
-			// Load Gemini CLI connection state
-			isGeminiConnected = UserDefaults.standard.bool(forKey: "GeminiCLIConnected")
+			// Load Antigravity connection state
+			isAntigravityConnected = Self.antigravityIsReady()
 			// Load OpenCode CLI connection state
 			isOpenCodeConnected = UserDefaults.standard.bool(forKey: "OpenCodeCLIConnected")
 			
@@ -1354,8 +1353,8 @@ public class APISettingsViewModel: ObservableObject {
 			modelSet.formUnion(AIModel.modelsForProvider(.codex))
 		}
 
-		if isGeminiConnected {
-			modelSet.formUnion(AIModel.modelsForProvider(.geminiCli))
+		if isAntigravityConnected {
+			modelSet.formUnion(AIModel.modelsForProvider(.antigravity))
 		}
 
 		if isOpenCodeConnected {
@@ -1432,7 +1431,7 @@ public class APISettingsViewModel: ObservableObject {
 		case .ollama: return "ollama"
 		case .claudeCode: return "claude_code"
 		case .codex: return "codex"
-		case .geminiCli: return "gemini_cli"
+		case .antigravity: return "antigravity"
 		case .openCode: return "opencode"
 		}
 	}
@@ -1504,7 +1503,7 @@ public class APISettingsViewModel: ObservableObject {
 				break
 			case .codex:
 				break
-			case .geminiCli:
+			case .antigravity:
 				break
 			case .openCode:
 				break
@@ -1566,7 +1565,7 @@ public class APISettingsViewModel: ObservableObject {
 			break
 		case .codex:
 			break
-		case .geminiCli:
+		case .antigravity:
 			break
 		case .openCode:
 			break
@@ -2675,97 +2674,97 @@ public class APISettingsViewModel: ObservableObject {
 		return url
 	}
 
-	func testGeminiConnection() async throws -> Bool {
-		let collector = CLIProcessLogCollector()
-		collector.append("Gemini CLI connection test started")
-		self.geminiLogCollector = collector
+	// MARK: - Antigravity
 
-		collector.append("Refreshing login-shell environment cache")
-		await CLIEnvironmentCache.shared.invalidate()
+	static let antigravityAccountPlanNameKey = "AntigravityAccountPlanName"
 
-		let provider = GeminiCLIProvider(logCollector: collector)
-		collector.append("Created Gemini CLI provider for health check")
+	/// Antigravity is ready when its server is downloaded and its RepoPrompt
+	/// profile holds a sign-in.
+	static func antigravityIsReady() -> Bool {
+		AntigravityServerInstaller.isInstalled && AntigravityIntegrationConfiguration.isSignedIn()
+	}
 
+	var isAntigravityDownloaded: Bool {
+		AntigravityServerInstaller.isInstalled
+	}
+
+	var antigravityAccountPlanName: String? {
+		UserDefaults.standard.string(forKey: Self.antigravityAccountPlanNameKey)
+	}
+
+	/// Downloads the pinned Antigravity server into Application Support.
+	func downloadAntigravity() async throws {
 		do {
-			let ok = try await provider.testConnection(timeout: 30)
-			collector.append("Health check completed with status: \(ok ? "success" : "empty response")")
-			collector.append("Disposing Gemini CLI provider resources")
-			await provider.dispose()
-			collector.append("Gemini CLI provider disposed")
-			self.isGeminiConnected = ok
-			self.geminiError = nil
-			UserDefaults.standard.set(self.isGeminiConnected, forKey: "GeminiCLIConnected")
-			await self.updateAvailableModels()
-			NotificationCenter.default.post(
-				name: .geminiConnectionChanged,
-				object: nil,
-				userInfo: ["windowID": 0]
-			)
-			if ok {
-				collector.append("Gemini CLI marked as connected")
-				self.geminiLogCollector = nil
-			}
-			return self.isGeminiConnected
+			try await AntigravityServerInstaller.install()
+			antigravityError = nil
 		} catch {
-			collector.append("Connection test threw error: \(error.localizedDescription)")
-			collector.append("Disposing Gemini CLI provider resources after failure")
-			await provider.dispose()
-			collector.append("Gemini CLI provider disposed")
-			self.isGeminiConnected = false
-			self.geminiError = friendlyGeminiMessage(for: error)
-			if let lowered = self.geminiError?.lowercased() {
-				if lowered.contains("not installed") || lowered.contains("no such file") || lowered.contains("command not found") {
-					self.geminiError = "Gemini CLI is not installed. Install it and ensure it's available on PATH."
-				} else if lowered.contains("permission denied") {
-					self.geminiError = "Permission denied. Ensure the 'gemini' executable is accessible."
-				} else if lowered.contains("unauthorized") || lowered.contains("not authenticated") {
-					self.geminiError = "Gemini CLI is not authenticated. Run 'gemini login' in your terminal."
-				}
-			}
-			UserDefaults.standard.set(self.isGeminiConnected, forKey: "GeminiCLIConnected")
-			await self.updateAvailableModels()
-			NotificationCenter.default.post(
-				name: .geminiConnectionChanged,
-				object: nil,
-				userInfo: ["windowID": 0]
-			)
-			let finalMessage = self.geminiError ?? error.localizedDescription
-			collector.append("User guidance: \(finalMessage)")
+			antigravityError = error.localizedDescription
 			throw error
 		}
+		await refreshAntigravityConnection()
 	}
 
-	private func friendlyGeminiMessage(for error: Error) -> String {
-		if let providerError = error as? AIProviderError {
-			switch providerError {
-			case .invalidConfiguration(let detail):
-				return detail
-			case .apiError(let source):
-				return source?.localizedDescription ?? "Unknown Gemini CLI error"
-			default:
-				return error.localizedDescription
-			}
-		}
-		return error.localizedDescription
-	}
-
-	func hasGeminiTrace() -> Bool {
-		return geminiLogCollector?.isEmpty == false
-	}
-
-	func dumpGeminiTrace() throws -> URL {
-		guard let collector = geminiLogCollector else {
-			throw CLIProcessLogCollectorError.noEntries
-		}
-		collector.append("Exporting trace to Downloads folder")
-		let exportDate = Date()
-		let url = try collector.writeMarkdownToDownloads(
-			baseFilename: "RepoPrompt-GeminiTrace",
-			title: "Gemini CLI Connection Trace",
-			timestamp: exportDate
+	/// Signs in to Antigravity with the user's Google account. The server opens
+	/// the browser and waits for the sign-in, then opens one session so the
+	/// account's models reach the model registry.
+	func signInToAntigravity() async throws {
+		let request = ACPRunRequest(
+			agentKind: .antigravity,
+			modelString: nil,
+			workspacePath: nil,
+			resumeSessionID: nil,
+			attachments: [],
+			taskLabelKind: nil
 		)
-		collector.append("Trace exported to \(url.lastPathComponent)")
-		return url
+		let provider = AntigravityACPAgentProvider(
+			config: AntigravityAgentConfig(
+				enableDebugLogging: DiscoverAgentService.enableDebugLogging,
+				includeRepoPromptMCPServer: false,
+				authMethodID: "oauth-personal"
+			)
+		)
+		do {
+			let support = await provider.support(for: request)
+			guard support == .supported else {
+				throw AIProviderError.invalidConfiguration(detail: support.reason ?? "Antigravity is not available.")
+			}
+			let controller = try ACPAgentSessionController(
+				provider: provider,
+				runRequest: request,
+				requestTimeouts: ACPAgentSessionController.RequestTimeouts(bootstrapSeconds: 300)
+			)
+			do {
+				let bootstrap = try await controller.bootstrap()
+				await controller.shutdown()
+				UserDefaults.standard.set(bootstrap.accountPlanName, forKey: Self.antigravityAccountPlanNameKey)
+			} catch {
+				await controller.shutdown()
+				throw error
+			}
+			antigravityError = nil
+		} catch {
+			antigravityError = error.localizedDescription
+			await refreshAntigravityConnection()
+			throw error
+		}
+		await refreshAntigravityConnection()
+	}
+
+	func signOutFromAntigravity() async {
+		AntigravityIntegrationConfiguration.signOut()
+		UserDefaults.standard.removeObject(forKey: Self.antigravityAccountPlanNameKey)
+		antigravityError = nil
+		await refreshAntigravityConnection()
+	}
+
+	private func refreshAntigravityConnection() async {
+		isAntigravityConnected = Self.antigravityIsReady()
+		await updateAvailableModels()
+		NotificationCenter.default.post(
+			name: .antigravityConnectionChanged,
+			object: nil,
+			userInfo: ["windowID": 0]
+		)
 	}
 
 	// MARK: - OpenCode CLI / ACP
@@ -3270,7 +3269,7 @@ extension APISettingsViewModel {
 		let openAIValid: Bool
 		let claudeCodeConnected: Bool
 		let codexConnected: Bool
-		let geminiCLIConnected: Bool
+		let antigravityConnected: Bool
 		let cursorConnected: Bool
 	}
 	
@@ -3281,7 +3280,7 @@ extension APISettingsViewModel {
 			openAIValid: isOpenAIKeyValid,
 			claudeCodeConnected: isClaudeCodeConnected,
 			codexConnected: isCodexConnected,
-			geminiCLIConnected: isGeminiConnected,
+			antigravityConnected: isAntigravityConnected,
 			cursorConnected: isCursorConnected
 		)
 	}

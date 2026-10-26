@@ -1,8 +1,8 @@
 import Foundation
 
 @MainActor
-final class GeminiContextUsageEstimator: ContextUsageEstimating {
-	let agent: DiscoverAgentKind = .gemini
+final class AntigravityContextUsageEstimator: ContextUsageEstimating {
+	let agent: DiscoverAgentKind = .antigravity
 	private let tokenEstimator: (String) -> Int
 	private let contextUsageBuilder: ProviderTurnContextUsageBuilder
 
@@ -106,7 +106,7 @@ final class GeminiContextUsageEstimator: ContextUsageEstimating {
 
 		return updateSnapshot(
 			from: session.codexContextUsage,
-			source: .geminiUsageEvent,
+			source: .antigravityUsageEvent,
 			confidence: contextUsed > 0 ? .exact : .bestEffort,
 			session: session
 		)

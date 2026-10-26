@@ -2,90 +2,90 @@ import XCTest
 @_spi(TestSupport) @testable import RepoPrompt
 
 @MainActor
-final class AgentModeViewModelGeminiACPModelSelectionTests: XCTestCase {
+final class AgentModeViewModelAntigravityACPModelSelectionTests: XCTestCase {
 	override func setUp() {
 		super.setUp()
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 	}
 
 	override func tearDown() {
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		super.tearDown()
 	}
-	func testGeminiDiscoveredModelsOverrideStaticPickerOptions() async {
+	func testAntigravityDiscoveredModelsBecomePickerOptions() async {
 		let vm = AgentModeViewModel(
 			testWindowID: 1,
 			testWorkspacePath: FileManager.default.currentDirectoryPath
 		) { _, _, _, _, _, _ in
-			GeminiACPModelSelectionFakeCodexController()
+			AntigravityACPModelSelectionFakeCodexController()
 		}
 		let tabID = UUID()
 		let session = await vm.ensureSessionReady(tabID: tabID)
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		_ = AgentACPModelRegistry.shared.updateDiscoveredModels(
 			ACPDiscoveredSessionModels(
 			options: [
 				AgentModelOption(
-					rawValue: "gemini-2.5-pro-exp-0827",
-					displayName: "Gemini 2.5 Pro Experimental",
-					description: "Experimental Gemini Pro build",
+					rawValue: "gemini-3.0-flash-high",
+					displayName: "Gemini 3 Flash (High)",
+					description: "Fast model, high thinking",
 					isPlaceholderDefault: false,
 					isProviderDefault: true
 				),
 				AgentModelOption(
-					rawValue: "gemini-2.5-flash",
-					displayName: "Gemini 2.5 Flash",
-					description: "Fast Gemini model",
+					rawValue: "gemini-3.0-flash-low",
+					displayName: "Gemini 3 Flash (Low)",
+					description: "Fast model, low thinking",
 					isPlaceholderDefault: false,
 					isProviderDefault: false
 				)
 			],
-			currentModelRaw: "gemini-2.5-pro-exp-0827"
+			currentModelRaw: "gemini-3.0-flash-high"
 		),
-			for: .gemini
+			for: .antigravity
 		)
 
 		XCTAssertEqual(
-			vm.modelOptions(for: .gemini).map(\.rawValue),
-			["gemini-2.5-flash", "gemini-2.5-pro-exp-0827"]
+			vm.modelOptions(for: .antigravity).map(\.rawValue),
+			["gemini-3.0-flash-high", "gemini-3.0-flash-low"]
 		)
 		XCTAssertEqual(
-			vm.defaultModelRaw(for: .gemini),
-			"gemini-2.5-pro-exp-0827"
+			vm.defaultModelRaw(for: .antigravity),
+			"gemini-3.0-flash-high"
 		)
 		XCTAssertEqual(
 			vm.modelDisplayName(
-				rawModel: "gemini-2.5-pro-exp-0827",
-				agentKind: .gemini
+				rawModel: "gemini-3.0-flash-high",
+				agentKind: .antigravity
 			),
-			"Gemini 2.5 Pro Experimental"
+			"Gemini 3 Flash (High)"
 		)
 	}
 
-	func testGeminiFallsBackToStaticCatalogWithoutDiscoveredModels() async {
+	func testAntigravityOffersOnlyDefaultModelWithoutDiscoveredModels() async {
 		let vm = AgentModeViewModel(
 			testWindowID: 1,
 			testWorkspacePath: FileManager.default.currentDirectoryPath
 		) { _, _, _, _, _, _ in
-			GeminiACPModelSelectionFakeCodexController()
+			AntigravityACPModelSelectionFakeCodexController()
 		}
 		let tabID = UUID()
 		let session = await vm.ensureSessionReady(tabID: tabID)
-		session.selectedAgent = .gemini
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		session.selectedAgent = .antigravity
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 
 		XCTAssertEqual(
-			vm.modelOptions(for: .gemini).map(\.rawValue),
-			AgentModelCatalog.options(for: .gemini).map(\.rawValue)
+			vm.modelOptions(for: .antigravity).map(\.rawValue),
+			[AgentModel.defaultModel.rawValue]
 		)
 		XCTAssertEqual(
-			vm.defaultModelRaw(for: .gemini),
-			AgentModelCatalog.defaultModelRaw(for: .gemini)
+			vm.defaultModelRaw(for: .antigravity),
+			AgentModel.defaultModel.rawValue
 		)
 	}
 }
 
-private final class GeminiACPModelSelectionFakeCodexController: CodexSessionControlling {
+private final class AntigravityACPModelSelectionFakeCodexController: CodexSessionControlling {
 	var hasActiveThread: Bool = false
 	var events: AsyncStream<CodexNativeSessionController.Event> { AsyncStream { continuation in continuation.finish() } }
 
@@ -97,7 +97,7 @@ private final class GeminiACPModelSelectionFakeCodexController: CodexSessionCont
 	) async throws -> CodexNativeSessionController.SessionRef {
 		hasActiveThread = true
 		return CodexNativeSessionController.SessionRef(
-			conversationID: "gemini-acp-test",
+			conversationID: "antigravity-acp-test",
 			rolloutPath: nil,
 			model: "gpt-5.2-codex",
 			reasoningEffort: "medium"
@@ -128,7 +128,7 @@ private final class GeminiACPModelSelectionFakeCodexController: CodexSessionCont
 		timeout _: TimeInterval?
 	) async throws -> CodexNativeSessionController.ThreadSnapshot {
 		return CodexNativeSessionController.ThreadSnapshot(
-			conversationID: "gemini-acp-test",
+			conversationID: "antigravity-acp-test",
 			rolloutPath: nil,
 			model: "gpt-5.2-codex",
 			reasoningEffort: "medium",

@@ -828,7 +828,7 @@ final class DiscoverAgentViewModel: ObservableObject {
 			Publishers.MergeMany(
 				apiSettingsViewModel.$isClaudeCodeConnected.dropFirst().map { _ in () },
 				apiSettingsViewModel.$isCodexConnected.dropFirst().map { _ in () },
-				apiSettingsViewModel.$isGeminiConnected.dropFirst().map { _ in () },
+				apiSettingsViewModel.$isAntigravityConnected.dropFirst().map { _ in () },
 				apiSettingsViewModel.$isOpenCodeConnected.dropFirst().map { _ in () },
 				apiSettingsViewModel.$isCursorConnected.dropFirst().map { _ in () }
 			)

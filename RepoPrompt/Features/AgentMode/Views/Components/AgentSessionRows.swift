@@ -651,7 +651,7 @@ extension DiscoverAgentKind {
 		switch self {
 		case .codexExec: return "terminal"
 		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible: return "cpu"
-		case .gemini: return "sparkles"
+		case .antigravity: return "sparkles"
 		case .openCode: return "curlybraces.square"
 		case .cursor: return "cursorarrow"
 		}

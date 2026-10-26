@@ -198,7 +198,7 @@ struct RecommendationWizardPopoverView: View {
                 providerRow("Codex CLI", status: status.codexCLI)
                 providerRow("Cursor CLI", status: status.cursorCLI)
                 providerRow("OpenAI API", status: status.openAI)
-                providerRow("Gemini CLI", status: status.geminiCLI)
+                providerRow("Antigravity", status: status.antigravity)
             }
         }
     }
@@ -582,7 +582,7 @@ private struct IntroStepView: View {
                 providerStatusRow("Codex CLI", status: status.codexCLI)
                 providerStatusRow("Cursor CLI", status: status.cursorCLI)
                 providerStatusRow("OpenAI API", status: status.openAI)
-                providerStatusRow("Gemini CLI", status: status.geminiCLI)
+                providerStatusRow("Antigravity", status: status.antigravity)
             }
         }
     }
@@ -810,8 +810,8 @@ private struct ChatModelStepView: View {
                     if rec.openAIOption != nil {
                         backendCard(.openAI, option: rec.openAIOption!)
                     }
-                    if rec.geminiOption != nil {
-                        backendCard(.gemini, option: rec.geminiOption!)
+                    if let antigravityOption = rec.antigravityOption {
+                        backendCard(.antigravity, option: antigravityOption)
                     }
                 }
                 .id("recommendationContent")
@@ -1076,7 +1076,7 @@ private struct ProEditStepView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     cliStatusRow("Claude Code", status: status.claudeCodeCLI, recommended: true)
                     cliStatusRow("Codex CLI", status: status.codexCLI, recommended: false)
-                    cliStatusRow("Gemini CLI", status: status.geminiCLI, recommended: false)
+                    cliStatusRow("Antigravity", status: status.antigravity, recommended: false)
                 }
                 
                 Text("Claude Code is recommended for best Pro Edit experience. Install via: npm install -g @anthropic-ai/claude-code")

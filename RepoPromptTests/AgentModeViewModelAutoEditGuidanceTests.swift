@@ -89,7 +89,7 @@ final class AgentModeViewModelAutoEditGuidanceTests: XCTestCase {
 		)
 	}
 
-	func testGeminiNeedsNoGuidance() {
-		XCTAssertNil(makeGuidance(agent: .gemini, autoEditEnabled: false))
+	func testAntigravityNeedsNoGuidance() {
+		XCTAssertNil(makeGuidance(agent: .antigravity, autoEditEnabled: false))
 	}
 }

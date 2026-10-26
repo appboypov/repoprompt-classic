@@ -58,7 +58,7 @@ extension AIProviderType {
 		case .groq:            return "GroqAPI"      // Add Groq case
 		case .claudeCode:      return "ClaudeCodeAPI" // Add Claude Code case
 		case .codex:          return "CodexCLIAPI"
-		case .geminiCli:       return "GeminiCLIAPI"
+		case .antigravity:       return "GeminiCLIAPI"
 		case .openCode:        return "OpenCodeCLIAPI"
 		case .cursor:          return "CursorCLIAPI"
 		case .zAI:             return "ZAIAPI"

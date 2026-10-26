@@ -3,6 +3,9 @@ set -eu
 
 LOG_FILE="${ACP_TEST_LOG:-}"
 SCENARIO="${ACP_TEST_SCENARIO:-bootstrap}"
+if [ -n "${ACP_TEST_ENV_DUMP_PATH:-}" ]; then
+	env > "$ACP_TEST_ENV_DUMP_PATH"
+fi
 SESSION_ID="${ACP_TEST_SESSION_ID:-mock-session}"
 TOOL_UPDATE_STATUS="${ACP_TEST_TOOL_UPDATE_STATUS:-in_progress}"
 PERMISSION_ID=900
@@ -26,6 +29,7 @@ PERMISSION_TITLE="${ACP_TEST_PERMISSION_TITLE:-Run test command}"
 PERMISSION_KIND="${ACP_TEST_PERMISSION_KIND:-execute}"
 PERMISSION_RAW_INPUT_JSON="${ACP_TEST_PERMISSION_RAW_INPUT_JSON:-}"
 PERMISSION_OPTIONS_JSON="${ACP_TEST_PERMISSION_OPTIONS_JSON:-}"
+PERMISSION_TOOL_CALL_ID="${ACP_TEST_PERMISSION_TOOL_CALL_ID:-permission-tool-1}"
 LOAD_SESSION_SUPPORTED="${ACP_TEST_LOAD_SESSION_SUPPORTED:-true}"
 LOAD_ERROR="${ACP_TEST_LOAD_ERROR:-}"
 LOAD_ERROR_CODE="${ACP_TEST_LOAD_ERROR_CODE:--32000}"
@@ -38,12 +42,6 @@ PROMPT_ERROR_CODE="${ACP_TEST_PROMPT_ERROR_CODE:--32603}"
 PROMPT_ERROR_DATA_MESSAGE="${ACP_TEST_PROMPT_ERROR_DATA_MESSAGE:-}"
 AUTH_METHODS_KIND="${ACP_TEST_AUTH_METHODS_KIND:-gemini}"
 LOAD_REPLAY_UPDATES="${ACP_TEST_LOAD_REPLAY_UPDATES:-false}"
-GEMINI_CHAT_TMP_DIR="${ACP_TEST_GEMINI_CHAT_TMP_DIR:-}"
-GEMINI_DURABLE_SESSION_ID="${ACP_TEST_GEMINI_DURABLE_SESSION_ID:-}"
-GEMINI_CHAT_USER_TEXT="${ACP_TEST_GEMINI_CHAT_USER_TEXT:-RepoPrompt mock prompt}"
-GEMINI_WORKSPACE_PATH="${ACP_TEST_GEMINI_WORKSPACE_PATH:-}"
-GEMINI_CHAT_CONTENT_FORMAT="${ACP_TEST_GEMINI_CHAT_CONTENT_FORMAT:-array}"
-GEMINI_WRITE_CHAT_ON_PROMPT="${ACP_TEST_GEMINI_WRITE_CHAT_ON_PROMPT:-false}"
 
 if [ -z "$PERMISSION_RAW_INPUT_JSON" ]; then
 	PERMISSION_RAW_INPUT_JSON='{"command":"echo hi"}'
@@ -150,31 +148,6 @@ send_error_result() {
 	fi
 }
 
-write_gemini_chat_file_if_enabled() {
-	if [ -z "$GEMINI_CHAT_TMP_DIR" ] || [ "$GEMINI_WRITE_CHAT_ON_PROMPT" != "true" ]; then
-		return
-	fi
-	durable_id="$GEMINI_DURABLE_SESSION_ID"
-	if [ -z "$durable_id" ]; then
-		durable_id="$SESSION_ID"
-	fi
-	prefix="$(printf '%s' "$durable_id" | cut -c 1-8)"
-	chats_dir="$GEMINI_CHAT_TMP_DIR/mock-project/chats"
-	mkdir -p "$chats_dir"
-	file="$chats_dir/session-$(date +%s)-$prefix.jsonl"
-	now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-	if [ -n "$GEMINI_WORKSPACE_PATH" ]; then
-		printf '{"sessionId":"%s","kind":"main","startTime":"%s","lastUpdated":"%s","workspacePath":"%s"}\n' "$durable_id" "$now" "$now" "$GEMINI_WORKSPACE_PATH" > "$file"
-	else
-		printf '{"sessionId":"%s","kind":"main","startTime":"%s","lastUpdated":"%s"}\n' "$durable_id" "$now" "$now" > "$file"
-	fi
-	if [ "$GEMINI_CHAT_CONTENT_FORMAT" = "array" ]; then
-		printf '{"type":"user","content":[{"text":"%s"}]}\n' "$GEMINI_CHAT_USER_TEXT" >> "$file"
-	else
-		printf '{"type":"user","content":"%s"}\n' "$GEMINI_CHAT_USER_TEXT" >> "$file"
-	fi
-}
-
 send_request_result() {
 	id="$1"
 	stop_reason="$2"
@@ -236,14 +209,13 @@ send_success_content() {
 }
 
 send_permission_request() {
-	send_json "{\"jsonrpc\":\"2.0\",\"id\":$PERMISSION_ID,\"method\":\"session/request_permission\",\"params\":{\"sessionId\":\"$SESSION_ID\",\"toolCall\":{\"toolCallId\":\"permission-tool-1\",\"title\":\"$PERMISSION_TITLE\",\"kind\":\"$PERMISSION_KIND\",\"rawInput\":$PERMISSION_RAW_INPUT_JSON},\"options\":$PERMISSION_OPTIONS_JSON}}"
+	send_json "{\"jsonrpc\":\"2.0\",\"id\":$PERMISSION_ID,\"method\":\"session/request_permission\",\"params\":{\"sessionId\":\"$SESSION_ID\",\"toolCall\":{\"toolCallId\":\"$PERMISSION_TOOL_CALL_ID\",\"title\":\"$PERMISSION_TITLE\",\"kind\":\"$PERMISSION_KIND\",\"rawInput\":$PERMISSION_RAW_INPUT_JSON},\"options\":$PERMISSION_OPTIONS_JSON}}"
 }
 
 handle_prompt() {
 	id="$1"
 	PENDING_PROMPT_ID="$id"
 	PROMPT_COUNT=$((PROMPT_COUNT + 1))
-	write_gemini_chat_file_if_enabled
 	case "$SCENARIO" in
 		prompt)
 			send_prompt_updates
@@ -362,6 +334,9 @@ while IFS= read -r line; do
 				if [ -n "$mode_id" ]; then
 					CURRENT_MODE_ID="$mode_id"
 				fi
+				send_empty_result "$id"
+				;;
+			session/set_model)
 				send_empty_result "$id"
 				;;
 			session/set_config_option)

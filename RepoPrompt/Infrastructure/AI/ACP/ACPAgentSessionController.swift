@@ -39,7 +39,8 @@ actor ACPAgentSessionController {
 		let providerSessionIdentity: ACPProviderSessionIdentity
 		let loadSessionSupported: Bool
 		let didFallbackToNewSessionAfterLoadFailure: Bool
-		let invalidatedResumeSessionID: String?
+		/// The account's plan name, when the provider reports one.
+		let accountPlanName: String?
 	}
 
 	private enum ControllerError: LocalizedError {
@@ -130,6 +131,17 @@ actor ACPAgentSessionController {
 		let request: AgentApprovalRequest
 	}
 
+	/// A `session/request_permission` the agent uses to ask the user a question.
+	/// Each option is one answer; the chosen answer goes back as its option ID.
+	private struct PendingUserQuestionRequest {
+		let rpcID: JSONRPCID
+		let requestID: AgentInteractionRequestID
+		let optionIDsByAnswer: [String: String]
+	}
+
+	/// Tool call ID prefix Antigravity gives question requests.
+	static let userQuestionToolCallIDPrefix = "interaction_"
+
 	private struct PendingRequest {
 		let method: String
 		let continuation: CheckedContinuation<[String: Any], Error>
@@ -144,7 +156,6 @@ actor ACPAgentSessionController {
 	private struct OpenSessionResult: Sendable {
 		let sessionID: String
 		let providerSessionIdentity: ACPProviderSessionIdentity
-		let invalidatedResumeSessionID: String?
 	}
 
 	private struct PermissionOption {
@@ -199,6 +210,7 @@ actor ACPAgentSessionController {
 	private var nextRequestID = 1
 	private var pendingRequests: [String: PendingRequest] = [:]
 	private var pendingPermissionRequests: [String: PendingPermissionRequest] = [:]
+	private var pendingUserQuestionRequests: [String: PendingUserQuestionRequest] = [:]
 	private var activePromptTurnID: UUID?
 	#if DEBUG
 	private var activePromptSessionUpdateCounts: [String: Int] = [:]
@@ -216,11 +228,9 @@ actor ACPAgentSessionController {
 	private var currentSessionModeID: String?
 	private var sessionModeSelectionSupported = false
 	private var advertisedSessionModeIDs: Set<String>?
-	private var pendingGeminiStructuredThought: String?
-	private var lastGeminiPromptText: String?
-	private var lastGeminiPromptStartedAt: Date?
 	private var suppressSessionLoadReplayUpdates = false
 	private var fallbackResumeSessionIDForPromptClearing: String?
+	private var accountPlanName: String?
 	private var autoApproveAllToolPermissions: Bool
 	private var expectedMCPRunID: UUID?
 	private var registeredExpectedAgentPID: pid_t?
@@ -237,8 +247,7 @@ actor ACPAgentSessionController {
 		self.provider = provider
 		self.providerSessionIdentity = ACPProviderSessionIdentity(
 			providerID: provider.providerID,
-			loadSessionID: runRequest.resumeSessionID,
-			loadSessionIDConfidence: runRequest.resumeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? .candidate : .unavailable
+			sessionID: runRequest.resumeSessionID
 		)
 		self.runRequest = runRequest
 		self.launchConfiguration = try provider.makeLaunchConfiguration(for: runRequest)
@@ -299,7 +308,6 @@ actor ACPAgentSessionController {
 		guard state == .sessionOpen, process != nil, sessionID != nil else { return false }
 		didEmitTerminal = false
 		eventStreamFinished = false
-		pendingGeminiStructuredThought = nil
 		resetEventsStreamForNextTurn()
 		return true
 	}
@@ -400,20 +408,12 @@ actor ACPAgentSessionController {
 			providerSessionIdentity: openSessionResult.providerSessionIdentity,
 			loadSessionSupported: loadSessionSupported,
 			didFallbackToNewSessionAfterLoadFailure: fallbackResumeSessionIDForPromptClearing != nil,
-			invalidatedResumeSessionID: openSessionResult.invalidatedResumeSessionID
+			accountPlanName: accountPlanName
 		)
 	}
 
 	func currentProviderSessionIdentity() -> ACPProviderSessionIdentity {
 		providerSessionIdentity
-	}
-
-	func refreshProviderSessionIdentityAfterPromptInterruption() async -> ACPProviderSessionIdentity {
-		await refreshGeminiProviderSessionIdentity(
-			promptText: lastGeminiPromptText,
-			notBefore: lastGeminiPromptStartedAt
-		)
-		return providerSessionIdentity
 	}
 
 	func prompt(
@@ -427,8 +427,6 @@ actor ACPAgentSessionController {
 			throw ControllerError.invalidState(expected: "no active prompt turn", actual: state)
 		}
 		suppressSessionLoadReplayUpdates = false
-		var geminiPromptText: String?
-		var promptStartedAt: Date?
 		let promptTurnID = UUID()
 		activePromptTurnID = promptTurnID
 		resetActivePromptTrace()
@@ -439,10 +437,6 @@ actor ACPAgentSessionController {
 		do {
 			let promptRequest = effectivePromptRunRequest(override: overrideRunRequest)
 			let promptBlocks = try provider.buildPromptBlocks(for: message, request: promptRequest)
-			geminiPromptText = provider.providerID == .gemini ? promptText(from: promptBlocks) : nil
-			promptStartedAt = Date()
-			lastGeminiPromptText = geminiPromptText
-			lastGeminiPromptStartedAt = promptStartedAt
 			#if DEBUG
 			if isRawACPCaptureEnabled {
 				capturePromptTraceEvent(
@@ -492,7 +486,6 @@ actor ACPAgentSessionController {
 				)
 			}
 			#endif
-			await refreshGeminiProviderSessionIdentity(promptText: geminiPromptText, notBefore: promptStartedAt)
 			settlePromptTurn(promptTurnID, result: .failure(error))
 			if error is CancellationError {
 				throw error
@@ -512,7 +505,6 @@ actor ACPAgentSessionController {
 			throw error
 		}
 		diagnose(.phaseCompleted("prompt"))
-		await refreshGeminiProviderSessionIdentity(promptText: geminiPromptText, notBefore: promptStartedAt)
 		let stopReason = response["stopReason"] as? String
 		if let diagnosticMessage = openCodeEmptyPromptDiagnosticMessage(from: response, stopReason: stopReason) {
 			#if DEBUG
@@ -570,8 +562,14 @@ actor ACPAgentSessionController {
 				]
 			)
 			applyDiscoveredSessionModels(from: response)
-		case .gemini:
-			return
+		case .antigravity:
+			_ = try await sendRequest(
+				method: "session/set_model",
+				params: [
+					"sessionId": sessionID,
+					"modelId": model
+				]
+			)
 		}
 	}
 
@@ -673,6 +671,41 @@ actor ACPAgentSessionController {
 		}
 	}
 
+	/// Answers a question request with the option whose name is the chosen
+	/// answer. Without a matching answer the request is cancelled.
+	func respondToUserInputRequest(id: String, response: AgentRequestUserInputResponse) async {
+		guard let pending = pendingUserQuestionRequests.removeValue(forKey: id) else {
+			return
+		}
+		let chosenOptionID = response.answersByQuestionID.values
+			.flatMap { $0 }
+			.lazy
+			.compactMap { pending.optionIDsByAnswer[$0] }
+			.first
+		let outcome: [String: Any]
+		if let chosenOptionID {
+			outcome = ["outcome": "selected", "optionId": chosenOptionID]
+		} else {
+			log("ACP question \(id) answered without a matching option; cancelling it")
+			outcome = ["outcome": "cancelled"]
+		}
+		do {
+			try sendJSONLine([
+				"jsonrpc": "2.0",
+				"id": pending.rpcID.jsonValue,
+				"result": ["outcome": outcome]
+			])
+		} catch {
+			let message = "Failed to submit ACP question answer: \(error.localizedDescription)"
+			emit(.stream(AIStreamResult(type: "error", text: message)))
+			failPendingRequests(with: ControllerError.requestFailed(message))
+			emitTerminal(state: .failed, errorText: message)
+			if state != .closing, state != .closed {
+				state = .failed
+			}
+		}
+	}
+
 	func cancelPrompt() async {
 		guard sessionID != nil else { return }
 		do {
@@ -758,12 +791,29 @@ actor ACPAgentSessionController {
 			}
 			emit(.approvalCancelled(request.request.requestID))
 		}
+		let pendingQuestions = pendingUserQuestionRequests.values
+		pendingUserQuestionRequests.removeAll()
+		for question in pendingQuestions {
+			do {
+				try sendJSONLine([
+					"jsonrpc": "2.0",
+					"id": question.rpcID.jsonValue,
+					"result": [
+						"outcome": [
+							"outcome": "cancelled"
+						]
+					]
+				])
+			} catch {
+				log("Failed to cancel ACP question request \(question.rpcID.displayValue): \(error.localizedDescription)")
+			}
+			emit(.approvalCancelled(question.requestID))
+		}
 	}
 
 	private func resetPerTurnStateForSteeringPrompt() {
 		didEmitTerminal = false
 		eventStreamFinished = false
-		pendingGeminiStructuredThought = nil
 		suppressSessionLoadReplayUpdates = false
 	}
 
@@ -864,7 +914,6 @@ actor ACPAgentSessionController {
 		currentSessionModeID = nil
 		sessionModeSelectionSupported = false
 		advertisedSessionModeIDs = nil
-		pendingGeminiStructuredThought = nil
 		suppressSessionLoadReplayUpdates = false
 		state = .closed
 		finishEventsIfNeeded()
@@ -1046,41 +1095,6 @@ actor ACPAgentSessionController {
 			return
 		}
 
-		if provider.providerID == .gemini {
-			if shouldBufferGeminiStructuredThought(update) {
-				pendingGeminiStructuredThought = extractUpdateText(update)
-				return
-			}
-			if let pendingGeminiStructuredThought {
-				if isGeminiToolLifecycleUpdate(update) {
-					if update["rawInput"] == nil {
-						update["rawInput"] = pendingGeminiStructuredThought
-					}
-					self.pendingGeminiStructuredThought = nil
-				} else {
-					let syntheticThoughtUpdate: [String: Any] = [
-						"sessionUpdate": "agent_thought_chunk",
-						"content": ["type": "text", "text": pendingGeminiStructuredThought]
-					]
-					let thoughtEvents = provider.normalizeSessionUpdate(
-						syntheticThoughtUpdate,
-						sessionID: sessionID
-					)
-					#if DEBUG
-					captureNormalizedACPEvents(
-						thoughtEvents,
-						sessionID: sessionID,
-						sourceUpdate: syntheticThoughtUpdate
-					)
-					#endif
-					for event in thoughtEvents {
-						emit(event)
-					}
-					self.pendingGeminiStructuredThought = nil
-				}
-			}
-		}
-
 		let normalizedEvents = provider.normalizeSessionUpdate(update, sessionID: sessionID)
 		#if DEBUG
 		captureNormalizedACPEvents(normalizedEvents, sessionID: sessionID, sourceUpdate: update)
@@ -1111,61 +1125,6 @@ actor ACPAgentSessionController {
 		}
 	}
 
-	private func shouldBufferGeminiStructuredThought(_ update: [String: Any]) -> Bool {
-		guard (update["sessionUpdate"] as? String)?.lowercased() == "agent_thought_chunk",
-			let text = extractUpdateText(update) else {
-			return false
-		}
-		return isLikelyGeminiStructuredToolExplanation(text)
-	}
-
-	private func isGeminiToolLifecycleUpdate(_ update: [String: Any]) -> Bool {
-		guard let sessionUpdate = (update["sessionUpdate"] as? String)?.lowercased() else {
-			return false
-		}
-		return sessionUpdate == "tool_call" || sessionUpdate == "tool_call_update"
-	}
-
-	private func extractUpdateText(_ update: [String: Any]) -> String? {
-		extractContentText(update["content"])
-	}
-
-	private func extractContentText(_ value: Any?) -> String? {
-		guard let value else { return nil }
-		if let dict = value as? [String: Any] {
-			if let text = dict["text"] as? String {
-				return text
-			}
-			if let nested = dict["content"] {
-				return extractContentText(nested)
-			}
-		}
-		if let array = value as? [Any] {
-			let parts = array.compactMap { extractContentText($0) }
-			let joined = parts.joined()
-			return joined.isEmpty ? nil : joined
-		}
-		if let text = value as? String {
-			return text
-		}
-		return nil
-	}
-
-	private func isLikelyGeminiStructuredToolExplanation(_ text: String) -> Bool {
-		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard !trimmed.isEmpty else { return false }
-		if trimmed.hasPrefix("[Payload omitted due to length") {
-			return true
-		}
-		guard trimmed.first == "{", trimmed.last == "}" else {
-			return false
-		}
-		return trimmed.range(
-			of: #""(name|path|paths|command|pattern|query|op|session_name)"\s*:"#,
-			options: .regularExpression
-		) != nil
-	}
-
 	private func handlePermissionRequest(id: JSONRPCID, params: [String: Any]) {
 		guard
 			let sessionID = params["sessionId"] as? String,
@@ -1185,6 +1144,17 @@ actor ACPAgentSessionController {
 				let kind = optionDictionary["kind"] as? String
 			else { return nil }
 			return PermissionOption(optionID: optionID, kind: kind)
+		}
+
+		if toolCallID.hasPrefix(Self.userQuestionToolCallIDPrefix) {
+			handleUserQuestionRequest(
+				id: id,
+				sessionID: sessionID,
+				toolCallID: toolCallID,
+				question: toolTitle,
+				options: optionDictionaries
+			)
+			return
 		}
 
 		let rawInput = toolCall["rawInput"] as? [String: Any]
@@ -1243,6 +1213,50 @@ actor ACPAgentSessionController {
 			request: request
 		)
 		emit(.approvalRequested(request))
+	}
+
+	private func handleUserQuestionRequest(
+		id: JSONRPCID,
+		sessionID: String,
+		toolCallID: String,
+		question: String?,
+		options: [[String: Any]]
+	) {
+		var optionIDsByAnswer: [String: String] = [:]
+		var answers: [AgentRequestUserInputOption] = []
+		for option in options {
+			guard let optionID = option["optionId"] as? String else { continue }
+			let name = (option["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+			let answer = name?.isEmpty == false ? name! : optionID
+			guard optionIDsByAnswer[answer] == nil else { continue }
+			optionIDsByAnswer[answer] = optionID
+			answers.append(AgentRequestUserInputOption(label: answer, description: ""))
+		}
+		let requestID = AgentInteractionRequestID.acp(id.displayValue)
+		let request = AgentRequestUserInputRequest(
+			requestID: requestID,
+			method: "session/request_permission",
+			threadID: sessionID,
+			turnID: sessionID,
+			itemID: toolCallID,
+			questions: [
+				AgentRequestUserInputQuestion(
+					id: toolCallID,
+					header: "Question",
+					question: question?.isEmpty == false ? question! : "The agent has a question.",
+					isOther: false,
+					isSecret: false,
+					options: answers
+				)
+			]
+		)
+		pendingUserQuestionRequests[id.displayValue] = PendingUserQuestionRequest(
+			rpcID: id,
+			requestID: requestID,
+			optionIDsByAnswer: optionIDsByAnswer
+		)
+		log("ACP question request \(toolCallID) with \(answers.count) answers")
+		emit(.userInputRequested(request))
 	}
 
 	private func handleProcessExit(_ exitCode: Int32, timedOut: Bool) async {
@@ -1306,19 +1320,17 @@ actor ACPAgentSessionController {
 				)
 				applyDiscoveredSessionModes(from: response)
 				applyDiscoveredSessionModels(from: response)
+				accountPlanName = provider.accountPlanName(fromSessionResponse: response)
 				diagnose(.phaseCompleted("session/load"))
 				log("Completed ACP session/load sessionID=\(existingSessionID)")
 				let identity = ACPProviderSessionIdentity(
 					providerID: provider.providerID,
-					runtimeSessionID: existingSessionID,
-					loadSessionID: existingSessionID,
-					loadSessionIDConfidence: .verified
+					sessionID: existingSessionID
 				)
 				providerSessionIdentity = identity
 				return OpenSessionResult(
 					sessionID: existingSessionID,
-					providerSessionIdentity: identity,
-					invalidatedResumeSessionID: nil
+					providerSessionIdentity: identity
 				)
 			} catch {
 				suppressSessionLoadReplayUpdates = false
@@ -1327,12 +1339,7 @@ actor ACPAgentSessionController {
 					fallbackResumeSessionIDForPromptClearing = existingSessionID
 					log("Falling back to ACP session/new after missing \(provider.providerID.rawValue) session \(existingSessionID)")
 					diagnose(.info("ACP session/load could not find \(provider.providerID.rawValue) session \(existingSessionID); opening a fresh session."))
-					let fresh = try await openNewSession()
-					return OpenSessionResult(
-						sessionID: fresh.sessionID,
-						providerSessionIdentity: fresh.providerSessionIdentity,
-						invalidatedResumeSessionID: existingSessionID
-					)
+					return try await openNewSession()
 				}
 				throw error
 			}
@@ -1355,29 +1362,17 @@ actor ACPAgentSessionController {
 		}
 		applyDiscoveredSessionModes(from: response)
 		applyDiscoveredSessionModels(from: response)
+		accountPlanName = provider.accountPlanName(fromSessionResponse: response)
 		diagnose(.phaseCompleted("session/new"))
 		log("Completed ACP session/new sessionID=\(sessionID)")
-		let identity: ACPProviderSessionIdentity
-		if provider.providerID == .gemini {
-			identity = ACPProviderSessionIdentity(
-				providerID: provider.providerID,
-				runtimeSessionID: sessionID,
-				loadSessionID: nil,
-				loadSessionIDConfidence: .unavailable
-			)
-		} else {
-			identity = ACPProviderSessionIdentity(
-				providerID: provider.providerID,
-				runtimeSessionID: sessionID,
-				loadSessionID: sessionID,
-				loadSessionIDConfidence: .verified
-			)
-		}
+		let identity = ACPProviderSessionIdentity(
+			providerID: provider.providerID,
+			sessionID: sessionID
+		)
 		providerSessionIdentity = identity
 		return OpenSessionResult(
 			sessionID: sessionID,
-			providerSessionIdentity: identity,
-			invalidatedResumeSessionID: nil
+			providerSessionIdentity: identity
 		)
 	}
 
@@ -1560,45 +1555,6 @@ actor ACPAgentSessionController {
 		)
 	}
 
-	private func promptText(from blocks: [[String: Any]]) -> String? {
-		let parts = blocks.compactMap { block -> String? in
-			if let text = block["text"] as? String { return text }
-			if let content = block["content"] as? String { return content }
-			return nil
-		}
-		let joined = parts.joined(separator: "\n")
-		let trimmed = joined.trimmingCharacters(in: .whitespacesAndNewlines)
-		return trimmed.isEmpty ? nil : trimmed
-	}
-
-	private func refreshGeminiProviderSessionIdentity(promptText: String?, notBefore: Date?) async {
-		guard provider.providerID == .gemini,
-			let runtimeSessionID = sessionID?.trimmingCharacters(in: .whitespacesAndNewlines),
-			!runtimeSessionID.isEmpty else {
-			return
-		}
-		if providerSessionIdentity.loadSessionIDConfidence == .verified,
-			providerSessionIdentity.loadSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-			return
-		}
-		let resolution = await GeminiACPResumeIDResolver.resolve(
-			GeminiACPResumeIDResolver.Query(
-				expectedRuntimeSessionID: runtimeSessionID,
-				workspacePath: runRequest.workspacePath,
-				promptText: promptText,
-				notBefore: notBefore,
-				requireLoadableMessages: true
-			)
-		)
-		guard let resolution else { return }
-		providerSessionIdentity = ACPProviderSessionIdentity(
-			providerID: provider.providerID,
-			runtimeSessionID: runtimeSessionID,
-			loadSessionID: resolution.loadSessionID,
-			loadSessionIDConfidence: .verified
-		)
-	}
-
 	private func shouldFallbackToNewSessionAfterLoadFailure(_ error: Error, existingSessionID _: String) -> Bool {
 		guard case ControllerError.requestFailed(let message, let code) = error else { return false }
 		let lowercased = message.lowercased()
@@ -1606,17 +1562,7 @@ actor ACPAgentSessionController {
 			&& lowercased.contains("not found")
 		let looksLikeInvalidParams = code == -32602
 			|| lowercased.contains("invalid params")
-		if looksLikeMissingSession && looksLikeInvalidParams {
-			return true
-		}
-
-		guard provider.providerID == .gemini, code == -32603 else {
-			return false
-		}
-		let looksLikeGeminiInvalidSessionIdentifier = lowercased.contains("invalid session identifier")
-			|| lowercased.contains("invalid_session_identifier")
-			|| lowercased.contains("no previous sessions found")
-		return looksLikeGeminiInvalidSessionIdentifier
+		return looksLikeMissingSession && looksLikeInvalidParams
 	}
 
 	private static func preflightInjectedMCPServers(in sessionConfiguration: ACPSessionConfiguration) throws {
@@ -1663,13 +1609,6 @@ actor ACPAgentSessionController {
 
 	private func logLaunchContract(command resolvedCommand: String, workingDirectory: String) {
 		log("ACP launch command=\(resolvedCommand) args=\(safeLaunchArgumentsDescription()) cwd=\(workingDirectory)")
-		let settingsKey = MCPIntegrationHelper.geminiSystemSettingsEnvKey
-		if let settingsPath = launchConfiguration.environment[settingsKey]?.trimmingCharacters(in: .whitespacesAndNewlines), !settingsPath.isEmpty {
-			let settingsExists = FileManager.default.fileExists(atPath: settingsPath)
-			log("Gemini ACP system settings env set exists=\(settingsExists) path=\(settingsPath)")
-		} else if provider.providerID == .gemini {
-			log("Gemini ACP system settings env missing key=\(settingsKey)")
-		}
 	}
 
 	private func logSessionMCPInjection() {
@@ -1709,14 +1648,23 @@ actor ACPAgentSessionController {
 	}
 
 	private func resolvedEnvironment() async -> [String: String] {
+		let prefixes = launchConfiguration.removedEnvironmentKeyPrefixes
+		let inherited = ProcessInfo.processInfo.environment.filter { key, _ in
+			!prefixes.contains { key.hasPrefix($0) }
+		}
 		let result = await ProcessEnvironmentBuilder.build(
 			ProcessEnvironmentRequest(
 				purpose: .acpAgent(providerID: provider.providerID.rawValue),
+				inheritedEnvironment: inherited,
 				overrides: launchConfiguration.environment,
+				additionalRemovedKeys: launchConfiguration.removedEnvironmentKeys,
 				enableDebugLogging: launchConfiguration.enableDebugLogging
 			)
 		)
-		return result.environment
+		guard !prefixes.isEmpty else { return result.environment }
+		return result.environment.filter { key, _ in
+			launchConfiguration.environment[key] != nil || !prefixes.contains { key.hasPrefix($0) }
+		}
 	}
 
 	private func applyDiscoveredSessionModes(from response: [String: Any]) {
@@ -2008,12 +1956,7 @@ actor ACPAgentSessionController {
 		let contextUsedTokens = hasContextBreakdown
 			? max(0, inputTokens ?? 0) + max(0, cachedReadTokens ?? 0) + max(0, cachedWriteTokens ?? 0)
 			: nil
-		let providerSessionID: String?
-		if provider.providerID == .gemini {
-			providerSessionID = providerSessionIdentity.loadSessionID
-		} else {
-			providerSessionID = providerSessionIdentity.loadSessionID ?? sessionID
-		}
+		let providerSessionID = providerSessionIdentity.sessionID ?? sessionID
 		return AIStreamResult(
 			type: "message_stop",
 			text: nil,
@@ -2212,9 +2155,7 @@ actor ACPAgentSessionController {
 	private func preferredAllowOptionID(for options: [PermissionOption], sessionScoped: Bool) -> String {
 		let preferences: [PermissionOptionPreference]
 		switch provider.providerID {
-		case .gemini:
-			preferences = geminiAllowOptionPreferences(sessionScoped: sessionScoped)
-		case .openCode, .cursor:
+		case .antigravity, .openCode, .cursor:
 			preferences = genericAllowOptionPreferences(sessionScoped: sessionScoped)
 		}
 		return optionID(for: options, preferences: preferences) ?? options.first?.optionID ?? ""
@@ -2240,10 +2181,8 @@ actor ACPAgentSessionController {
 	private func fullAccessAutoApprovalOptionID(for options: [PermissionOption]) -> String? {
 		guard autoApproveAllToolPermissions else { return nil }
 		switch provider.providerID {
-		case .cursor:
+		case .antigravity, .cursor:
 			return optionID(for: options, preferences: genericAllowOptionPreferences(sessionScoped: true))
-		case .gemini:
-			return optionID(for: options, preferences: geminiAllowOptionPreferences(sessionScoped: true))
 		case .openCode:
 			return nil
 		}
@@ -2270,33 +2209,6 @@ actor ACPAgentSessionController {
 		]
 	}
 
-	private func geminiAllowOptionPreferences(sessionScoped: Bool) -> [PermissionOptionPreference] {
-		if sessionScoped {
-			return [
-				.optionID("proceed_always_server"),
-				.optionID("proceed_always_tool"),
-				.optionID("proceed_once"),
-				.kind("allow_always"),
-				.kind("allow_once"),
-				.optionID("always"),
-				.optionID("allow_always"),
-				.optionID("once"),
-				.optionID("allow_once")
-			]
-		}
-		return [
-			.optionID("proceed_once"),
-			.kind("allow_once"),
-			.optionID("once"),
-			.optionID("allow_once"),
-			.optionID("proceed_always_server"),
-			.optionID("proceed_always_tool"),
-			.kind("allow_always"),
-			.optionID("always"),
-			.optionID("allow_always")
-		]
-	}
-
 	private func autoApprovalSelection(
 		requestToolName: String?,
 		requestPayload: [String: Any],
@@ -2315,19 +2227,7 @@ actor ACPAgentSessionController {
 
 		let preferences: [PermissionOptionPreference]
 		switch provider.providerID {
-		case .gemini:
-			preferences = [
-				.optionID("proceed_always_server"),
-				.optionID("proceed_always_tool"),
-				.optionID("proceed_once"),
-				.kind("allow_always"),
-				.kind("allow_once"),
-				.optionID("always"),
-				.optionID("allow_always"),
-				.optionID("once"),
-				.optionID("allow_once")
-			]
-		case .openCode, .cursor:
+		case .antigravity, .openCode, .cursor:
 			preferences = [
 				.optionID("always"),
 				.optionID("allow_always"),
@@ -2515,8 +2415,8 @@ actor ACPAgentSessionController {
 		let providerSpecificKey: String? = switch providerID {
 		case .cursor:
 			"RP_CURSOR_RAW_CAPTURE_PATH"
-		case .gemini:
-			"RP_GEMINI_ACP_RAW_CAPTURE_PATH"
+		case .antigravity:
+			"RP_ANTIGRAVITY_ACP_RAW_CAPTURE_PATH"
 		case .openCode:
 			"RP_OPENCODE_ACP_RAW_CAPTURE_PATH"
 		}
@@ -2776,6 +2676,12 @@ actor ACPAgentSessionController {
 				"requestID": request.requestID.displayValue,
 				"method": request.method,
 				"approvalKind": String(describing: request.kind)
+			]
+		case .userInputRequested(let request):
+			return [
+				"kind": "userInputRequested",
+				"requestID": request.requestID.displayValue,
+				"questionCount": request.questions.count
 			]
 		case .approvalCancelled(let requestID):
 			return [

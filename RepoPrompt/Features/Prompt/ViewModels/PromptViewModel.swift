@@ -3761,7 +3761,7 @@ Your goal is to choose the most efficient approach for each task - using direct 
 		Publishers.MergeMany([
 			apiSettingsViewModel.$isClaudeCodeConnected.dropFirst().map { _ in () },
 			apiSettingsViewModel.$isCodexConnected.dropFirst().map { _ in () },
-			apiSettingsViewModel.$isGeminiConnected.dropFirst().map { _ in () },
+			apiSettingsViewModel.$isAntigravityConnected.dropFirst().map { _ in () },
 			apiSettingsViewModel.$isOpenCodeConnected.dropFirst().map { _ in () },
 			apiSettingsViewModel.$isCursorConnected.dropFirst().map { _ in () }
 		])
@@ -5653,8 +5653,8 @@ Your goal is to choose the most efficient approach for each task - using direct 
 			return api.isClaudeCodeConnected
 		case .codex:
 			return api.isCodexConnected
-		case .geminiCli:
-			return api.isGeminiConnected
+		case .antigravity:
+			return api.isAntigravityConnected
 		case .openCode:
 			return api.isOpenCodeConnected
 		case .cursor:
@@ -5680,7 +5680,7 @@ Your goal is to choose the most efficient approach for each task - using direct 
 			// Custom models are always valid (user explicitly configured them)
 			if model.isCustom { return true }
 			switch model.providerType {
-			case .claudeCode, .codex, .geminiCli, .openCode, .cursor:
+			case .claudeCode, .codex, .antigravity, .openCode, .cursor:
 				return true
 			default:
 				// Check if the model's provider has an API key configured

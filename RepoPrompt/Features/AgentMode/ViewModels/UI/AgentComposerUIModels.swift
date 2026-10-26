@@ -41,7 +41,7 @@ struct AgentRunCancelTarget: Equatable, Sendable {
 	let expectedRunID: UUID?
 	let expectedActiveAgentSessionID: UUID?
 	let expectedRunAttemptID: UUID?
-	let expectedPendingUserInputRequestID: CodexAppServerRequestID?
+	let expectedPendingUserInputRequestID: AgentInteractionRequestID?
 }
 
 struct AgentComposerSubmitTarget: Equatable, Sendable {

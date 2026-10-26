@@ -287,7 +287,7 @@ final class CodexTransportReliabilityTests: XCTestCase {
 		guard case .requestUserInput(let request) = events.first else {
 			return XCTFail("Expected requestUserInput event")
 		}
-		XCTAssertEqual(request.requestID, .string("rui-1"))
+		XCTAssertEqual(request.requestID, .codex(.string("rui-1")))
 		XCTAssertEqual(request.questions.map(\.id), ["q1"])
 	}
 

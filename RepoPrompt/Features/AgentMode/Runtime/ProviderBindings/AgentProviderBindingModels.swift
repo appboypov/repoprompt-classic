@@ -16,7 +16,7 @@ extension CodexIntegrationConfiguration.ServerEntry: @unchecked Sendable {}
 enum AgentProviderPermissionLevelID: Hashable, Sendable {
 	case codex(CodexAgentToolPreferences.PermissionLevel)
 	case claude(ClaudeAgentToolPreferences.PermissionLevel)
-	case gemini(GeminiAgentToolPreferences.PermissionLevel)
+	case antigravity(AntigravityAgentToolPreferences.PermissionLevel)
 	case openCode(OpenCodeAgentToolPreferences.PermissionLevel)
 	case cursor(CursorAgentToolPreferences.PermissionLevel)
 
@@ -26,8 +26,8 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return .codex
 		case .claude:
 			return .claude
-		case .gemini:
-			return .gemini
+		case .antigravity:
+			return .antigravity
 		case .openCode:
 			return .openCode
 		case .cursor:
@@ -41,8 +41,8 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return .codex(.defaultPermission)
 		case .claude:
 			return .claude(.requireApproval)
-		case .gemini:
-			return .gemini(.default)
+		case .antigravity:
+			return .antigravity(.default)
 		case .openCode:
 			return .openCode(.managedDefault)
 		case .cursor:
@@ -56,8 +56,8 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return CodexAgentToolPreferences.PermissionLevel.allCases.map(AgentProviderPermissionLevelID.codex)
 		case .claude:
 			return ClaudeAgentToolPreferences.PermissionLevel.allCases.map(AgentProviderPermissionLevelID.claude)
-		case .gemini:
-			return GeminiAgentToolPreferences.PermissionLevel.allCases.map(AgentProviderPermissionLevelID.gemini)
+		case .antigravity:
+			return AntigravityAgentToolPreferences.PermissionLevel.allCases.map(AgentProviderPermissionLevelID.antigravity)
 		case .openCode:
 			return OpenCodeAgentToolPreferences.PermissionLevel.allCases.map(AgentProviderPermissionLevelID.openCode)
 		case .cursor:
@@ -74,9 +74,9 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 		case .claude:
 			guard let level = ClaudeAgentToolPreferences.PermissionLevel(rawValue: raw) else { return nil }
 			self = .claude(level)
-		case .gemini:
-			guard let level = GeminiAgentToolPreferences.PermissionLevel(rawValue: raw) else { return nil }
-			self = .gemini(level)
+		case .antigravity:
+			guard let level = AntigravityAgentToolPreferences.PermissionLevel(rawValue: raw) else { return nil }
+			self = .antigravity(level)
 		case .openCode:
 			guard let level = OpenCodeAgentToolPreferences.PermissionLevel(rawValue: raw) else { return nil }
 			self = .openCode(level)
@@ -92,7 +92,7 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return level.rawValue
 		case .claude(let level):
 			return level.rawValue
-		case .gemini(let level):
+		case .antigravity(let level):
 			return level.rawValue
 		case .openCode(let level):
 			return level.rawValue
@@ -107,7 +107,7 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return level.displayName
 		case .claude(let level):
 			return level.displayName
-		case .gemini(let level):
+		case .antigravity(let level):
 			return level.displayName
 		case .openCode(let level):
 			return level.displayName
@@ -122,7 +122,7 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return level.iconName
 		case .claude(let level):
 			return level.iconName
-		case .gemini(let level):
+		case .antigravity(let level):
 			return level.iconName
 		case .openCode(let level):
 			return level.iconName
@@ -137,7 +137,7 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return nil
 		case .claude(let level):
 			return level.detailText
-		case .gemini:
+		case .antigravity:
 			return nil
 		case .openCode(let level):
 			return level.detailText
@@ -152,7 +152,7 @@ enum AgentProviderPermissionLevelID: Hashable, Sendable {
 			return level.isWarning
 		case .claude(let level):
 			return level.isWarning
-		case .gemini(let level):
+		case .antigravity(let level):
 			return level.isWarning
 		case .openCode(let level):
 			return level.isWarning

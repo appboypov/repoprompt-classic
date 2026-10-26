@@ -71,7 +71,7 @@ final class AgentOnboardingWizardViewModel: ObservableObject {
 	// Inline provider testing
 	@Published var isLoadingClaudeCode = false
 	@Published var isLoadingCodex = false
-	@Published var isLoadingGemini = false
+	@Published var isLoadingAntigravity = false
 	@Published var isLoadingOpenCode = false
 	@Published var isLoadingCursor = false
 
@@ -132,7 +132,7 @@ final class AgentOnboardingWizardViewModel: ObservableObject {
 			Publishers.MergeMany(
 				api.$isClaudeCodeConnected.map { _ in () },
 				api.$isCodexConnected.map { _ in () },
-				api.$isGeminiConnected.map { _ in () },
+				api.$isAntigravityConnected.map { _ in () },
 				api.$isOpenCodeConnected.map { _ in () },
 				api.$isCursorConnected.map { _ in () },
 				api.$isOpenAIKeyValid.map { _ in () }
@@ -212,8 +212,8 @@ final class AgentOnboardingWizardViewModel: ObservableObject {
 		apiSettingsViewModel?.isCodexConnected ?? false
 	}
 
-	var geminiConnected: Bool {
-		apiSettingsViewModel?.isGeminiConnected ?? false
+	var antigravityConnected: Bool {
+		apiSettingsViewModel?.isAntigravityConnected ?? false
 	}
 
 	var openCodeConnected: Bool {
@@ -232,8 +232,8 @@ final class AgentOnboardingWizardViewModel: ObservableObject {
 		apiSettingsViewModel?.codexError
 	}
 
-	var geminiError: String? {
-		apiSettingsViewModel?.geminiError
+	var antigravityError: String? {
+		apiSettingsViewModel?.antigravityError
 	}
 
 	var openCodeError: String? {
@@ -270,15 +270,19 @@ final class AgentOnboardingWizardViewModel: ObservableObject {
 		}
 	}
 
-	func testGemini() {
-		isLoadingGemini = true
+	/// Downloads the Antigravity server when it is missing, then signs in.
+	func connectAntigravity() {
+		isLoadingAntigravity = true
 		Task {
 			do {
-				_ = try await apiSettingsViewModel?.testGeminiConnection()
+				if apiSettingsViewModel?.isAntigravityDownloaded == false {
+					try await apiSettingsViewModel?.downloadAntigravity()
+				}
+				try await apiSettingsViewModel?.signInToAntigravity()
 			} catch {
 				// Error state is set on apiSettingsViewModel
 			}
-			isLoadingGemini = false
+			isLoadingAntigravity = false
 			refreshProviderStatus()
 		}
 	}
@@ -327,9 +331,9 @@ final class AgentOnboardingWizardViewModel: ObservableObject {
 		case "Codex CLI":
 			let result = MCPIntegrationHelper.installInCodex()
 			showInstallFeedback(result.success ? (result.wasAlreadyPresent ? "Codex already configured" : "Codex configured") : "Codex config failed", isError: !result.success)
-		case "Gemini CLI":
-			let result = MCPIntegrationHelper.installInGemini()
-			showInstallFeedback(result.success ? (result.wasAlreadyPresent ? "Gemini already configured" : "Gemini configured") : "Gemini config failed", isError: !result.success)
+		case "Antigravity":
+			let result = MCPIntegrationHelper.installInAntigravity()
+			showInstallFeedback(result.success ? (result.wasAlreadyPresent ? "Antigravity already configured" : "Antigravity configured") : "Antigravity config failed", isError: !result.success)
 		case "OpenCode":
 			let result = MCPIntegrationHelper.installInOpenCode()
 			showInstallFeedback(result.success ? (result.wasAlreadyPresent ? "OpenCode already configured" : "OpenCode configured") : "OpenCode config failed", isError: !result.success)

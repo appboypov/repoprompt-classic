@@ -49,18 +49,18 @@ enum AgentModeMCPToolPolicy {
 
 	static let codexNativeGrantedTools: Set<String> = MCPToolCapabilities.toolNames(for: codexNativeGrantedCapabilities)
 
-	/// Gemini ACP should keep ask_user/set_status/oracle recovery, but no longer relies on
+	/// Antigravity ACP keeps ask_user/set_status/oracle recovery, but does not rely on
 	/// share_thoughts or wait_for_next_user_instruction.
-	static let geminiGrantedCapabilities: Set<MCPToolCapability> = [
+	static let antigravityGrantedCapabilities: Set<MCPToolCapability> = [
 		.userInteraction,
 		.agentSessionControl,
 		.agentConversationSend,
 		.conversationLog
 	]
 
-	static let geminiGrantedTools: Set<String> = MCPToolCapabilities.toolNames(for: geminiGrantedCapabilities)
+	static let antigravityGrantedTools: Set<String> = MCPToolCapabilities.toolNames(for: antigravityGrantedCapabilities)
 
-	/// OpenCode ACP uses the same Agent Mode app/session control surface as Gemini.
+	/// OpenCode ACP uses the same Agent Mode app/session control surface as Antigravity.
 	static let openCodeGrantedCapabilities: Set<MCPToolCapability> = [
 		.userInteraction,
 		.agentSessionControl,
@@ -70,7 +70,7 @@ enum AgentModeMCPToolPolicy {
 
 	static let openCodeGrantedTools: Set<String> = MCPToolCapabilities.toolNames(for: openCodeGrantedCapabilities)
 
-	/// Cursor ACP uses the same Agent Mode app/session control surface as Gemini/OpenCode.
+	/// Cursor ACP uses the same Agent Mode app/session control surface as Antigravity/OpenCode.
 	static let cursorGrantedCapabilities: Set<MCPToolCapability> = [
 		.userInteraction,
 		.agentSessionControl,
@@ -86,8 +86,8 @@ enum AgentModeMCPToolPolicy {
 			return codexNativeGrantedTools
 		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
 			return claudeNativeGrantedTools
-		case .gemini:
-			return geminiGrantedTools
+		case .antigravity:
+			return antigravityGrantedTools
 		case .openCode:
 			return openCodeGrantedTools
 		case .cursor:

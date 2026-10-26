@@ -229,7 +229,7 @@ private struct WelcomeStepView: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 28) {
-			Text("Welcome! Here's what RepoPrompt can do — try Agent Mode to orchestrate your CLI agents with full codebase context, or set up the MCP server to supercharge tools like Claude Code, Codex, and Gemini CLI.")
+			Text("Welcome! Here's what RepoPrompt can do — try Agent Mode to orchestrate your CLI agents with full codebase context, or set up the MCP server to supercharge tools like Claude Code, Codex, and Antigravity.")
 				.font(.title3)
 				.foregroundColor(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
@@ -278,7 +278,7 @@ private struct MCPServerCard: View {
 					VStack(alignment: .leading, spacing: 4) {
 						Text("Use in Any Coding Agent")
 							.font(.headline)
-						Text("Give Claude Code, Cursor, Codex, Gemini CLI, and other MCP-compatible tools access to RepoPrompt's token-efficient context tools.")
+						Text("Give Claude Code, Cursor, Codex, Antigravity, and other MCP-compatible tools access to RepoPrompt's token-efficient context tools.")
 							.foregroundColor(.secondary)
 							.fixedSize(horizontal: false, vertical: true)
 					}
@@ -378,7 +378,7 @@ private struct AgentModeIntroStepView: View {
 			HStack(spacing: 12) {
 				AgentIntegrationBadge(name: "Codex CLI", icon: "star.fill", status: "Native", color: .purple)
 				AgentIntegrationBadge(name: "Claude Code", icon: "terminal", status: "MCP", color: .blue)
-				AgentIntegrationBadge(name: "Gemini CLI", icon: "terminal", status: "MCP", color: .green)
+				AgentIntegrationBadge(name: "Antigravity", icon: "terminal", status: "MCP", color: .green)
 				AgentIntegrationBadge(name: "OpenCode", icon: "terminal", status: "MCP", color: .orange)
 				AgentIntegrationBadge(name: "Cursor", icon: "cursorarrow", status: "MCP", color: .cyan)
 			}
@@ -615,7 +615,7 @@ private struct MCPSetupStepView: View {
 							.padding(.vertical, 2)
 							.background(Capsule().fill(Color.green))
 					}
-					Text("Agent Mode inside RepoPrompt already includes every tool below — no MCP setup required. Configure the MCP server only if you want to give external clients (Claude Code, Cursor, Codex CLI, Gemini CLI, OpenCode, Claude Desktop, VS Code) access to RepoPrompt's context tools.")
+					Text("Agent Mode inside RepoPrompt already includes every tool below — no MCP setup required. Configure the MCP server only if you want to give external clients (Claude Code, Cursor, Codex CLI, Antigravity, OpenCode, Claude Desktop, VS Code) access to RepoPrompt's context tools.")
 						.foregroundColor(.secondary)
 						.fixedSize(horizontal: false, vertical: true)
 				}
@@ -646,7 +646,7 @@ private struct MCPSetupStepView: View {
 						Button("Cursor") { viewModel.installMCPServer(in: "Cursor") }
 						Button("VS Code") { viewModel.installMCPServer(in: "VS Code") }
 						Button("Codex CLI") { viewModel.installMCPServer(in: "Codex CLI") }
-						Button("Gemini CLI") { viewModel.installMCPServer(in: "Gemini CLI") }
+						Button("Antigravity") { viewModel.installMCPServer(in: "Antigravity") }
 						Button("OpenCode") { viewModel.installMCPServer(in: "OpenCode") }
 						Button("Claude Desktop") { viewModel.installMCPServer(in: "Claude Desktop") }
 						Button("Claude Code") { viewModel.installMCPServer(in: "Claude Code") }
@@ -798,7 +798,7 @@ private struct MCPSetupStepView: View {
 				MCPAdvantageRow(
 					icon: "arrow.triangle.2.circlepath",
 					title: "Works Everywhere",
-					description: "Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, OpenCode, Claude Desktop \u{2014} install in any MCP client with one click.",
+					description: "Claude Code, Cursor, VS Code, Codex CLI, Antigravity, OpenCode, Claude Desktop \u{2014} install in any MCP client with one click.",
 					color: .green
 				)
 			}
@@ -911,15 +911,15 @@ private struct ProvidersStepView: View {
 				)
 
 				CompactProviderRow(
-					name: "Gemini CLI",
+					name: "Antigravity",
 					icon: "terminal",
-					description: "Headless CLI via MCP — context tools and editing, session management",
-					isConnected: viewModel.geminiConnected,
-					isLoading: viewModel.isLoadingGemini,
-					errorText: viewModel.geminiError,
-					setupHint: "Run 'gemini auth login' in terminal",
+					description: "Google's Antigravity agent server — context tools and editing, session management",
+					isConnected: viewModel.antigravityConnected,
+					isLoading: viewModel.isLoadingAntigravity,
+					errorText: viewModel.antigravityError,
+					setupHint: "Downloads the server, then opens Google sign-in",
 					isRecommended: false,
-					onTest: { viewModel.testGemini() }
+					onTest: { viewModel.connectAntigravity() }
 				)
 
 				CompactProviderRow(

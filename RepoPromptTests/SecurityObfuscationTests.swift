@@ -46,7 +46,7 @@ final class SecurityObfuscationTests: XCTestCase {
 		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionSubagentDocumentKeyEncoded), "rp.agent.permissions.subagent.v1")
 		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionCodexDocumentKeyEncoded), "rp.agent.permissions.codex.v1")
 		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionClaudeDocumentKeyEncoded), "rp.agent.permissions.claude.v1")
-		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionGeminiDocumentKeyEncoded), "rp.agent.permissions.gemini.v1")
+		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionAntigravityDocumentKeyEncoded), "rp.agent.permissions.antigravity.v1")
 		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionOpenCodeDocumentKeyEncoded), "rp.agent.permissions.openCode.v1")
 		XCTAssertEqual(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionCursorDocumentKeyEncoded), "rp.agent.permissions.cursor.v1")
 	}
@@ -78,7 +78,7 @@ final class SecurityObfuscationTests: XCTestCase {
 		XCTAssertFalse(SecurityObfuscation.agentPermissionSubagentDocumentKeyEncoded.isEmpty)
 		XCTAssertFalse(SecurityObfuscation.agentPermissionCodexDocumentKeyEncoded.isEmpty)
 		XCTAssertFalse(SecurityObfuscation.agentPermissionClaudeDocumentKeyEncoded.isEmpty)
-		XCTAssertFalse(SecurityObfuscation.agentPermissionGeminiDocumentKeyEncoded.isEmpty)
+		XCTAssertFalse(SecurityObfuscation.agentPermissionAntigravityDocumentKeyEncoded.isEmpty)
 		XCTAssertFalse(SecurityObfuscation.agentPermissionOpenCodeDocumentKeyEncoded.isEmpty)
 		XCTAssertFalse(SecurityObfuscation.agentPermissionCursorDocumentKeyEncoded.isEmpty)
 	}
@@ -89,7 +89,7 @@ final class SecurityObfuscationTests: XCTestCase {
 		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionSubagentDocumentKeyEncoded).isEmpty)
 		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionCodexDocumentKeyEncoded).isEmpty)
 		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionClaudeDocumentKeyEncoded).isEmpty)
-		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionGeminiDocumentKeyEncoded).isEmpty)
+		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionAntigravityDocumentKeyEncoded).isEmpty)
 		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionOpenCodeDocumentKeyEncoded).isEmpty)
 		XCTAssertFalse(SecurityObfuscation.decode(SecurityObfuscation.agentPermissionCursorDocumentKeyEncoded).isEmpty)
 	}

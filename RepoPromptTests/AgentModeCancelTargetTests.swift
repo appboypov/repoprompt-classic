@@ -349,7 +349,7 @@ final class AgentModeCancelTargetTests: XCTestCase {
 		let runID = UUID()
 		let agentSessionID = UUID()
 		let attemptID = UUID()
-		let requestID = CodexAppServerRequestID.string("request-1")
+		let requestID = AgentInteractionRequestID.codex(.string("request-1"))
 		let request = AgentRequestUserInputRequest(
 			requestID: requestID,
 			method: "request_user_input",

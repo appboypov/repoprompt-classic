@@ -45,9 +45,9 @@ enum SecurityObfuscation {
 		51, 53, 52, 41, 116, 57, 54, 59, 47, 62, 63, 116, 44, 107
 	]
 
-	static let agentPermissionGeminiDocumentKeyEncoded: [UInt8] = [
+	static let agentPermissionAntigravityDocumentKeyEncoded: [UInt8] = [
 		40, 42, 116, 59, 61, 63, 52, 46, 116, 42, 63, 40, 55, 51, 41, 41,
-		51, 53, 52, 41, 116, 61, 63, 55, 51, 52, 51, 116, 44, 107
+		51, 53, 52, 41, 116, 59, 52, 46, 51, 61, 40, 59, 44, 51, 46, 35, 116, 44, 107
 	]
 
 	static let agentPermissionOpenCodeDocumentKeyEncoded: [UInt8] = [

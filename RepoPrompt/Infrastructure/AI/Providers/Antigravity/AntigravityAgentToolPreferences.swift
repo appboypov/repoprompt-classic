@@ -1,6 +1,6 @@
 import Foundation
 
-struct GeminiAgentToolPreferences {
+struct AntigravityAgentToolPreferences {
 	enum PermissionLevel: String, CaseIterable, Sendable {
 		case `default`
 		case fullAccess
@@ -46,14 +46,14 @@ struct GeminiAgentToolPreferences {
 		}
 	}
 
-	private static let sessionModeKey = "geminiACPSessionMode"
+	private static let sessionModeKey = "antigravityACPSessionMode"
 
 	static func sessionModeID(
 		defaults: UserDefaults = .standard,
 		secureStore: AgentPermissionSecureStore? = nil
 	) -> String {
 		if let secureStore = resolvedSecureStore(defaults: defaults, secureStore: secureStore) {
-			return secureStore.geminiPermissions().normalizedSessionModeID()
+			return secureStore.antigravityPermissions().normalizedSessionModeID()
 		}
 		let raw = defaults.string(forKey: sessionModeKey)
 		let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -71,7 +71,7 @@ struct GeminiAgentToolPreferences {
 		let trimmed = mode.trimmingCharacters(in: .whitespacesAndNewlines)
 		let normalized = trimmed.isEmpty ? PermissionLevel.default.sessionModeID : trimmed
 		if let secureStore = resolvedSecureStore(defaults: defaults, secureStore: secureStore) {
-			secureStore.updateGeminiPermissions { document in
+			secureStore.updateAntigravityPermissions { document in
 				document.sessionModeID = normalized
 			}
 			return
@@ -84,7 +84,7 @@ struct GeminiAgentToolPreferences {
 		secureStore: AgentPermissionSecureStore? = nil
 	) -> PermissionLevel {
 		if let secureStore = resolvedSecureStore(defaults: defaults, secureStore: secureStore) {
-			return secureStore.geminiPermissions().permissionLevel()
+			return secureStore.antigravityPermissions().permissionLevel()
 		}
 		return PermissionLevel.from(sessionModeID: sessionModeID(defaults: defaults))
 	}
@@ -95,7 +95,7 @@ struct GeminiAgentToolPreferences {
 		secureStore: AgentPermissionSecureStore? = nil
 	) {
 		if let secureStore = resolvedSecureStore(defaults: defaults, secureStore: secureStore) {
-			secureStore.setGeminiPermissionLevel(level)
+			secureStore.setAntigravityPermissionLevel(level)
 			return
 		}
 		setSessionModeID(level.sessionModeID, defaults: defaults)

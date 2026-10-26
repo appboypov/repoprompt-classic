@@ -306,7 +306,7 @@ struct WorkspaceApprovalOverlayView: View {
             return "chevron.left.forwardslash.chevron.right"
         } else if lowercased.contains("codex") {
             return "terminal"
-        } else if lowercased.contains("gemini") {
+        } else if lowercased.contains("antigravity") {
             return "sparkles"
         } else {
             return "app.connected.to.app.below.fill"

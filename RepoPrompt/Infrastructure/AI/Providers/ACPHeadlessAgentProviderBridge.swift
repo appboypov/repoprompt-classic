@@ -183,6 +183,13 @@ final class ACPHeadlessAgentProviderBridge: HeadlessAgentProvider {
 					continuation.finish(throwing: AIProviderError.invalidConfiguration(detail: message))
 					return
 				}
+			case .userInputRequested(let request):
+				// Headless runs have nobody to answer, so the question is cancelled
+				// and the agent carries on without an answer.
+				await controller.respondToUserInputRequest(
+					id: request.requestID.displayValue,
+					response: AgentRequestUserInputResponse(answersByQuestionID: [:])
+				)
 			case .approvalCancelled:
 				break
 			}

@@ -101,12 +101,6 @@ public enum AIModel: Equatable, Hashable {
 	case codexCliGpt5CodexXHigh
 	case codexCliGpt5CodexMini
 
-	// Gemini CLI Provider Models
-	case geminiCliFlash25
-	case geminiCliPro25
-	case geminiCliPro3p1Preview
-	case geminiCliFlash3Preview
-
 	case gpt4o
 	case o3
 	case o1Preview
@@ -174,6 +168,7 @@ public enum AIModel: Equatable, Hashable {
 	case codexCustom(name: String)
 	case openCodeCustom(name: String)
 	case cursorCustom(name: String)
+	case antigravityCustom(name: String)
 	
 	// Custom Provider Models
 	case customProvider(name: String, provider: String, model: String)
@@ -229,7 +224,7 @@ public enum AIModel: Equatable, Hashable {
 		static let zAI = 9
 		static let azure = 10
 		static let codex = 11
-		static let geminiAgent = 12 // <-- New index for Gemini CLI
+		static let antigravityAgent = 12
 		static let openCode = 13
 		static let cursor = 14
 		static let special = -1
@@ -327,13 +322,6 @@ public enum AIModel: Equatable, Hashable {
 		ModelInfo(model: .codexCliGpt5CodexHigh, rawValue: "codex_cli_gpt-5.3-codex-high", actualName: "gpt-5.3-codex", displayName: "CLI·GPT-5.3 Codex High", provider: ProviderIndex.codex),
 		ModelInfo(model: .codexCliGpt5CodexXHigh, rawValue: "codex_cli_gpt-5.3-codex-xhigh", actualName: "gpt-5.3-codex", displayName: "CLI·GPT-5.3 Codex XHigh", provider: ProviderIndex.codex),
 		ModelInfo(model: .codexCliGpt5CodexMini, rawValue: "codex_cli_gpt-5.1-codex-mini", actualName: "gpt-5.1-codex-mini", displayName: "CLI·GPT-5.1 Codex Mini", provider: ProviderIndex.codex),
-
-		// Gemini CLI Provider Models
-		ModelInfo(model: .geminiCliFlash25, rawValue: "gemini_cli_flash-2.5", actualName: "gemini-2.5-flash", displayName: "CLI·Gemini Flash 2.5", provider: ProviderIndex.geminiAgent),
-		ModelInfo(model: .geminiCliPro25, rawValue: "gemini_cli_pro-2.5", actualName: "gemini-2.5-pro", displayName: "CLI·Gemini Pro 2.5", provider: ProviderIndex.geminiAgent),
-		ModelInfo(model: .geminiCliPro3p1Preview, rawValue: "gemini_cli_pro-3.1-preview", actualName: "gemini-3.1-pro-preview", displayName: "CLI·Gemini Pro 3.1 Preview", provider: ProviderIndex.geminiAgent),
-		// Gemini 3.0 Flash Preview
-		ModelInfo(model: .geminiCliFlash3Preview, rawValue: "gemini_cli_flash-3.0-preview", actualName: "gemini-3-flash-preview", displayName: "CLI·Gemini Flash 3.0 Preview", provider: ProviderIndex.geminiAgent),
 
 		// Anthropic Models
 		ModelInfo(model: .claude45Haiku, rawValue: "claude-haiku-4-5", actualName: nil, displayName: "Claude Haiku 4.5", provider: ProviderIndex.anthropic),
@@ -515,6 +503,8 @@ public enum AIModel: Equatable, Hashable {
 			return "opencode_custom_\(n)"
 		case .cursorCustom(let n):
 			return "cursor_custom_\(n)"
+		case .antigravityCustom(let n):
+			return "antigravity_custom_\(n)"
 		case .customProvider( _, _, let model):
 			return "custom_provider_\(model)"
 		case .customProviderUser(let name):
@@ -569,6 +559,12 @@ public enum AIModel: Equatable, Hashable {
 			}
 			return n
 		}
+		if case .antigravityCustom(let n) = self {
+			if let option = ACPAIModelCatalog.antigravityModelOption(for: n) {
+				return option.displayName
+			}
+			return n
+		}
 		if case .cursorCustom(let n) = self {
 			if let option = ACPAIModelCatalog.cursorModelOption(for: n) {
 				return option.displayName
@@ -608,7 +604,7 @@ public enum AIModel: Equatable, Hashable {
 		case .zAI:            return ZAIProvider.self
 		case .claudeCode:     return ClaudeCodeProvider.self
 		case .codex:          return CodexCLIProvider.self
-		case .geminiCli:      return GeminiCLIProvider.self
+		case .antigravity:      return AntigravityProvider.self
 		case .openCode:       return OpenCodeCLIProvider.self
 		case .cursor:         return CursorCLIProvider.self
 		}
@@ -640,6 +636,7 @@ public enum AIModel: Equatable, Hashable {
 		case .codexCustom:         return .codex
 		case .openCodeCustom:      return .openCode
 		case .cursorCustom:        return .cursor
+		case .antigravityCustom:   return .antigravity
 		case .customProviderUser:  return .customProvider
 			
 			// or, if you prefer the old modelGroups approach:
@@ -655,7 +652,7 @@ public enum AIModel: Equatable, Hashable {
 			if Self.modelGroups[ProviderIndex.zAI].contains(self) { return .zAI }
 			if Self.modelGroups[ProviderIndex.claudeCode].contains(self) { return .claudeCode } // <-- Add Claude Code to providerType check
 			if Self.modelGroups[ProviderIndex.codex].contains(self) { return .codex }
-			if Self.modelGroups[ProviderIndex.geminiAgent].contains(self) { return .geminiCli }
+			if Self.modelGroups[ProviderIndex.antigravityAgent].contains(self) { return .antigravity }
 			if Self.modelGroups[ProviderIndex.openCode].contains(self) { return .openCode }
 			if Self.modelGroups[ProviderIndex.cursor].contains(self) { return .cursor }
 			// fallback
@@ -695,7 +692,8 @@ public enum AIModel: Equatable, Hashable {
 			.zaiCustom(let n),
 			.codexCustom(let n),
 			.openCodeCustom(let n),
-			.cursorCustom(let n):
+			.cursorCustom(let n),
+			.antigravityCustom(let n):
 			return n
 		case .customProviderUser(let name):
 			return name
@@ -1090,7 +1088,7 @@ public enum AIModel: Equatable, Hashable {
 			return SwiftOpenAI.Model.custom(self.modelName)
 		case .anthropic:
 			return SwiftAnthropic.Model.other(self.modelName)
-		case .azure, .openRouter, .customProvider, .claudeCode, .codex, .geminiCli, .openCode, .cursor:
+		case .azure, .openRouter, .customProvider, .claudeCode, .codex, .antigravity, .openCode, .cursor:
 			// For these providers, use the actual model name when available
 			if let modelInfo = Self.modelDefinitions.first(where: { $0.model == self }),
 				let actualName = modelInfo.actualName {
@@ -1105,8 +1103,6 @@ public enum AIModel: Equatable, Hashable {
 		switch normalizedRawValue.lowercased() {
 		case "gemini-3-pro-preview":
 			return .gemini3p1ProPreview
-		case "gemini_cli_pro-3.0-preview":
-			return .geminiCliPro3p1Preview
 		case "glm-5":
 			return .zaiGLM5_0
 		default:
@@ -1160,10 +1156,8 @@ public enum AIModel: Equatable, Hashable {
 		if normalizedRawValue.starts(with: "cursor_custom_") {
 			return .cursorCustom(name: String(normalizedRawValue.dropFirst("cursor_custom_".count)))
 		}
-		
-		// Handle Gemini CLI models with prefix
-		if normalizedRawValue.starts(with: "gemini_cli_") {
-			return modelDefinitions.first { $0.rawValue == normalizedRawValue }?.model
+		if normalizedRawValue.starts(with: "antigravity_custom_") {
+			return .antigravityCustom(name: String(normalizedRawValue.dropFirst("antigravity_custom_".count)))
 		}
 
 		if normalizedRawValue.starts(with: "openai_custom_reasoning_") {
@@ -1273,8 +1267,8 @@ public enum AIModel: Equatable, Hashable {
 			models = ClaudeCodeAIModelCatalog.modelsForPicker()
 		case .codex:
 			models = codexModelsForPicker()
-		case .geminiCli:
-			models = Array(modelGroups[ProviderIndex.geminiAgent])
+		case .antigravity:
+			models = ACPAIModelCatalog.antigravityModelsFromStore()
 		case .openCode:
 			models = ACPAIModelCatalog.openCodeModelsFromStore()
 		case .cursor:
@@ -1605,7 +1599,7 @@ public enum AIModel: Equatable, Hashable {
 
 	private static func semanticSortLabel(for model: AIModel) -> String {
 		switch model {
-		case .codexCustom(let name), .openCodeCustom(let name), .cursorCustom(let name):
+		case .codexCustom(let name), .openCodeCustom(let name), .cursorCustom(let name), .antigravityCustom(let name):
 			return name
 		default:
 			return model.displayName
@@ -1820,6 +1814,8 @@ public enum AIModel: Equatable, Hashable {
 				models.append(contentsOf: ACPAIModelCatalog.openCodeModelsFromStore())
 			} else if providerIndex == ProviderIndex.cursor {
 				models.append(contentsOf: ACPAIModelCatalog.cursorModelsFromStore())
+			} else if providerIndex == ProviderIndex.antigravityAgent {
+				models.append(contentsOf: ACPAIModelCatalog.antigravityModelsFromStore())
 			} else {
 				models.append(contentsOf: group)
 			}
@@ -1846,6 +1842,7 @@ public enum AIModel: Equatable, Hashable {
 		case codexCustom(name: String)
 		case openCodeCustom(name: String)
 		case cursorCustom(name: String)
+		case antigravityCustom(name: String)
 		case customProvider(name: String, provider: String, model: String)
 		case customProviderUser(name: String)
 		case claudeCodeModel(normalizedSpecifier: String)
@@ -1889,10 +1886,6 @@ public enum AIModel: Equatable, Hashable {
 		case codexCliGpt5CodexHigh
 		case codexCliGpt5CodexXHigh
 		case codexCliGpt5CodexMini
-		case geminiCliFlash25
-		case geminiCliPro25
-		case geminiCliPro3p1Preview
-		case geminiCliFlash3Preview
 		case gpt4o
 		case o3
 		case o1Preview
@@ -1990,6 +1983,8 @@ public enum AIModel: Equatable, Hashable {
 			return .openCodeCustom(name: name)
 		case .cursorCustom(let name):
 			return .cursorCustom(name: name)
+		case .antigravityCustom(let name):
+			return .antigravityCustom(name: name)
 		case .customProvider(let name, let provider, let model):
 			return .customProvider(name: name, provider: provider, model: model)
 		case .customProviderUser(let name):
@@ -2068,14 +2063,6 @@ public enum AIModel: Equatable, Hashable {
 			return .staticCase(.codexCliGpt5CodexXHigh)
 		case .codexCliGpt5CodexMini:
 			return .staticCase(.codexCliGpt5CodexMini)
-		case .geminiCliFlash25:
-			return .staticCase(.geminiCliFlash25)
-		case .geminiCliPro25:
-			return .staticCase(.geminiCliPro25)
-		case .geminiCliPro3p1Preview:
-			return .staticCase(.geminiCliPro3p1Preview)
-		case .geminiCliFlash3Preview:
-			return .staticCase(.geminiCliFlash3Preview)
 		case .gpt4o:
 			return .staticCase(.gpt4o)
 		case .o3:
@@ -2303,7 +2290,7 @@ public enum AIModel: Equatable, Hashable {
 		case .customProvider:
 			// CustomProviderConfiguration uses 0.3 as default (line 10 in CustomProviderConfiguration.swift)
 			return 0.3
-		case .openAI, .azure, .openRouter, .gemini, .deepseek, .fireworks, .grok, .groq, .zAI, .claudeCode, .codex, .ollama, .geminiCli, .openCode, .cursor:
+		case .openAI, .azure, .openRouter, .gemini, .deepseek, .fireworks, .grok, .groq, .zAI, .claudeCode, .codex, .ollama, .antigravity, .openCode, .cursor:
 			// These providers don't set temperature when nil - API uses its own default (typically 1.0)
 			// But we can't be certain what the API actually used
 			return nil

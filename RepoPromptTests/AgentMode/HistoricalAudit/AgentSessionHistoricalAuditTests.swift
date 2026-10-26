@@ -193,7 +193,7 @@ final class AgentSessionHistoricalAuditTests: XCTestCase {
 		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .coldRestore(agentKindRaw: nil)))
 		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .claudeCode)))
 		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .claudeCodeGLM)))
-		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .gemini)))
+		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .antigravity)))
 		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .openCode)))
 		XCTAssertTrue(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .cursor)))
 		XCTAssertFalse(AgentTranscriptQualityRepair.shouldFinalizeExplicitRepoPromptTools(context: .liveTerminal(agentKind: .codexExec)))

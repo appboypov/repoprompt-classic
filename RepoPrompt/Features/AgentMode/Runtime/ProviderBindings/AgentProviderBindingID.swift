@@ -3,7 +3,7 @@ import Foundation
 enum AgentProviderBindingID: String, CaseIterable, Hashable, Sendable {
 	case codex
 	case claude
-	case gemini
+	case antigravity
 	case openCode
 	case cursor
 
@@ -13,8 +13,8 @@ enum AgentProviderBindingID: String, CaseIterable, Hashable, Sendable {
 			return "Codex CLI"
 		case .claude:
 			return "Claude Code"
-		case .gemini:
-			return "Gemini CLI"
+		case .antigravity:
+			return "Antigravity"
 		case .openCode:
 			return "OpenCode"
 		case .cursor:
@@ -30,8 +30,8 @@ extension DiscoverAgentKind {
 			return .codex
 		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
 			return .claude
-		case .gemini:
-			return .gemini
+		case .antigravity:
+			return .antigravity
 		case .openCode:
 			return .openCode
 		case .cursor:

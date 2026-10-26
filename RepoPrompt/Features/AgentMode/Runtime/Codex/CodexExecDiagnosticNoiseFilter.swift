@@ -11,7 +11,6 @@ import Foundation
 /// Related:
 /// - ClaudeAbortArtifactFilter (analogous filter for Claude Code)
 /// - CodexExecAgentProvider.streamAgentMessage (call site)
-/// - GeminiAgentProvider.streamAgentMessage (could also benefit from filtering)
 enum CodexExecDiagnosticNoiseFilter {
 
 	/// Known internal lifecycle/transport markers that indicate diagnostic noise.

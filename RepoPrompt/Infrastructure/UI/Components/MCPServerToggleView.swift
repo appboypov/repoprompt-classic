@@ -585,12 +585,12 @@ struct MCPServerPopoverContent: View {
 								showMCPFeedback("Codex config failed", isError: true)
 							}
 						}
-						Button("Gemini CLI") {
-							let result = MCPIntegrationHelper.installInGemini()
+						Button("Antigravity") {
+							let result = MCPIntegrationHelper.installInAntigravity()
 							if result.success {
-								showMCPFeedback(result.wasAlreadyPresent ? "Gemini already configured" : "Gemini configured")
+								showMCPFeedback(result.wasAlreadyPresent ? "Antigravity already configured" : "Antigravity configured")
 							} else {
-								showMCPFeedback("Gemini config failed", isError: true)
+								showMCPFeedback("Antigravity config failed", isError: true)
 							}
 						}
 						Button("OpenCode") {

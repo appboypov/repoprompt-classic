@@ -737,7 +737,7 @@ struct AgentComposerView: View, Equatable {
 			.cornerRadius(6)
 		}
 		.buttonStyle(.plain)
-		.hoverTooltip("Open Settings to connect Claude Code, Codex, Gemini, or OpenCode for Agent Mode")
+		.hoverTooltip("Open Settings to connect Claude Code, Codex, Antigravity, or OpenCode for Agent Mode")
 		.fixedSize(horizontal: true, vertical: false)
 	}
 
@@ -849,13 +849,9 @@ struct AgentComposerView: View, Equatable {
 			selectedRaw: props.selectedModelRaw,
 			agentKind: agent
 		)
-		let isLockedGeminiModelChange = props.isProviderPickerLockedForCurrentTab &&
-			props.selectedAgent == .gemini &&
-			agent == .gemini &&
-			!isSelected
 		return StableMenuItem.action(
 			title ?? model.displayName,
-			isEnabled: !isLockedGeminiModelChange,
+			isEnabled: true,
 			isSelected: isSelected,
 			imageSystemName: AgentModelSelectionWarningVisuals.stableMenuImageSystemName(agent: agent, rawModel: model.rawValue),
 			style: AgentModelSelectionWarningVisuals.stableMenuStyle(agent: agent, rawModel: model.rawValue)

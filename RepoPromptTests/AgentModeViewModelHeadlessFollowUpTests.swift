@@ -116,65 +116,6 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		XCTAssertTrue(policyRunIDs.allSatisfy { $0 == activeRunID })
 	}
 
-	func testGeminiFollowUpAutoRunUsesResumeSessionAndInstallsPolicyEachRun() async {
-		let provider = FakeHeadlessAgentProvider()
-		provider.enqueue(
-			results: [
-				AIStreamResult(type: "content", text: "first"),
-				AIStreamResult(type: "message_stop", text: nil, promptTokens: 120, completionTokens: 30, providerSessionID: "gem-session-1")
-			],
-			perEventDelayNanos: 120_000_000
-		)
-		provider.enqueue(
-			results: [
-				AIStreamResult(type: "content", text: "second"),
-				AIStreamResult(type: "message_stop", text: nil, promptTokens: 80, completionTokens: 20, providerSessionID: "gem-session-2")
-			]
-		)
-
-		var policyCalls: [PolicyInstallCall] = []
-		let vm = makeViewModel(
-			provider: provider,
-			onInstallPolicy: { call in
-				policyCalls.append(call)
-			}
-		)
-
-		let tabID = UUID()
-		vm.ensureSession(for: tabID)
-		guard let session = vm.sessions[tabID] else {
-			return XCTFail("Expected tab session to exist")
-		}
-		session.selectedAgent = .gemini
-
-		await vm.startAgentRun(tabID: tabID, initialMessage: "initial instruction")
-		session.pendingInstructions.append("follow-up instruction")
-
-		let completed = await waitForCondition(timeoutSeconds: 3.0) {
-			session.runState == .completed && provider.messages.count == 2
-		}
-		XCTAssertTrue(completed, "Expected Gemini follow-up run to complete")
-		XCTAssertEqual(session.providerSessionID, "gem-session-2")
-
-		XCTAssertEqual(provider.messages.count, 2)
-		guard provider.messages.count >= 2 else { return }
-		XCTAssertNil(provider.messages[0].resumeSessionID)
-		XCTAssertEqual(provider.messages[1].resumeSessionID, "gem-session-1")
-		XCTAssertEqual(provider.messages[1].userMessage, "follow-up instruction")
-		XCTAssertEqual(session.providerTokenUsageByTurn.count, 2)
-		guard session.providerTokenUsageByTurn.count >= 2 else { return }
-		XCTAssertEqual(session.providerTokenUsageByTurn[0].totalTokens, 150)
-		XCTAssertEqual(session.providerTokenUsageByTurn[1].totalTokens, 100)
-		XCTAssertEqual(session.codexContextUsage?.lastTotalTokens, 100)
-		XCTAssertEqual(session.codexContextUsage?.totalTotalTokens, 250)
-		XCTAssertNil(session.codexContextUsage?.modelContextWindow)
-
-		XCTAssertEqual(policyCalls.count, 2)
-		guard policyCalls.count >= 2 else { return }
-		assertPolicyCall(policyCalls[0], expectedClient: "gemini-cli-mcp-client", expectedTabID: tabID)
-		assertPolicyCall(policyCalls[1], expectedClient: "gemini-cli-mcp-client", expectedTabID: tabID)
-	}
-
 	func testClaudeFollowUpAutoRunUsesResumeSessionAndInstallsPolicyEachRun() async {
 		let provider = FakeHeadlessAgentProvider()
 		provider.enqueue(
@@ -995,7 +936,7 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		await HeadlessAgentConnectionGate.cancelAll()
 	}
 
-	func testGeminiRenderProviderMessageIncludesEscapedAtPathImageReferences() {
+	func testAntigravityRenderProviderMessageIncludesEscapedAtPathImageReferences() {
 		let provider = FakeHeadlessAgentProvider()
 		let vm = makeViewModel(provider: provider, onInstallPolicy: { _ in })
 		let path = "/tmp/My Folder/image (1).png"
@@ -1004,7 +945,7 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		let rendered = vm.test_renderProviderMessage(
 			text: "Describe this image.",
 			attachments: [attachment],
-			agent: .gemini
+			agent: .antigravity
 		)
 
 		let expectedRef = "@\(vm.test_escapePathForAtCommand(path))"
@@ -1117,56 +1058,6 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		XCTAssertTrue(outbound.hasSuffix("continue please"))
 		XCTAssertTrue(session.pendingHandoff.isStagedForSend)
 		XCTAssertFalse(session.pendingHandoff.defersProviderLockUntilSend)
-	}
-
-	func testGeminiHandedOffSessionFirstSendUsesForkedSessionPayloadWithoutHistoryReplay() async {
-		let provider = FakeHeadlessAgentProvider()
-		provider.enqueue(
-			results: [
-				AIStreamResult(type: "message_stop", text: nil, promptTokens: 20, completionTokens: 10, providerSessionID: "gem-session-handoff")
-			]
-		)
-
-		let vm = makeViewModel(provider: provider, onInstallPolicy: { _ in })
-		let tabID = UUID()
-		vm.ensureSession(for: tabID)
-		let session = vm.session(for: tabID)
-		session.selectedAgent = .gemini
-		session.replaceItems([
-			AgentChatItem.user("orig user", sequenceIndex: 0),
-			AgentChatItem.assistant("orig answer", sequenceIndex: 1)
-		])
-		vm.test_rebuildStructuredTranscript(tabID: tabID)
-
-		session.pendingHandoff = .init(
-			payload: vm.test_composeSessionHandoffPayload(
-				sourceTabName: "Source Session",
-				sourceAgentName: "Claude Code",
-				sourceModelName: "GPT-5",
-				fileContentsBlock: nil,
-				transcriptXML: "<transcript>\n<user>orig user</user>\n<assistant>orig answer</assistant>\n</transcript>",
-				deliveryID: "delivery-handoff"
-			),
-			createdAt: Date(),
-			sourceItemID: session.items.last?.id,
-			defersProviderLockUntilSend: true,
-			isStagedForSend: false
-		)
-
-		await vm.startAgentRun(tabID: tabID, initialMessage: "continue please")
-		let completed = await waitForCondition(timeoutSeconds: 2.0) {
-			session.runState == .completed && provider.messages.count == 1
-		}
-		XCTAssertTrue(completed, "Expected handed-off Gemini run to complete")
-		guard provider.messages.count == 1 else { return }
-
-		let sentMessage = provider.messages[0].userMessage
-		XCTAssertTrue(sentMessage.contains("<forked_session source="))
-		XCTAssertTrue(sentMessage.contains("<transcript>"))
-		XCTAssertTrue(sentMessage.contains("<user>orig user</user>"))
-		XCTAssertTrue(sentMessage.contains("<assistant>orig answer</assistant>"))
-		XCTAssertFalse(sentMessage.contains("<previous_conversation>"))
-		XCTAssertFalse(sentMessage.contains("<current_instruction>"))
 	}
 
 	func testCancelAgentRunClearsPendingNonCodexTokenStateAndQueuedInstructions() async {
@@ -1613,7 +1504,7 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 		XCTAssertEqual(rendered, "\(expectedRef)\n\nDescribe this image.")
 	}
 
-	func testQueuedSteeringQueuesForGeminiWhenNoLiveACPController() {
+	func testQueuedSteeringQueuesForAntigravityWhenNoLiveACPController() {
 		let provider = FakeHeadlessAgentProvider()
 		let vm = makeViewModel(provider: provider, onInstallPolicy: { _ in })
 		let tabID = UUID()
@@ -1622,19 +1513,19 @@ final class AgentModeViewModelHeadlessFollowUpTests: XCTestCase {
 			return XCTFail("Expected session for tab \(tabID)")
 		}
 
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		session.runState = .running
 
 		let result = vm.test_submitUserTurn(tabID: tabID, text: "follow-up steering")
 		if case .blocked(let message) = result {
-			return XCTFail("Expected Gemini steering submission, got blocked: \(message)")
+			return XCTFail("Expected Antigravity steering submission, got blocked: \(message)")
 		}
 
 		XCTAssertEqual(session.items.count, 1)
 		XCTAssertEqual(session.items.first?.kind, .user)
 		XCTAssertEqual(session.items.first?.text, "follow-up steering")
 		XCTAssertEqual(session.pendingInstructions, ["follow-up steering"])
-		XCTAssertFalse(session.pendingNonCodexUserInputTokenQueue.isEmpty, "Queued Gemini steering should track user token estimates")
+		XCTAssertFalse(session.pendingNonCodexUserInputTokenQueue.isEmpty, "Queued Antigravity steering should track user token estimates")
 	}
 
 	func testQueuedSteeringIsAllowedForClaudeCode() async {

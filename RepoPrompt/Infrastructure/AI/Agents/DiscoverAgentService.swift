@@ -38,7 +38,7 @@ enum ClaudeCodeRuntimeVariant: String, Sendable {
 enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 	case claudeCode
 	case codexExec
-	case gemini
+	case antigravity
 	case openCode
 	case cursor
 	case claudeCodeGLM
@@ -47,7 +47,7 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 
 	static let claudeMCPClientID = "claude-code"
 	static let codexMCPClientID = "codex-mcp-client"
-	static let geminiMCPClientID = "gemini-cli-mcp-client"
+	static let antigravityMCPClientID = "antigravity-client"
 	static let openCodeMCPClientID = "opencode"
 	static let cursorMCPClientID = "cursor"
 
@@ -57,8 +57,8 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 			return "claude"
 		case .codexExec:
 			return "codex"
-		case .gemini:
-			return "gemini"
+		case .antigravity:
+			return "agy"
 		case .openCode:
 			return "opencode"
 		case .cursor:
@@ -72,8 +72,8 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 			return "Claude Code"
 		case .codexExec:
 			return "Codex CLI"
-		case .gemini:
-			return "Gemini CLI"
+		case .antigravity:
+			return "Antigravity"
 		case .openCode:
 			return "OpenCode"
 		case .cursor:
@@ -93,8 +93,8 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 			return Self.claudeMCPClientID
 		case .codexExec:
 			return Self.codexMCPClientID
-		case .gemini:
-			return Self.geminiMCPClientID
+		case .antigravity:
+			return Self.antigravityMCPClientID
 		case .openCode:
 			return Self.openCodeMCPClientID
 		case .cursor:
@@ -104,8 +104,8 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 
 	var acpProviderID: ACPProviderID? {
 		switch self {
-		case .gemini:
-			return .gemini
+		case .antigravity:
+			return .antigravity
 		case .openCode:
 			return .openCode
 		case .cursor:
@@ -119,7 +119,7 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 		switch self {
 		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
 			return true
-		case .codexExec, .gemini, .openCode, .cursor:
+		case .codexExec, .antigravity, .openCode, .cursor:
 			return false
 		}
 	}
@@ -130,7 +130,7 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 
 	var requiresExpectedPIDOwnedAgentModeMCPRouting: Bool {
 		switch self {
-		case .claudeCode, .codexExec, .gemini, .openCode, .cursor, .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
+		case .claudeCode, .codexExec, .antigravity, .openCode, .cursor, .claudeCodeGLM, .kimiCode, .customClaudeCompatible:
 			return true
 		}
 	}
@@ -142,8 +142,8 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 			return "Anthropic's Claude Code agent. Strong at general-purpose development, code understanding, architecture, and open-ended reasoning tasks."
 		case .codexExec:
 			return "OpenAI's Codex CLI agent. Optimized for tool-driven engineering workflows. Supports configurable reasoning effort levels per model."
-		case .gemini:
-			return "Google's Gemini CLI agent. Good for fast exploration, repository reading, and lightweight tasks."
+		case .antigravity:
+			return "Google's Antigravity agent. Good for fast exploration, repository reading, and lightweight tasks."
 		case .openCode:
 			return "OpenCode ACP agent. Interactive Agent Mode uses RepoPrompt MCP tools; headless discovery/delegate runs use RepoPrompt's managed no-native-tools mode."
 		case .cursor:
@@ -176,8 +176,8 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 			return "claude_native"
 		case .codexExec:
 			return "codex_native"
-		case .gemini:
-			return "headless"
+		case .antigravity:
+			return "antigravity_acp"
 		case .openCode:
 			return "opencode_acp"
 		case .cursor:
@@ -195,7 +195,7 @@ enum DiscoverAgentKind: String, CaseIterable, Hashable, Sendable {
 			return .kimi
 		case .customClaudeCompatible:
 			return .customCompatible
-		case .codexExec, .gemini, .openCode, .cursor:
+		case .codexExec, .antigravity, .openCode, .cursor:
 			return nil
 		}
 	}
@@ -218,7 +218,7 @@ final class DiscoverAgentService {
 	///   - runType: The type of run (discovery or delegateEdit) — determines CLI tool config
 	/// - Note: MCP tool restrictions are handled via ServerNetworkManager connection policies,
 	///   not via CLI flags. Use installClientConnectionPolicy before starting the agent run.
-	/// - Important: Gemini, OpenCode, and Cursor use their ACP runtimes for headless
+	/// - Important: Antigravity, OpenCode, and Cursor use their ACP runtimes for headless
 	///   discovery while keeping broader chat-provider wiring separate.
 	func makeProvider(
 		for agent: DiscoverAgentKind,
@@ -269,18 +269,15 @@ final class DiscoverAgentService {
 				Self.logger.debug("Created CodexExecAgentProvider")
 			}
 			return CodexExecAgentProvider(runner: runner, config: config)
-		case .gemini:
-			let config = GeminiAgentConfig(
-				commandName: agent.commandName,
+		case .antigravity:
+			let config = AntigravityAgentConfig(
 				modelString: modelString,
-				enableDebugLogging: Self.enableDebugLogging,
-				toolContext: .agentRun,
-				includeRepoPromptMCPServer: true
+				enableDebugLogging: Self.enableDebugLogging
 			)
 			if Self.enableDebugLogging {
-				Self.logger.debug("Created GeminiACPHeadlessAgentProvider")
+				Self.logger.debug("Created AntigravityACPHeadlessAgentProvider")
 			}
-			return GeminiACPHeadlessAgentProvider(config: config, workspacePath: workspacePath)
+			return AntigravityACPHeadlessAgentProvider(config: config, workspacePath: workspacePath)
 		case .openCode:
 			let config = OpenCodeAgentConfig(
 				modelString: modelString,

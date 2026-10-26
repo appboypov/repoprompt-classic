@@ -7,7 +7,7 @@ enum AgentPermissionSecureDomain: String, CaseIterable, Hashable, Sendable {
 	case subagent
 	case codex
 	case claude
-	case gemini
+	case antigravity
 	case openCode
 	case cursor
 
@@ -19,8 +19,8 @@ enum AgentPermissionSecureDomain: String, CaseIterable, Hashable, Sendable {
 			return SecurityObfuscation.decode(SecurityObfuscation.agentPermissionCodexDocumentKeyEncoded)
 		case .claude:
 			return SecurityObfuscation.decode(SecurityObfuscation.agentPermissionClaudeDocumentKeyEncoded)
-		case .gemini:
-			return SecurityObfuscation.decode(SecurityObfuscation.agentPermissionGeminiDocumentKeyEncoded)
+		case .antigravity:
+			return SecurityObfuscation.decode(SecurityObfuscation.agentPermissionAntigravityDocumentKeyEncoded)
 		case .openCode:
 			return SecurityObfuscation.decode(SecurityObfuscation.agentPermissionOpenCodeDocumentKeyEncoded)
 		case .cursor:
@@ -247,7 +247,7 @@ struct SecureClaudePermissionDocument: Codable, Equatable, Sendable {
 	}
 }
 
-struct SecureGeminiPermissionDocument: Codable, Equatable, Sendable {
+struct SecureAntigravityPermissionDocument: Codable, Equatable, Sendable {
 	static let currentSchemaVersion = 1
 
 	var schemaVersion: Int
@@ -258,7 +258,7 @@ struct SecureGeminiPermissionDocument: Codable, Equatable, Sendable {
 	init(
 		schemaVersion: Int = currentSchemaVersion,
 		updatedAt: Date = Date(),
-		sessionModeID: String? = GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID,
+		sessionModeID: String? = AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID,
 		migratedFromLegacyAt: Date? = nil
 	) {
 		self.schemaVersion = schemaVersion
@@ -267,21 +267,21 @@ struct SecureGeminiPermissionDocument: Codable, Equatable, Sendable {
 		self.migratedFromLegacyAt = migratedFromLegacyAt
 	}
 
-	static func defaultDocument(now: Date = Date()) -> SecureGeminiPermissionDocument {
-		SecureGeminiPermissionDocument(updatedAt: now)
+	static func defaultDocument(now: Date = Date()) -> SecureAntigravityPermissionDocument {
+		SecureAntigravityPermissionDocument(updatedAt: now)
 	}
 
-	static func failClosedDocument(now: Date = Date()) -> SecureGeminiPermissionDocument {
-		SecureGeminiPermissionDocument(updatedAt: now)
+	static func failClosedDocument(now: Date = Date()) -> SecureAntigravityPermissionDocument {
+		SecureAntigravityPermissionDocument(updatedAt: now)
 	}
 
 	func normalizedSessionModeID() -> String {
 		let trimmed = sessionModeID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-		return trimmed.isEmpty ? GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID : trimmed
+		return trimmed.isEmpty ? AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID : trimmed
 	}
 
-	func permissionLevel() -> GeminiAgentToolPreferences.PermissionLevel {
-		GeminiAgentToolPreferences.PermissionLevel.from(sessionModeID: normalizedSessionModeID())
+	func permissionLevel() -> AntigravityAgentToolPreferences.PermissionLevel {
+		AntigravityAgentToolPreferences.PermissionLevel.from(sessionModeID: normalizedSessionModeID())
 	}
 }
 
@@ -369,7 +369,7 @@ final class AgentPermissionSecureStore {
 	private var subagentCache: SecureSubagentPermissionDocument?
 	private var codexCache: SecureCodexPermissionDocument?
 	private var claudeCache: SecureClaudePermissionDocument?
-	private var geminiCache: SecureGeminiPermissionDocument?
+	private var antigravityCache: SecureAntigravityPermissionDocument?
 	private var openCodeCache: SecureOpenCodePermissionDocument?
 	private var cursorCache: SecureCursorPermissionDocument?
 	private var diagnosticsByDomain: [AgentPermissionSecureDomain: AgentPermissionStorageDiagnostic] = [:]
@@ -418,7 +418,7 @@ final class AgentPermissionSecureStore {
 			subagentCache = nil
 			codexCache = nil
 			claudeCache = nil
-			geminiCache = nil
+			antigravityCache = nil
 			openCodeCache = nil
 			cursorCache = nil
 		}
@@ -451,9 +451,9 @@ final class AgentPermissionSecureStore {
 			_ = normalizeClaude(&claude, fallback: .failClosed)
 			record(.claude, resetLocked(claude, domain: .claude, cache: &claudeCache, deferred: &effects))
 
-			var gemini = SecureGeminiPermissionDocument.failClosedDocument(now: resetDate)
-			_ = normalizeGemini(&gemini)
-			record(.gemini, resetLocked(gemini, domain: .gemini, cache: &geminiCache, deferred: &effects))
+			var antigravity = SecureAntigravityPermissionDocument.failClosedDocument(now: resetDate)
+			_ = normalizeAntigravity(&antigravity)
+			record(.antigravity, resetLocked(antigravity, domain: .antigravity, cache: &antigravityCache, deferred: &effects))
 
 			var openCode = SecureOpenCodePermissionDocument.failClosedDocument(now: resetDate)
 			_ = normalizeOpenCode(&openCode)
@@ -502,9 +502,9 @@ final class AgentPermissionSecureStore {
 		}
 	}
 
-	func geminiPermissions() -> SecureGeminiPermissionDocument {
+	func antigravityPermissions() -> SecureAntigravityPermissionDocument {
 		withLockAndDeferredSideEffects { effects in
-			loadGeminiPermissionsLocked(deferred: &effects)
+			loadAntigravityPermissionsLocked(deferred: &effects)
 		}
 	}
 
@@ -556,13 +556,13 @@ final class AgentPermissionSecureStore {
 	}
 
 	@discardableResult
-	func updateGeminiPermissions(_ mutation: (inout SecureGeminiPermissionDocument) -> Void) -> Bool {
+	func updateAntigravityPermissions(_ mutation: (inout SecureAntigravityPermissionDocument) -> Void) -> Bool {
 		withLockAndDeferredSideEffects { effects in
-			var document = loadGeminiPermissionsLocked(deferred: &effects)
+			var document = loadAntigravityPermissionsLocked(deferred: &effects)
 			mutation(&document)
-			normalizeGemini(&document)
+			normalizeAntigravity(&document)
 			document.updatedAt = now()
-			return saveLocked(document, domain: .gemini, cache: &geminiCache, deferred: &effects)
+			return saveLocked(document, domain: .antigravity, cache: &antigravityCache, deferred: &effects)
 		}
 	}
 
@@ -605,8 +605,8 @@ final class AgentPermissionSecureStore {
 	}
 
 	@discardableResult
-	func setGeminiPermissionLevel(_ level: GeminiAgentToolPreferences.PermissionLevel) -> Bool {
-		updateGeminiPermissions { document in
+	func setAntigravityPermissionLevel(_ level: AntigravityAgentToolPreferences.PermissionLevel) -> Bool {
+		updateAntigravityPermissions { document in
 			document.sessionModeID = level.sessionModeID
 		}
 	}
@@ -663,14 +663,14 @@ final class AgentPermissionSecureStore {
 		)
 	}
 
-	private func loadGeminiPermissionsLocked(deferred effects: inout DeferredSideEffects) -> SecureGeminiPermissionDocument {
+	private func loadAntigravityPermissionsLocked(deferred effects: inout DeferredSideEffects) -> SecureAntigravityPermissionDocument {
 		loadLocked(
-			domain: .gemini,
-			cache: &geminiCache,
-			defaultDocument: SecureGeminiPermissionDocument.defaultDocument(now: now()),
-			failClosedDocument: SecureGeminiPermissionDocument.failClosedDocument(now: now()),
-			legacyDocument: legacyGeminiPermissions,
-			normalize: normalizeGemini,
+			domain: .antigravity,
+			cache: &antigravityCache,
+			defaultDocument: SecureAntigravityPermissionDocument.defaultDocument(now: now()),
+			failClosedDocument: SecureAntigravityPermissionDocument.failClosedDocument(now: now()),
+			legacyDocument: legacyAntigravityPermissions,
+			normalize: normalizeAntigravity,
 			deferred: &effects
 		)
 	}
@@ -1099,14 +1099,14 @@ final class AgentPermissionSecureStore {
 	}
 
 	@discardableResult
-	private func normalizeGemini(_ document: inout SecureGeminiPermissionDocument) -> Bool {
+	private func normalizeAntigravity(_ document: inout SecureAntigravityPermissionDocument) -> Bool {
 		var changed = false
-		if document.schemaVersion != SecureGeminiPermissionDocument.currentSchemaVersion {
-			document.schemaVersion = SecureGeminiPermissionDocument.currentSchemaVersion
+		if document.schemaVersion != SecureAntigravityPermissionDocument.currentSchemaVersion {
+			document.schemaVersion = SecureAntigravityPermissionDocument.currentSchemaVersion
 			changed = true
 		}
 		let trimmed = document.sessionModeID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-		let sessionModeID = trimmed.isEmpty ? GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID : trimmed
+		let sessionModeID = trimmed.isEmpty ? AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID : trimmed
 		if document.sessionModeID != sessionModeID {
 			document.sessionModeID = sessionModeID
 			changed = true
@@ -1239,13 +1239,13 @@ final class AgentPermissionSecureStore {
 		)
 	}
 
-	private func legacyGeminiPermissions() -> SecureGeminiPermissionDocument? {
-		guard legacyDefaults.object(forKey: LegacyKeys.geminiSessionMode) != nil else { return nil }
-		let rawSessionMode = legacyDefaults.string(forKey: LegacyKeys.geminiSessionMode)
+	private func legacyAntigravityPermissions() -> SecureAntigravityPermissionDocument? {
+		guard legacyDefaults.object(forKey: LegacyKeys.antigravitySessionMode) != nil else { return nil }
+		let rawSessionMode = legacyDefaults.string(forKey: LegacyKeys.antigravitySessionMode)
 		let sessionModeID = rawSessionMode?.trimmingCharacters(in: .whitespacesAndNewlines)
-		return SecureGeminiPermissionDocument(
+		return SecureAntigravityPermissionDocument(
 			updatedAt: now(),
-			sessionModeID: sessionModeID?.isEmpty == false ? sessionModeID : GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID,
+			sessionModeID: sessionModeID?.isEmpty == false ? sessionModeID : AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID,
 			migratedFromLegacyAt: now()
 		)
 	}
@@ -1304,8 +1304,8 @@ final class AgentPermissionSecureStore {
 			legacyDefaults.set(ClaudeAgentToolPreferences.PermissionLevel.requireApproval.permissionMode, forKey: LegacyKeys.claudePermissionMode)
 			legacyDefaults.set(false, forKey: LegacyKeys.claudeBashToolEnabled)
 			legacyDefaults.set(true, forKey: LegacyKeys.claudeMCPStrictModeEnabled)
-		case .gemini:
-			legacyDefaults.set(GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID, forKey: LegacyKeys.geminiSessionMode)
+		case .antigravity:
+			legacyDefaults.set(AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID, forKey: LegacyKeys.antigravitySessionMode)
 		case .openCode:
 			legacyDefaults.set(OpenCodeAgentToolPreferences.PermissionLevel.managedDefault.sessionModeID, forKey: LegacyKeys.openCodeSessionMode)
 		case .cursor:
@@ -1323,8 +1323,8 @@ final class AgentPermissionSecureStore {
 			return SecureCodexPermissionDocument.currentSchemaVersion
 		case _ as SecureClaudePermissionDocument:
 			return SecureClaudePermissionDocument.currentSchemaVersion
-		case _ as SecureGeminiPermissionDocument:
-			return SecureGeminiPermissionDocument.currentSchemaVersion
+		case _ as SecureAntigravityPermissionDocument:
+			return SecureAntigravityPermissionDocument.currentSchemaVersion
 		case _ as SecureOpenCodePermissionDocument:
 			return SecureOpenCodePermissionDocument.currentSchemaVersion
 		case _ as SecureCursorPermissionDocument:
@@ -1342,7 +1342,7 @@ final class AgentPermissionSecureStore {
 			return value.schemaVersion
 		case let value as SecureClaudePermissionDocument:
 			return value.schemaVersion
-		case let value as SecureGeminiPermissionDocument:
+		case let value as SecureAntigravityPermissionDocument:
 			return value.schemaVersion
 		case let value as SecureOpenCodePermissionDocument:
 			return value.schemaVersion
@@ -1361,8 +1361,8 @@ final class AgentPermissionSecureStore {
 			return SecureCodexPermissionDocument.failClosedDocument(now: now())
 		case .claude:
 			return SecureClaudePermissionDocument.failClosedDocument(now: now())
-		case .gemini:
-			return SecureGeminiPermissionDocument.failClosedDocument(now: now())
+		case .antigravity:
+			return SecureAntigravityPermissionDocument.failClosedDocument(now: now())
 		case .openCode:
 			return SecureOpenCodePermissionDocument.failClosedDocument(now: now())
 		case .cursor:
@@ -1466,7 +1466,7 @@ final class AgentPermissionSecureStore {
 		static let claudePermissionMode = "claudeCodePermissionMode"
 		static let claudeMCPStrictModeEnabled = "claudeCodeMCPStrictModeEnabled"
 
-		static let geminiSessionMode = "geminiACPSessionMode"
+		static let antigravitySessionMode = "antigravityACPSessionMode"
 		static let openCodeSessionMode = "openCodeACPSessionMode"
 		static let cursorPermissionLevel = "cursorACPToolPermissionLevel"
 

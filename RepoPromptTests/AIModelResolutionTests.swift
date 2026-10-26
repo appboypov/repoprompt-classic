@@ -30,13 +30,6 @@ final class AIModelResolutionTests: XCTestCase {
 		)
 	}
 
-	func testResolvesLegacyGeminiCLIModelToGemini31Preview() {
-		XCTAssertEqual(
-			AIModel.fromModelName("gemini_cli_pro-3.0-preview"),
-			.geminiCliPro3p1Preview
-		)
-	}
-
 	func testTrimsWhitespaceWhenResolvingLegacyGeminiModel() {
 		XCTAssertEqual(
 			AIModel.fromModelName("  gemini-3-pro-preview  "),
@@ -257,7 +250,7 @@ final class AIModelResolutionTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false

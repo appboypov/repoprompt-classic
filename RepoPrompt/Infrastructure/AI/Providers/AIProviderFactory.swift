@@ -13,7 +13,7 @@ class AIProviderFactory {
 		}
 		
 		// CLI providers don't need API keys - they leverage existing authentication
-		if providerType == .claudeCode || providerType == .codex || providerType == .geminiCli || providerType == .openCode || providerType == .cursor {
+		if providerType == .claudeCode || providerType == .codex || providerType == .antigravity || providerType == .openCode || providerType == .cursor {
 			return try await createProvider(for: providerType, key: "", ollamaURL: ollamaURL, azureConfiguration: azureConfiguration)
 		}
 		
@@ -68,8 +68,8 @@ class AIProviderFactory {
 		case .codex:
 			// Standard non-agent Codex chat owns a fresh app-server client per request.
 			return CodexCLIProvider()
-		case .geminiCli:
-			return GeminiCLIProvider()
+		case .antigravity:
+			return AntigravityProvider()
 		case .openCode:
 			return OpenCodeCLIProvider()
 		case .cursor:
@@ -163,7 +163,7 @@ enum AIProviderType: Codable, Equatable {
 	case zAI       // <-- New Z.AI provider case
 	case claudeCode // <-- New Claude Code provider case
 	case codex      // <-- New Codex CLI provider case
-	case geminiCli // <-- New Gemini CLI provider case
+	case antigravity
 	case openCode // OpenCode CLI provider case
 	case cursor // Cursor CLI provider case
 }
@@ -185,7 +185,7 @@ extension AIProviderType {
 		case .zAI: return "Z.AI"
 		case .claudeCode: return "Claude Code"
 		case .codex: return "Codex CLI"
-		case .geminiCli: return "Gemini CLI"
+		case .antigravity: return "Antigravity"
 		case .openCode: return "OpenCode"
 		case .cursor: return "Cursor CLI"
 		}

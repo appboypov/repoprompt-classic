@@ -8,11 +8,11 @@ final class RecommendationProfilesTests: XCTestCase {
 
 	override func setUp() {
 		super.setUp()
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 	}
 
 	override func tearDown() {
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		for directory in temporaryDirectories {
 			try? FileManager.default.removeItem(at: directory)
 		}
@@ -49,7 +49,6 @@ final class RecommendationProfilesTests: XCTestCase {
 		} + [
 			BestPracticeProfiles.claudeStrengths,
 			BestPracticeProfiles.gpt5HighStrengths,
-			BestPracticeProfiles.geminiStrengths,
 			BestPracticeProfiles.codexVsOpenAIExplanation,
 			BestPracticeProfiles.contextBuilderRationale,
 			BestPracticeProfiles.contextWindowNote,
@@ -86,25 +85,11 @@ final class RecommendationProfilesTests: XCTestCase {
 		XCTAssertTrue(models.contains(.gpt54MiniHigh))
 	}
 
-	func testGeminiAgentModelsPrefer3SeriesBeforeLegacy25() throws {
-		let models = AgentModel.modelsForAgent(.gemini)
-
-		XCTAssertEqual(Array(models.prefix(3)), [.defaultModel, .gemini3FlashPreview, .geminiPro3p1Preview])
-		XCTAssertLessThan(
-			try XCTUnwrap(models.firstIndex(of: .gemini3FlashPreview)),
-			try XCTUnwrap(models.firstIndex(of: .geminiFlash25))
-		)
-		XCTAssertLessThan(
-			try XCTUnwrap(models.firstIndex(of: .geminiPro3p1Preview)),
-			try XCTUnwrap(models.firstIndex(of: .geminiPro25))
-		)
-	}
-
 	func testExploreTaskLabelPrefersCodexGPT55LowBeforeClaudeSonnetHigh() throws {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: true,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false
@@ -116,11 +101,11 @@ final class RecommendationProfilesTests: XCTestCase {
 		XCTAssertEqual(resolved.modelRaw, AgentModel.gpt55CodexLow.rawValue)
 	}
 
-	func testExploreTaskLabelUsesGemini30FlashWhenGeminiIsOnlyAvailable() throws {
+	func testExploreTaskLabelUsesAntigravityWhenAntigravityIsOnlyAvailable() throws {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: true,
+			antigravityAvailable: true,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false
@@ -128,8 +113,8 @@ final class RecommendationProfilesTests: XCTestCase {
 
 		let resolved = try XCTUnwrap(AgentModelCatalog.resolveTaskLabelKind(.explore, availability: availability))
 
-		XCTAssertEqual(resolved.agent, .gemini)
-		XCTAssertEqual(resolved.modelRaw, AgentModel.gemini3FlashPreview.rawValue)
+		XCTAssertEqual(resolved.agent, .antigravity)
+		XCTAssertEqual(resolved.modelRaw, AgentModelCatalog.defaultModelRaw(for: .antigravity))
 	}
 
 	func testTaskLabelsIncludeAllRoles() {
@@ -151,7 +136,7 @@ final class RecommendationProfilesTests: XCTestCase {
 				RecommendationProviderKind.codex.rawValue,
 				RecommendationProviderKind.cursor.rawValue,
 				RecommendationProviderKind.openAI.rawValue,
-				RecommendationProviderKind.geminiCLI.rawValue,
+				RecommendationProviderKind.antigravity.rawValue,
 			]
 		)
 	}
@@ -160,7 +145,7 @@ final class RecommendationProfilesTests: XCTestCase {
 		let status = ProviderStatusSnapshot(
 			claudeCodeCLI: .notConfigured,
 			codexCLI: .notConfigured,
-			geminiCLI: .notConfigured,
+			antigravity: .notConfigured,
 			cursorCLI: .ready,
 			openAI: .ready
 		)
@@ -176,12 +161,12 @@ final class RecommendationProfilesTests: XCTestCase {
 		let workspaceID = UUID()
 		let (engine, store) = try makeRecommendationHarness()
 		engine.apiSettingsViewModel?.isCodexConnected = false
-		engine.apiSettingsViewModel?.isGeminiConnected = false
+		engine.apiSettingsViewModel?.isAntigravityConnected = false
 		engine.apiSettingsViewModel?.isClaudeCodeConnected = false
 		engine.apiSettingsViewModel?.isOpenAIKeyValid = true
 		engine.apiSettingsViewModel?.openAIApiKey = "test-openai-key"
-		store.setPreferredComposeModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
-		store.setPlanningModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
+		store.setPreferredComposeModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
+		store.setPlanningModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
 
 		let chat = try XCTUnwrap(
 			engine.computeRecommendations(for: workspaceID, enabledProviders: [.openAI]).chatModel
@@ -195,11 +180,11 @@ final class RecommendationProfilesTests: XCTestCase {
 	}
 
 	@MainActor
-	func testGeminiOracleRecommendationBecomesUnsatisfiedWhenCodexConnects() throws {
+	func testAntigravityOracleRecommendationBecomesUnsatisfiedWhenCodexConnects() throws {
 		let workspaceID = UUID()
 		let (engine, store) = try makeRecommendationHarness()
-		store.setPreferredComposeModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
-		store.setPlanningModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
+		store.setPreferredComposeModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
+		store.setPlanningModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
 
 		let recommendations = engine.computeRecommendations(for: workspaceID)
 		let chat = try XCTUnwrap(recommendations.chatModel)
@@ -249,8 +234,8 @@ final class RecommendationProfilesTests: XCTestCase {
 	func testRecommendationApplyHonorsSyncWithSinglePlanningWrite() throws {
 		let workspaceID = UUID()
 		let (engine, store) = try makeRecommendationHarness()
-		store.setPreferredComposeModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
-		store.setPlanningModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
+		store.setPreferredComposeModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
+		store.setPlanningModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
 		store.setSyncChatModelWithOracle(true)
 		let chat = try XCTUnwrap(engine.computeRecommendations(for: workspaceID).chatModel)
 
@@ -269,7 +254,7 @@ final class RecommendationProfilesTests: XCTestCase {
 		let (engine, store) = try makeRecommendationHarness()
 		engine.apiSettingsViewModel?.isCodexConnected = true
 		engine.apiSettingsViewModel?.isClaudeCodeConnected = false
-		engine.apiSettingsViewModel?.isGeminiConnected = false
+		engine.apiSettingsViewModel?.isAntigravityConnected = false
 		engine.apiSettingsViewModel?.isOpenAIKeyValid = false
 
 		let proEdit = try XCTUnwrap(engine.computeRecommendations(for: workspaceID, enabledProviders: [.codex]).proEdit)
@@ -285,19 +270,34 @@ final class RecommendationProfilesTests: XCTestCase {
 	}
 
 	@MainActor
-	func testProviderFilterExcludingCodexKeepsGeminiOracleSatisfied() throws {
+	func testProviderFilterExcludingCodexKeepsAntigravityOracleSatisfied() throws {
 		let workspaceID = UUID()
 		let (engine, store) = try makeRecommendationHarness()
-		store.setPreferredComposeModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
-		store.setPlanningModelRaw(AIModel.geminiCliPro3p1Preview.rawValue, commit: true)
+		_ = AgentACPModelRegistry.shared.updateDiscoveredModels(
+			ACPDiscoveredSessionModels(
+				options: [
+					AgentModelOption(
+						rawValue: "gemini-3.0-flash-high",
+						displayName: "Gemini 3 Flash (High)",
+						description: nil,
+						isPlaceholderDefault: false,
+						isProviderDefault: true
+					)
+				],
+				currentModelRaw: "gemini-3.0-flash-high"
+			),
+			for: .antigravity
+		)
+		store.setPreferredComposeModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
+		store.setPlanningModelRaw(AIModel.antigravityCustom(name: "gemini-3.0-flash-high").rawValue, commit: true)
 
 		let recommendations = engine.computeRecommendations(
 			for: workspaceID,
-			enabledProviders: [.geminiCLI]
+			enabledProviders: [.antigravity]
 		)
 		let chat = try XCTUnwrap(recommendations.chatModel)
 
-		XCTAssertEqual(chat.defaultBackend, .gemini)
+		XCTAssertEqual(chat.defaultBackend, .antigravity)
 		XCTAssertTrue(chat.alreadySatisfied)
 	}
 
@@ -308,7 +308,7 @@ final class RecommendationProfilesTests: XCTestCase {
 			RecommendationProviderKind.codex.rawValue,
 			RecommendationProviderKind.openAI.rawValue,
 			"anthropic",
-			RecommendationProviderKind.geminiCLI.rawValue,
+			RecommendationProviderKind.antigravity.rawValue,
 		])
 
 		XCTAssertEqual(normalized, Set(RecommendationProviderKind.allCases))
@@ -366,7 +366,7 @@ final class RecommendationProfilesTests: XCTestCase {
 			loadStoredDataOnInit: false
 		)
 		apiSettings.isCodexConnected = true
-		apiSettings.isGeminiConnected = true
+		apiSettings.isAntigravityConnected = true
 		apiSettings.isClaudeCodeConnected = false
 		apiSettings.isCursorConnected = false
 		apiSettings.isOpenAIKeyValid = false
@@ -380,7 +380,7 @@ final class RecommendationProfilesTests: XCTestCase {
 		let availability = AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: true,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false

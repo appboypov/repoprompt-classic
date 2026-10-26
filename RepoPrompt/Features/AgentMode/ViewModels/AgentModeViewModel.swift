@@ -292,16 +292,6 @@ final class AgentModeViewModel: ObservableObject {
 	@Published var selectedModelRaw: String = AgentModel.defaultModel.rawValue {
 		didSet {
 			guard selectedModelRaw != oldValue, !isRestoringState else { return }
-			if let session = activeSession,
-				!canSelectModel(selectedModelRaw, for: session) {
-				isRestoringState = true
-				selectedModelRaw = session.selectedModelRaw
-				isRestoringState = false
-				syncComposerUIState()
-				syncRuntimeMetricsUIState()
-				syncRunInteractionUIState()
-				return
-			}
 			if !isModelRawValid(selectedModelRaw, for: selectedAgent) {
 				isRestoringState = true
 				selectedModelRaw = defaultModelRaw(for: selectedAgent)
@@ -386,22 +376,10 @@ final class AgentModeViewModel: ObservableObject {
 
 	private func lockedAgentSelectionMessage(for session: TabSession?) -> String? {
 		guard let session, session.isProviderSelectionLocked else { return nil }
-		if session.selectedAgent == .gemini {
-			return "Fork (⑂) or start a new chat to switch Gemini models or agent kinds."
-		}
 		if session.selectedAgent.usesClaudeNativeRuntime {
 			return "Fork (⑂) or start a new chat to switch agent kinds."
 		}
 		return "Fork (⑂) or start a new chat to switch from \(session.selectedAgent.displayName)."
-	}
-
-	private func canSelectModel(_ rawModel: String, for session: TabSession) -> Bool {
-		guard session.isProviderSelectionLocked,
-			session.selectedAgent == .gemini else {
-			return true
-		}
-		guard selectedAgent == session.selectedAgent else { return false }
-		return rawModel.caseInsensitiveCompare(session.selectedModelRaw) == .orderedSame
 	}
 
 	private func canSelectAgent(_ candidate: DiscoverAgentKind, for session: TabSession) -> Bool {
@@ -743,13 +721,7 @@ final class AgentModeViewModel: ObservableObject {
 	}
 
 	private func persistLastUsedModelIfNeeded(agent: DiscoverAgentKind, modelRaw: String) {
-		guard shouldPersistLastUsedModel(agent: agent, modelRaw: modelRaw) else { return }
 		Self.persistModelForAgent(agentRaw: agent.rawValue, modelRaw: modelRaw)
-	}
-
-	private func shouldPersistLastUsedModel(agent: DiscoverAgentKind, modelRaw: String) -> Bool {
-		guard agent == .gemini else { return true }
-		return AgentModelCatalog.isValid(rawModel: modelRaw, for: .gemini, availability: agentAvailabilityContext)
 	}
 
 	func selectReasoningEffort(_ effort: CodexReasoningEffort?) {
@@ -1442,10 +1414,10 @@ final class AgentModeViewModel: ObservableObject {
 		}
 	)
 
-	lazy var geminiContextUsageEstimator = GeminiContextUsageEstimator(
+	lazy var antigravityContextUsageEstimator = AntigravityContextUsageEstimator(
 		tokenEstimator: { Self.estimateRuntimeTokens(for: $0) },
 		contextUsageBuilder: { usage, modelContextWindow in
-			Self.contextUsageFromGeminiProviderTokens(usage, modelContextWindow: modelContextWindow)
+			Self.contextUsageFromAntigravityProviderTokens(usage, modelContextWindow: modelContextWindow)
 		}
 	)
 
@@ -1844,7 +1816,7 @@ final class AgentModeViewModel: ObservableObject {
 			Publishers.MergeMany([
 				apiSettingsViewModel.$isClaudeCodeConnected.dropFirst().map { _ in () },
 				apiSettingsViewModel.$isCodexConnected.dropFirst().map { _ in () },
-				apiSettingsViewModel.$isGeminiConnected.dropFirst().map { _ in () },
+				apiSettingsViewModel.$isAntigravityConnected.dropFirst().map { _ in () },
 				apiSettingsViewModel.$isOpenCodeConnected.dropFirst().map { _ in () },
 				apiSettingsViewModel.$isCursorConnected.dropFirst().map { _ in () }
 			])
@@ -3132,21 +3104,6 @@ final class AgentModeViewModel: ObservableObject {
 
 		session.runState = payload.normalizedRunState
 		session.providerSessionID = agentSession.providerSessionID
-		if session.selectedAgent == .gemini {
-			var metadata = agentSession.geminiACPResumeMetadata ?? .init()
-			if metadata.loadSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
-				let legacyID = agentSession.providerSessionID?.trimmingCharacters(in: .whitespacesAndNewlines),
-				!legacyID.isEmpty {
-				metadata.loadSessionID = legacyID
-				metadata.loadSessionIDVerifiedAt = nil
-			}
-			session.geminiACPResumeMetadata = metadata
-			session.providerSessionID = metadata.loadSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-				? metadata.loadSessionID
-				: nil
-		} else {
-			session.geminiACPResumeMetadata = .init()
-		}
 		session.providerTokenUsageByTurn = agentSession.providerTokenUsageByTurn
 		session.pendingHandoff = PendingHandoffState(
 			payload: agentSession.pendingHandoffPayload,
@@ -3165,8 +3122,8 @@ final class AgentModeViewModel: ObservableObject {
 					modelContextWindow: session.codexContextUsage?.modelContextWindow
 				)
 			}
-		case .gemini:
-			session.codexContextUsage = Self.contextUsageFromGeminiProviderTokens(
+		case .antigravity:
+			session.codexContextUsage = Self.contextUsageFromAntigravityProviderTokens(
 				session.providerTokenUsageByTurn,
 				modelContextWindow: session.codexContextUsage?.modelContextWindow
 			)
@@ -3437,7 +3394,6 @@ final class AgentModeViewModel: ObservableObject {
 		session.agentTask = nil
 		session.provider = nil
 		session.providerSessionID = nil
-		session.geminiACPResumeMetadata = .init()
 		session.providerTokenUsageByTurn.removeAll()
 		session.pendingNonCodexUserInputTokenQueue.removeAll()
 		session.activeNonCodexTurnTokenAccumulator = nil
@@ -8706,12 +8662,7 @@ final class AgentModeViewModel: ObservableObject {
 		let lastUserMessageAt = persistableSnapshot.lastUserMessageAt
 		let canonicalItemCount = persistableSnapshot.canonicalVisibleRowCount
 		let sessionName = resolvedSessionDisplayName(for: tabID)
-		let persistedProviderSessionID = session.selectedAgent == .gemini
-			? session.geminiACPResumeMetadata.loadSessionID
-			: session.providerSessionID
-		let persistedGeminiMetadata = session.selectedAgent == .gemini
-			? session.geminiACPResumeMetadata
-			: nil
+		let persistedProviderSessionID = session.providerSessionID
 		var agentSession = AgentSession(
 			id: sessionID,
 			workspaceID: workspace.id,
@@ -8727,7 +8678,6 @@ final class AgentModeViewModel: ObservableObject {
 			agentReasoningEffort: session.selectedReasoningEffortRaw,
 			lastRunState: session.runState.rawValue,
 			providerSessionID: persistedProviderSessionID,
-			geminiACPResumeMetadata: persistedGeminiMetadata,
 			autoEditEnabled: session.autoEditEnabled,
 			providerTokenUsageByTurn: session.providerTokenUsageByTurn,
 			parentSessionID: session.parentSessionID,
@@ -10065,7 +10015,7 @@ final class AgentModeViewModel: ObservableObject {
 	) -> String {
 		guard !attachments.isEmpty else { return text }
 		switch agent {
-		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible, .gemini, .openCode, .cursor:
+		case .claudeCode, .claudeCodeGLM, .kimiCode, .customClaudeCompatible, .antigravity, .openCode, .cursor:
 			return renderAtPathAttachmentMessage(text: text, attachments: attachments)
 		case .codexExec:
 			return text
@@ -11338,21 +11288,8 @@ File: \(displayPath)
 				// Store provider session ID for resumption (native Claude or ACP runtimes).
 				if let sessionID = result.providerSessionID,
 					(session.selectedAgent.usesClaudeNativeRuntime || session.selectedAgent.acpProviderID != nil) {
-					var didUpdateProviderSessionID = session.providerSessionID != sessionID
-					if session.selectedAgent == .gemini {
-						if session.geminiACPResumeMetadata.loadSessionID != sessionID {
-							session.geminiACPResumeMetadata.loadSessionID = sessionID
-							didUpdateProviderSessionID = true
-						}
-						if session.geminiACPResumeMetadata.loadSessionIDVerifiedAt == nil {
-							session.geminiACPResumeMetadata.loadSessionIDVerifiedAt = Date()
-							didUpdateProviderSessionID = true
-						}
-					}
 					if session.providerSessionID != sessionID {
 						session.providerSessionID = sessionID
-					}
-					if didUpdateProviderSessionID {
 						session.isDirty = true
 						self.scheduleSave(for: session.tabID)
 					}
@@ -11597,7 +11534,7 @@ File: \(displayPath)
 	func makeRunCancelTarget(
 		tabID: UUID,
 		session: TabSession,
-		expectedPendingUserInputRequestID: CodexAppServerRequestID? = nil
+		expectedPendingUserInputRequestID: AgentInteractionRequestID? = nil
 	) -> AgentRunCancelTarget {
 		AgentRunCancelTarget(
 			tabID: tabID,
@@ -12120,14 +12057,23 @@ File: \(displayPath)
 		skipAskUser(tabID: tabID)
 	}
 
-	func submitUserInputResponse(tabID: UUID, requestID: CodexAppServerRequestID, response: AgentRequestUserInputResponse) {
+	func submitUserInputResponse(tabID: UUID, requestID: AgentInteractionRequestID, response: AgentRequestUserInputResponse) {
 		guard let session = sessions[tabID],
 			let request = session.pendingUserInputRequest,
 			request.requestID == requestID
 		else {
 			return
 		}
-		codexCoordinator.submitUserInputResponse(session: session, requestID: requestID, response: response)
+		switch requestID {
+		case .codex(let codexRequestID):
+			codexCoordinator.submitUserInputResponse(session: session, requestID: codexRequestID, response: response)
+		case .acp(let acpRequestID):
+			Task { [controller = session.acpController] in
+				await controller?.respondToUserInputRequest(id: acpRequestID, response: response)
+			}
+		case .claudeControl:
+			break
+		}
 		session.pendingUserInputRequest = nil
 		if !session.queuedUserInputRequests.isEmpty {
 			session.pendingUserInputRequest = session.queuedUserInputRequests.removeFirst()
@@ -12525,7 +12471,6 @@ File: \(displayPath)
 		
 		// Clear provider session ID so new conversation doesn't resume old CLI session
 		session.providerSessionID = nil
-		session.geminiACPResumeMetadata = .init()
 		session.providerTokenUsageByTurn.removeAll()
 		session.pendingNonCodexUserInputTokenQueue.removeAll()
 		session.activeNonCodexTurnTokenAccumulator = nil

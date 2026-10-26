@@ -206,7 +206,7 @@ final class AgentModeProviderBindingService {
 						updateActiveBindings(session)
 					}
 				}
-			case .gemini, .openCode:
+			case .antigravity, .openCode:
 				let runtime = runtimePermission(for: session.selectedAgent, profile: session.permissionProfile)
 				guard let sessionModeID = runtime.acpSessionModeID,
 					session.runState.isActive,

@@ -10,7 +10,7 @@ struct ProviderFlags: Sendable {
     let openAIValid: Bool
     let claudeCodeConnected: Bool
     let codexConnected: Bool
-    let geminiCLIConnected: Bool
+    let antigravityConnected: Bool
     let cursorConnected: Bool
 }
 
@@ -50,7 +50,7 @@ final class AutoRecommendationEngine {
             return ProviderStatusSnapshot(
                 claudeCodeCLI: .notConfigured,
                 codexCLI: .notConfigured,
-                geminiCLI: .notConfigured,
+                antigravity: .notConfigured,
                 cursorCLI: .notConfigured,
                 openAI: .notConfigured
             )
@@ -59,7 +59,7 @@ final class AutoRecommendationEngine {
         let status = ProviderStatusSnapshot(
             claudeCodeCLI: vm.isClaudeCodeConnected ? .ready : .notConfigured,
             codexCLI: vm.isCodexConnected ? .ready : .notConfigured,
-            geminiCLI: vm.isGeminiConnected ? .ready : .notConfigured,
+            antigravity: vm.isAntigravityConnected ? .ready : .notConfigured,
             cursorCLI: vm.isCursorConnected ? .ready : .notConfigured,
             openAI: vm.isOpenAIKeyValid ? .ready : (!vm.openAIApiKey.isEmpty ? .configured : .notConfigured)
         )
@@ -74,7 +74,7 @@ final class AutoRecommendationEngine {
             openAIValid: vm.isOpenAIKeyValid,
             claudeCodeConnected: vm.isClaudeCodeConnected,
             codexConnected: vm.isCodexConnected,
-            geminiCLIConnected: vm.isGeminiConnected,
+            antigravityConnected: vm.isAntigravityConnected,
             cursorConnected: vm.isCursorConnected
         )
     }
@@ -137,7 +137,7 @@ final class AutoRecommendationEngine {
         var codexOption: ChatBackendOption?
         var openAIOption: ChatBackendOption?
         var claudeCodeOption: ChatBackendOption?
-        var geminiOption: ChatBackendOption?
+        var antigravityOption: ChatBackendOption?
         
         // Codex CLI option - PREFERRED for chat
         if status.codexCLI == .ready {
@@ -184,13 +184,15 @@ final class AutoRecommendationEngine {
             )
         }
         
-        // Gemini CLI option - great at design, decent at planning
-        if status.geminiCLI == .ready {
-            geminiOption = ChatBackendOption(
-                kind: .gemini,
-                displayName: "Gemini CLI",
-                modelString: AIModel.geminiCliPro3p1Preview.rawValue,
-                description: "Gemini 3.1 Pro Preview via CLI",
+        // Antigravity option - great at design, decent at planning. Its models come
+        // from the signed-in account, so the option needs a discovered model.
+        if status.antigravity == .ready,
+           let model = ACPAIModelCatalog.antigravityModelsFromStore().first {
+            antigravityOption = ChatBackendOption(
+                kind: .antigravity,
+                displayName: "Antigravity",
+                modelString: model.rawValue,
+                description: "\(model.displayName) via Antigravity",
                 tradeoffs: [
                     "• Excellent at design and creative discussions",
                     "• Decent at planning tasks",
@@ -200,25 +202,25 @@ final class AutoRecommendationEngine {
         }
         
         // Determine default backend and upgrade hint
-        // Priority for CHAT: Codex CLI > OpenAI API > Claude Code > Gemini CLI
+        // Priority for CHAT: Codex CLI > OpenAI API > Claude Code > Antigravity
         let defaultBackend: ChatBackendKind
         var priorityPath: [String] = []
         var upgradeHint: String? = nil
 
         if codexOption != nil {
             defaultBackend = .codex
-            priorityPath = ["Codex CLI (\(inAppPlanning.modelLabel))", "OpenAI API", "Claude Code", "Gemini CLI"]
+            priorityPath = ["Codex CLI (\(inAppPlanning.modelLabel))", "OpenAI API", "Claude Code", "Antigravity"]
         } else if openAIOption != nil {
             defaultBackend = .openAI
-            priorityPath = ["OpenAI API (\(apiPlanningModelLabel))", "Claude Code", "Gemini CLI"]
+            priorityPath = ["OpenAI API (\(apiPlanningModelLabel))", "Claude Code", "Antigravity"]
             upgradeHint = "Connect Codex CLI for \(inAppPlanning.modelLabel) – strong reasoning with practical usage limits (requires OpenAI Plus/Pro)."
         } else if claudeCodeOption != nil {
             defaultBackend = .claudeCode
-            priorityPath = ["Claude Code", "Gemini CLI"]
+            priorityPath = ["Claude Code", "Antigravity"]
             upgradeHint = "For best chat experience, connect Codex CLI (requires OpenAI Plus/Pro) for \(inAppPlanning.modelLabel) – balances quality with usage limits."
-        } else if geminiOption != nil {
-            defaultBackend = .gemini
-            priorityPath = ["Gemini CLI"]
+        } else if antigravityOption != nil {
+            defaultBackend = .antigravity
+            priorityPath = ["Antigravity"]
             upgradeHint = "For best results, connect Codex CLI (OpenAI Plus/Pro) for \(inAppPlanning.modelLabel) – balances quality with usage limits."
         } else {
             return nil
@@ -229,7 +231,7 @@ final class AutoRecommendationEngine {
             codexOption: codexOption,
             openAIOption: openAIOption,
             claudeCodeOption: claudeCodeOption,
-            geminiOption: geminiOption,
+            antigravityOption: antigravityOption,
             priorityPath: priorityPath,
             upgradeHint: upgradeHint
         )
@@ -241,7 +243,7 @@ final class AutoRecommendationEngine {
         status: ProviderStatusSnapshot,
         settings: ChatGlobalSettings
     ) -> ContextBuilderRecommendation? {
-        // Priority: Codex CLI (requires CLI) > Claude Code > Gemini CLI > Cursor CLI
+        // Priority: Codex CLI (requires CLI) > Claude Code > Antigravity > Cursor CLI
         // Cursor is a fallback only; it does not take priority over existing recommended providers.
         // Note: codexExec agent requires Codex CLI specifically, not just OpenAI API key
 
@@ -258,18 +260,18 @@ final class AutoRecommendationEngine {
                 rationale: "Claude Code with Sonnet provides strong context building with good balance of speed and quality.",
 				upgradeHint: "For best context building, connect Codex CLI with GPT-5.5 Low. Requires OpenAI Plus/Pro subscription."
             )
-        } else if status.geminiCLI == .ready {
+        } else if status.antigravity == .ready {
             return ContextBuilderRecommendation(
-                recommendedAgent: .gemini,
-                recommendedModel: .geminiPro3p1Preview,
-                rationale: "Gemini 3.1 Pro Preview provides decent context building. Great at design discussions but less suited for file-heavy operations.",
+                recommendedAgent: .antigravity,
+                recommendedModel: .defaultModel,
+                rationale: "Antigravity provides decent context building. Great at design discussions but less suited for file-heavy operations.",
 				upgradeHint: "For best results, connect Codex CLI with GPT-5.5 Low or Claude Code with Sonnet."
             )
         } else if status.cursorCLI == .ready {
             return ContextBuilderRecommendation(
                 recommendedAgent: .cursor,
                 recommendedModel: .cursorComposer2,
-                rationale: "Cursor CLI with Composer 2 can handle context building when the preferred Codex, Claude Code, or Gemini CLI providers are not configured.",
+                rationale: "Cursor CLI with Composer 2 can handle context building when the preferred Codex, Claude Code, or Antigravity providers are not configured.",
 				upgradeHint: "For best context building, connect Codex CLI with GPT-5.5 Low or Claude Code with Sonnet."
             )
         }
@@ -282,7 +284,7 @@ final class AutoRecommendationEngine {
     /// Computes Pro Edit recommendation with CLI agent priority:
     /// 1. Claude Code CLI → Sonnet (best for file editing)
     /// 2. Codex CLI (no Claude Code) → Codex max medium
-    /// 3. Only Gemini CLI → Gemini 3.1 Pro
+    /// 3. Only Antigravity → its default model
     /// 4. No CLIs but has OpenAI API → Model mode (auto-configure)
     /// 5. Nothing available → Disabled
     private func computeProEditRecommendation(
@@ -291,7 +293,7 @@ final class AutoRecommendationEngine {
     ) -> ProEditRecommendation? {
         let hasClaudeCode = status.claudeCodeCLI == .ready
         let hasCodex = status.codexCLI == .ready
-        let hasGeminiCLI = status.geminiCLI == .ready
+        let hasAntigravity = status.antigravity == .ready
         let hasAnyAPI = status.openAI == .ready
         
         // Priority 1: Claude Code CLI → Sonnet (best for file editing)
@@ -317,14 +319,14 @@ final class AutoRecommendationEngine {
             )
         }
         
-        // Priority 3: Only Gemini CLI → Gemini 3.1 Pro
-        if hasGeminiCLI {
+        // Priority 3: Only Antigravity → its default model
+        if hasAntigravity {
             return ProEditRecommendation(
                 shouldEnableProEdit: true,
                 recommendedMode: .agent,
-                rationale: "Pro Edit with Gemini CLI + Gemini 3.1 Pro Preview provides basic code modifications.",
-                recommendedAgent: .gemini,
-                recommendedAgentModel: .geminiPro3p1Preview,
+                rationale: "Pro Edit with Antigravity provides basic code modifications.",
+                recommendedAgent: .antigravity,
+                recommendedAgentModel: .defaultModel,
                 upgradeHint: "For better Pro Edit results, install Claude Code CLI (best) or Codex CLI. CLI agents provide superior file editing capabilities."
             )
         }
@@ -337,7 +339,7 @@ final class AutoRecommendationEngine {
                 rationale: "Pro Edit in Model mode uses your configured OpenAI API key for code modifications. This works well for straightforward edits.",
                 recommendedAgent: nil,
                 recommendedAgentModel: nil,
-                upgradeHint: "Strongly recommended: Install a CLI agent for Pro Edit. Claude Code CLI provides the best editing experience, followed by Codex CLI (OpenAI Plus/Pro) or Gemini CLI. CLI agents enable agent mode which excels at complex, multi-step edits."
+                upgradeHint: "Strongly recommended: Install a CLI agent for Pro Edit. Claude Code CLI provides the best editing experience, followed by Codex CLI (OpenAI Plus/Pro) or Antigravity. CLI agents enable agent mode which excels at complex, multi-step edits."
             )
         }
         
@@ -387,7 +389,7 @@ final class AutoRecommendationEngine {
 		return AgentModelCatalog.AvailabilityContext(
 			claudeCodeAvailable: status.claudeCodeCLI == .ready,
 			codexAvailable: status.codexCLI == .ready,
-			geminiAvailable: status.geminiCLI == .ready,
+			antigravityAvailable: status.antigravity == .ready,
 			openCodeAvailable: false,
 			cursorAvailable: status.cursorCLI == .ready,
 			zaiConfigured: backendStore.isConfigured(.glmZAI) && backendStore.config(for: .glmZAI).isEnabled && backendStore.config(for: .glmZAI).isValid,
@@ -548,8 +550,9 @@ final class AutoRecommendationEngine {
             modelString = rec.codexOption?.modelString ?? AIModel.codexCliGpt55CodexHigh.rawValue
         case .openAI:
             modelString = rec.openAIOption?.modelString ?? AIModel.gpt54Pro.rawValue
-        case .gemini:
-            modelString = rec.geminiOption?.modelString ?? AIModel.geminiCliPro3p1Preview.rawValue
+        case .antigravity:
+            guard let antigravityModel = rec.antigravityOption?.modelString else { return }
+            modelString = antigravityModel
         }
         
 		let reasonPrefix = "recommendations.chat_model.\(backend.rawValue)"
@@ -638,8 +641,8 @@ final class AutoRecommendationEngine {
 			return .customClaudeCompatible
         case .codexExec:
 			return .gpt55CodexMedium
-        case .gemini:
-            return .geminiPro3p1Preview
+        case .antigravity:
+            return .defaultModel
 		case .openCode:
 			return .defaultModel
 		case .cursor:

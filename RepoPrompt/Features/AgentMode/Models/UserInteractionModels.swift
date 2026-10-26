@@ -561,7 +561,7 @@ struct AgentRequestUserInputResponse: Sendable, Hashable {
 
 struct AgentRequestUserInputRequest: Identifiable, Sendable, Hashable {
 	let id: UUID
-	let requestID: CodexAppServerRequestID
+	let requestID: AgentInteractionRequestID
 	let method: String
 	let threadID: String
 	let turnID: String
@@ -571,7 +571,7 @@ struct AgentRequestUserInputRequest: Identifiable, Sendable, Hashable {
 
 	init(
 		id: UUID? = nil,
-		requestID: CodexAppServerRequestID,
+		requestID: AgentInteractionRequestID,
 		method: String,
 		threadID: String,
 		turnID: String,
@@ -596,7 +596,7 @@ struct AgentRequestUserInputRequest: Identifiable, Sendable, Hashable {
 	}
 
 	static func stableID(
-		requestID: CodexAppServerRequestID,
+		requestID: AgentInteractionRequestID,
 		method: String,
 		threadID: String,
 		turnID: String,
@@ -782,7 +782,7 @@ enum AgentApprovalDecision: Sendable, Hashable {
 	case cancel
 }
 
-enum AgentApprovalRequestID: Sendable, Hashable {
+enum AgentInteractionRequestID: Sendable, Hashable {
 	case codex(CodexAppServerRequestID)
 	case claudeControl(String)
 	case acp(String)
@@ -869,7 +869,7 @@ struct AgentPermissionsRequest: Identifiable, Sendable, Hashable {
 
 struct AgentApprovalRequest: Identifiable, Sendable, Hashable {
 	let id: UUID
-	let requestID: AgentApprovalRequestID
+	let requestID: AgentInteractionRequestID
 	let method: String
 	let kind: AgentApprovalKind
 	let threadID: String
@@ -884,7 +884,7 @@ struct AgentApprovalRequest: Identifiable, Sendable, Hashable {
 	
 	init(
 		id: UUID? = nil,
-		requestID: AgentApprovalRequestID,
+		requestID: AgentInteractionRequestID,
 		method: String,
 		kind: AgentApprovalKind,
 		threadID: String,
@@ -920,7 +920,7 @@ struct AgentApprovalRequest: Identifiable, Sendable, Hashable {
 	}
 
 	static func stableID(
-		requestID: AgentApprovalRequestID,
+		requestID: AgentInteractionRequestID,
 		method: String,
 		kind: AgentApprovalKind,
 		threadID: String,

@@ -296,6 +296,21 @@ enum ACPAIModelCatalog {
 			.first { $0.rawValue.caseInsensitiveCompare(normalized) == .orderedSame }
 	}
 
+	static func antigravityModelOptionsFromStore() -> [AgentModelOption] {
+		AgentACPModelRegistry.shared.resolvedSnapshot(for: .antigravity)?.options ?? []
+	}
+
+	static func antigravityModelsFromStore() -> [AIModel] {
+		antigravityModelOptionsFromStore().map { .antigravityCustom(name: $0.rawValue) }
+	}
+
+	static func antigravityModelOption(for rawValue: String) -> AgentModelOption? {
+		let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !normalized.isEmpty else { return nil }
+		return antigravityModelOptionsFromStore()
+			.first { $0.rawValue.caseInsensitiveCompare(normalized) == .orderedSame }
+	}
+
 	static func cursorModelOption(for rawValue: String) -> AgentModelOption? {
 		let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !normalized.isEmpty else { return nil }

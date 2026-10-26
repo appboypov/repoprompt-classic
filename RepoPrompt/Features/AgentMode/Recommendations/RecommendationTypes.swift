@@ -19,7 +19,7 @@ enum RecommendationProviderKind: String, CaseIterable, Identifiable, Sendable {
     case codex
     case cursor
     case openAI
-    case geminiCLI
+    case antigravity
 
     var id: String { rawValue }
 
@@ -29,7 +29,7 @@ enum RecommendationProviderKind: String, CaseIterable, Identifiable, Sendable {
         case .codex: return "Codex CLI"
         case .cursor: return "Cursor CLI"
         case .openAI: return "OpenAI API"
-        case .geminiCLI: return "Gemini CLI"
+        case .antigravity: return "Antigravity"
         }
     }
 
@@ -39,7 +39,7 @@ enum RecommendationProviderKind: String, CaseIterable, Identifiable, Sendable {
         case .codex: return "Codex"
         case .cursor: return "Cursor"
         case .openAI: return "OpenAI"
-        case .geminiCLI: return "Gemini CLI"
+        case .antigravity: return "Antigravity"
         }
     }
 }
@@ -56,25 +56,25 @@ struct ProviderStatusSnapshot: Sendable {
     
     let claudeCodeCLI: Availability
     let codexCLI: Availability
-    let geminiCLI: Availability
+    let antigravity: Availability
     let cursorCLI: Availability
     
     let openAI: Availability
     
     /// Returns true if at least one provider is ready for chat.
     var hasAnyReadyProvider: Bool {
-        [claudeCodeCLI, codexCLI, cursorCLI, openAI, geminiCLI].contains(.ready)
+        [claudeCodeCLI, codexCLI, cursorCLI, openAI, antigravity].contains(.ready)
     }
     
     /// Returns true if any CLI agent is ready.
     var hasAnyCLIAgentReady: Bool {
-        [claudeCodeCLI, codexCLI, geminiCLI, cursorCLI].contains(.ready)
+        [claudeCodeCLI, codexCLI, antigravity, cursorCLI].contains(.ready)
     }
 
     /// Returns true if any Pro Edit-compatible CLI agent is ready.
     /// Cursor is intentionally excluded because RepoPrompt cannot sandbox Cursor's native tools.
     var hasAnyProEditCLIAgentReady: Bool {
-        [claudeCodeCLI, codexCLI, geminiCLI].contains(.ready)
+        [claudeCodeCLI, codexCLI, antigravity].contains(.ready)
     }
 
     /// Returns a copy with providers outside the enabled set treated as unavailable.
@@ -82,7 +82,7 @@ struct ProviderStatusSnapshot: Sendable {
         ProviderStatusSnapshot(
             claudeCodeCLI: enabledProviders.contains(.claudeCode) ? claudeCodeCLI : .notConfigured,
             codexCLI: enabledProviders.contains(.codex) ? codexCLI : .notConfigured,
-            geminiCLI: enabledProviders.contains(.geminiCLI) ? geminiCLI : .notConfigured,
+            antigravity: enabledProviders.contains(.antigravity) ? antigravity : .notConfigured,
             cursorCLI: enabledProviders.contains(.cursor) ? cursorCLI : .notConfigured,
             openAI: enabledProviders.contains(.openAI) ? openAI : .notConfigured
         )
@@ -96,14 +96,14 @@ enum ChatBackendKind: String, Codable, Sendable {
     case claudeCode
     case codex
     case openAI
-    case gemini
+    case antigravity
     
     var displayName: String {
         switch self {
         case .claudeCode: return "Claude Code"
         case .codex: return "Codex CLI"
         case .openAI: return "OpenAI API"
-        case .gemini: return "Gemini"
+        case .antigravity: return "Antigravity"
         }
     }
 }
@@ -141,8 +141,8 @@ struct ChatModelRecommendation: Sendable {
     /// Option for Claude Code CLI, if available.
     let claudeCodeOption: ChatBackendOption?
     
-    /// Option for Gemini, if available.
-    let geminiOption: ChatBackendOption?
+    /// Option for Antigravity, if available.
+    let antigravityOption: ChatBackendOption?
     
     /// Priority path used to determine the default (e.g., ["OpenAI API", "Codex CLI"]).
     let priorityPath: [String]
@@ -152,7 +152,7 @@ struct ChatModelRecommendation: Sendable {
     
     /// Returns all available options.
     var availableOptions: [ChatBackendOption] {
-        [openAIOption, codexOption, claudeCodeOption, geminiOption].compactMap { $0 }
+        [openAIOption, codexOption, claudeCodeOption, antigravityOption].compactMap { $0 }
     }
 
     /// Returns the option for a specific backend kind.
@@ -161,16 +161,16 @@ struct ChatModelRecommendation: Sendable {
         case .claudeCode: return claudeCodeOption
         case .codex: return codexOption
         case .openAI: return openAIOption
-        case .gemini: return geminiOption
+        case .antigravity: return antigravityOption
         }
     }
     
-    init(defaultBackend: ChatBackendKind, codexOption: ChatBackendOption?, openAIOption: ChatBackendOption?, claudeCodeOption: ChatBackendOption?, geminiOption: ChatBackendOption?, priorityPath: [String], upgradeHint: String? = nil) {
+    init(defaultBackend: ChatBackendKind, codexOption: ChatBackendOption?, openAIOption: ChatBackendOption?, claudeCodeOption: ChatBackendOption?, antigravityOption: ChatBackendOption?, priorityPath: [String], upgradeHint: String? = nil) {
         self.defaultBackend = defaultBackend
         self.codexOption = codexOption
         self.openAIOption = openAIOption
         self.claudeCodeOption = claudeCodeOption
-        self.geminiOption = geminiOption
+        self.antigravityOption = antigravityOption
         self.priorityPath = priorityPath
         self.upgradeHint = upgradeHint
     }
@@ -200,7 +200,7 @@ struct ContextBuilderRecommendation: Sendable {
 
 /// Pro Edit mode types.
 enum ProEditModeKind: String, Codable, Sendable {
-    /// Use CLI agent (Claude Code, Codex, Gemini) for edits
+    /// Use CLI agent (Claude Code, Codex, Antigravity) for edits
     case agent
     /// Use model-based editing via API
     case model
@@ -443,11 +443,6 @@ struct BestPracticeProfiles {
         GPT-5.5 Low/Medium/High via Codex CLI provides strong reasoning without extended wait times. \
         Low is recommended for explore and discovery, Medium for engineer/default implementation, and High for Oracle, review, and pair agents. \
         XHigh offers maximum reasoning but can exhaust usage limits quickly.
-        """
-    
-    static let geminiStrengths = """
-        Gemini 3.1 Pro excels at design and creative discussions. \
-        Gemini 3.0 Flash is the preferred Gemini option for fast exploration.
         """
     
     // MARK: Explanatory Text

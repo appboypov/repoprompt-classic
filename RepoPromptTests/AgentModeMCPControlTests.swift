@@ -817,7 +817,7 @@ final class AgentModeMCPControlTests: XCTestCase {
 		let session = try XCTUnwrap(vm.sessions[tabID])
 		let sessionID = try XCTUnwrap(session.activeAgentSessionID)
 		_ = await vm.ensureSessionReady(tabID: tabID)
-		session.selectedAgent = .gemini
+		session.selectedAgent = .antigravity
 		session.runState = .running
 
 		await vm.mcpActivateControlContext(

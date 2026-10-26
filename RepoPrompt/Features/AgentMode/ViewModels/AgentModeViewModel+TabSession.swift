@@ -246,7 +246,6 @@ extension AgentModeViewModel {
 		
 		// Provider session ID for resumption (e.g., Claude CLI session_id)
 		var providerSessionID: String?
-		var geminiACPResumeMetadata: GeminiACPResumeMetadata = .init()
 		var providerTokenUsageByTurn: [AgentTokenUsagePersist] = []
 		var pendingNonCodexUserInputTokenQueue: [Int] = []
 		var activeNonCodexTurnTokenAccumulator: NonCodexTurnTokenAccumulator?
@@ -310,77 +309,17 @@ extension AgentModeViewModel {
 
 		func acpResumeSessionID(for agent: DiscoverAgentKind? = nil) -> String? {
 			let effectiveAgent = agent ?? selectedAgent
-			switch effectiveAgent.acpProviderID {
-			case .some(.gemini):
-				return Self.trimmedNonEmpty(geminiACPResumeMetadata.loadSessionID)
-					?? Self.trimmedNonEmpty(providerSessionID)
-			case .some(.cursor), .some(.openCode):
-				return Self.trimmedNonEmpty(providerSessionID)
-			case .none:
-				return nil
-			}
+			guard effectiveAgent.acpProviderID != nil else { return nil }
+			return Self.trimmedNonEmpty(providerSessionID)
 		}
 
 		@discardableResult
-		func applyACPProviderSessionIdentity(
-			_ identity: ACPProviderSessionIdentity,
-			invalidatedResumeSessionID: String? = nil,
-			verifiedAt: Date = Date()
-		) -> Bool {
-			guard selectedAgent.acpProviderID == identity.providerID else { return false }
-			var changed = false
-			switch identity.providerID {
-			case .gemini:
-				if let runtime = Self.trimmedNonEmpty(identity.runtimeSessionID),
-					geminiACPResumeMetadata.runtimeSessionID != runtime {
-					geminiACPResumeMetadata.runtimeSessionID = runtime
-					changed = true
-				}
-				if let invalidated = Self.trimmedNonEmpty(invalidatedResumeSessionID),
-					Self.trimmedNonEmpty(geminiACPResumeMetadata.loadSessionID) == invalidated
-						|| Self.trimmedNonEmpty(providerSessionID) == invalidated {
-					if geminiACPResumeMetadata.loadSessionID != nil {
-						geminiACPResumeMetadata.loadSessionID = nil
-						changed = true
-					}
-					if geminiACPResumeMetadata.loadSessionIDVerifiedAt != nil {
-						geminiACPResumeMetadata.loadSessionIDVerifiedAt = nil
-						changed = true
-					}
-					if providerSessionID != nil {
-						providerSessionID = nil
-						changed = true
-					}
-				}
-				if let load = Self.trimmedNonEmpty(identity.loadSessionID) {
-					let didChangeLoadID = geminiACPResumeMetadata.loadSessionID != load
-					if didChangeLoadID {
-						geminiACPResumeMetadata.loadSessionID = load
-						changed = true
-					}
-					if identity.loadSessionIDConfidence == .verified,
-						(didChangeLoadID || geminiACPResumeMetadata.loadSessionIDVerifiedAt == nil) {
-						geminiACPResumeMetadata.loadSessionIDVerifiedAt = verifiedAt
-						changed = true
-					} else if identity.loadSessionIDConfidence != .verified,
-						didChangeLoadID,
-						geminiACPResumeMetadata.loadSessionIDVerifiedAt != nil {
-						geminiACPResumeMetadata.loadSessionIDVerifiedAt = nil
-						changed = true
-					}
-					if providerSessionID != load {
-						providerSessionID = load
-						changed = true
-					}
-				}
-			case .cursor, .openCode:
-				if let sessionID = Self.trimmedNonEmpty(identity.loadSessionID) ?? Self.trimmedNonEmpty(identity.runtimeSessionID),
-					providerSessionID != sessionID {
-					providerSessionID = sessionID
-					changed = true
-				}
-			}
-			return changed
+		func applyACPProviderSessionIdentity(_ identity: ACPProviderSessionIdentity) -> Bool {
+			guard selectedAgent.acpProviderID == identity.providerID,
+				let sessionID = Self.trimmedNonEmpty(identity.sessionID),
+				providerSessionID != sessionID else { return false }
+			providerSessionID = sessionID
+			return true
 		}
 
 		private static func trimmedNonEmpty(_ value: String?) -> String? {

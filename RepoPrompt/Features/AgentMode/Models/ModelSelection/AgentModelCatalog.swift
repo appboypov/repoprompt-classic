@@ -4,7 +4,7 @@ enum AgentModelCatalog {
 	struct AvailabilityContext: Sendable {
 		let claudeCodeAvailable: Bool
 		let codexAvailable: Bool
-		let geminiAvailable: Bool
+		let antigravityAvailable: Bool
 		let openCodeAvailable: Bool
 		let cursorAvailable: Bool
 		let zaiConfigured: Bool
@@ -14,7 +14,7 @@ enum AgentModelCatalog {
 		static let none = AvailabilityContext(
 			claudeCodeAvailable: false,
 			codexAvailable: false,
-			geminiAvailable: false,
+			antigravityAvailable: false,
 			openCodeAvailable: false,
 			cursorAvailable: false,
 			zaiConfigured: false,
@@ -26,7 +26,7 @@ enum AgentModelCatalog {
 			AvailabilityContext(
 				claudeCodeAvailable: claudeCodeAvailable && providers.contains(.claudeCode),
 				codexAvailable: codexAvailable && providers.contains(.codex),
-				geminiAvailable: geminiAvailable && providers.contains(.geminiCLI),
+				antigravityAvailable: antigravityAvailable && providers.contains(.antigravity),
 				openCodeAvailable: false,
 				cursorAvailable: cursorAvailable && providers.contains(.cursor),
 				zaiConfigured: zaiConfigured && providers.contains(.claudeCode),
@@ -40,7 +40,7 @@ enum AgentModelCatalog {
 			return AvailabilityContext(
 				claudeCodeAvailable: true,
 				codexAvailable: true,
-				geminiAvailable: true,
+				antigravityAvailable: true,
 				openCodeAvailable: true,
 				cursorAvailable: false,
 				zaiConfigured: backendIsAvailable(.glmZAI, store: store),
@@ -52,7 +52,7 @@ enum AgentModelCatalog {
 		init(
 			claudeCodeAvailable: Bool = true,
 			codexAvailable: Bool = true,
-			geminiAvailable: Bool = true,
+			antigravityAvailable: Bool = true,
 			openCodeAvailable: Bool = true,
 			cursorAvailable: Bool = false,
 			zaiConfigured: Bool = false,
@@ -61,7 +61,7 @@ enum AgentModelCatalog {
 		) {
 			self.claudeCodeAvailable = claudeCodeAvailable
 			self.codexAvailable = codexAvailable
-			self.geminiAvailable = geminiAvailable
+			self.antigravityAvailable = antigravityAvailable
 			self.openCodeAvailable = openCodeAvailable
 			self.cursorAvailable = cursorAvailable
 			self.zaiConfigured = zaiConfigured
@@ -84,7 +84,7 @@ enum AgentModelCatalog {
 			AvailabilityContext(
 				claudeCodeAvailable: claudeCodeAvailable || agentKind == .claudeCode,
 				codexAvailable: codexAvailable || agentKind == .codexExec,
-				geminiAvailable: geminiAvailable || agentKind == .gemini,
+				antigravityAvailable: antigravityAvailable || agentKind == .antigravity,
 				openCodeAvailable: openCodeAvailable || agentKind == .openCode,
 				cursorAvailable: cursorAvailable || agentKind == .cursor,
 				zaiConfigured: zaiConfigured || agentKind == .claudeCodeGLM,
@@ -186,7 +186,7 @@ enum AgentModelCatalog {
 	static let supportedCLIProviderAgents: [DiscoverAgentKind] = [
 		.codexExec,
 		.claudeCode,
-		.gemini,
+		.antigravity,
 		.openCode,
 		.cursor,
 	]
@@ -195,7 +195,7 @@ enum AgentModelCatalog {
 		availability: AvailabilityContext = .current,
 		surface: AgentSelectionSurface = .general
 	) -> [DiscoverAgentKind] {
-		[.codexExec, .claudeCode, .gemini, .openCode, .cursor, .claudeCodeGLM, .kimiCode, .customClaudeCompatible]
+		[.codexExec, .claudeCode, .antigravity, .openCode, .cursor, .claudeCodeGLM, .kimiCode, .customClaudeCompatible]
 			.filter { surface.allows($0) && isAgentAvailable($0, availability: availability) }
 	}
 
@@ -221,8 +221,8 @@ enum AgentModelCatalog {
 			return availability.claudeCodeAvailable
 		case .codexExec:
 			return availability.codexAvailable
-		case .gemini:
-			return availability.geminiAvailable
+		case .antigravity:
+			return availability.antigravityAvailable
 		case .openCode:
 			return availability.openCodeAvailable
 		case .cursor:
@@ -256,7 +256,7 @@ enum AgentModelCatalog {
 			// Resolve to a concrete static alias so users see a clear picker option
 			// instead of the vague "Default" placeholder.
 			return AgentModel.claudeOpus.rawValue
-		case .codexExec, .gemini, .openCode:
+		case .codexExec, .antigravity, .openCode:
 			return AgentModel.defaultModel.rawValue
 		}
 	}
@@ -368,7 +368,7 @@ enum AgentModelCatalog {
 			return includeClaudeEffortVariants
 				? expandedClaudeOptions(from: staticOptions, agentKind: agentKind)
 				: staticOptions
-		case .gemini, .openCode, .cursor:
+		case .antigravity, .openCode, .cursor:
 			return AgentModel.modelsForAgent(agentKind)
 				.filter { isAvailable($0, for: agentKind, availability: availability) }
 				.map { staticOption($0, for: agentKind) }
@@ -1377,7 +1377,7 @@ enum AgentModelCatalog {
 			return .kimi
 		case .customClaudeCompatible:
 			return .custom
-		case .claudeCode, .codexExec, .gemini, .openCode, .cursor:
+		case .claudeCode, .codexExec, .antigravity, .openCode, .cursor:
 			return nil
 		}
 	}
@@ -1596,7 +1596,7 @@ enum AgentModelCatalog {
 			return availability.kimiConfigured
 		case .customClaudeCompatible:
 			return availability.customClaudeCompatibleConfigured
-		case .claudeCode, .codexExec, .gemini, .openCode, .cursor:
+		case .claudeCode, .codexExec, .antigravity, .openCode, .cursor:
 			return true
 		}
 	}
@@ -1842,7 +1842,7 @@ enum AgentModelCatalog {
 				SelectionCandidate(agent: .claudeCodeGLM, modelRaw: AgentModel.claudeHaiku.rawValue),
 				SelectionCandidate(agent: .kimiCode, modelRaw: AgentModel.kimiCode.rawValue),
 				SelectionCandidate(agent: .customClaudeCompatible, modelRaw: defaultCompatibleBackendModelRaw(for: .customClaudeCompatible)),
-				SelectionCandidate(agent: .gemini, modelRaw: AgentModel.gemini3FlashPreview.rawValue),
+				SelectionCandidate(agent: .antigravity, modelRaw: defaultModelRaw(for: .antigravity)),
 				SelectionCandidate(agent: .codexExec, modelRaw: AgentModel.gpt54MiniMedium.rawValue),
 				SelectionCandidate(agent: .codexExec, modelRaw: AgentModel.codexMini.rawValue),
 				SelectionCandidate(agent: .cursor, modelRaw: AgentModel.cursorAuto.rawValue),
@@ -1854,7 +1854,7 @@ enum AgentModelCatalog {
 				SelectionCandidate(agent: .claudeCodeGLM, modelRaw: AgentModel.claudeSonnet.rawValue),
 				SelectionCandidate(agent: .kimiCode, modelRaw: AgentModel.kimiCode.rawValue),
 				SelectionCandidate(agent: .customClaudeCompatible, modelRaw: defaultCompatibleBackendModelRaw(for: .customClaudeCompatible)),
-				SelectionCandidate(agent: .gemini, modelRaw: AgentModel.geminiPro3p1Preview.rawValue),
+				SelectionCandidate(agent: .antigravity, modelRaw: defaultModelRaw(for: .antigravity)),
 				SelectionCandidate(agent: .cursor, modelRaw: AgentModel.cursorComposer2.rawValue),
 			]
 		case .pair:
@@ -1864,7 +1864,7 @@ enum AgentModelCatalog {
 				SelectionCandidate(agent: .claudeCodeGLM, modelRaw: AgentModel.claudeOpus.rawValue),
 				SelectionCandidate(agent: .kimiCode, modelRaw: AgentModel.kimiCode.rawValue),
 				SelectionCandidate(agent: .customClaudeCompatible, modelRaw: defaultCompatibleBackendModelRaw(for: .customClaudeCompatible)),
-				SelectionCandidate(agent: .gemini, modelRaw: AgentModel.geminiPro3p1Preview.rawValue),
+				SelectionCandidate(agent: .antigravity, modelRaw: defaultModelRaw(for: .antigravity)),
 				SelectionCandidate(agent: .cursor, modelRaw: AgentModel.cursorComposer2.rawValue),
 			]
 		case .design:
@@ -1873,7 +1873,7 @@ enum AgentModelCatalog {
 				SelectionCandidate(agent: .claudeCodeGLM, modelRaw: AgentModel.claudeOpus.rawValue),
 				SelectionCandidate(agent: .kimiCode, modelRaw: AgentModel.kimiCode.rawValue),
 				SelectionCandidate(agent: .customClaudeCompatible, modelRaw: defaultCompatibleBackendModelRaw(for: .customClaudeCompatible)),
-				SelectionCandidate(agent: .gemini, modelRaw: AgentModel.geminiPro3p1Preview.rawValue),
+				SelectionCandidate(agent: .antigravity, modelRaw: defaultModelRaw(for: .antigravity)),
 				SelectionCandidate(agent: .cursor, modelRaw: AgentModel.cursorComposer2.rawValue),
 				SelectionCandidate(agent: .codexExec, modelRaw: AgentModel.gpt55CodexMedium.rawValue),
 			]

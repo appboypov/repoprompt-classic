@@ -71,8 +71,8 @@ final class GlobalSettingsMigrationTests: XCTestCase {
 			copySettings: [jsonWorkspaceID: CopyGlobalSettings(workspaceID: jsonWorkspaceID)],
 			chatSettings: [jsonWorkspaceID: ChatGlobalSettings(workspaceID: jsonWorkspaceID)],
 			globalDefaults: GlobalDefaults(
-				discoverAgentRaw: DiscoverAgentKind.gemini.rawValue,
-				discoverModelsByAgent: [DiscoverAgentKind.gemini.rawValue: AgentModel.geminiPro3p1Preview.rawValue]
+				discoverAgentRaw: DiscoverAgentKind.antigravity.rawValue,
+				discoverModelsByAgent: [DiscoverAgentKind.antigravity.rawValue: AgentModel.defaultModel.rawValue]
 			),
 			scalarPreferences: jsonScalarPreferences
 		))
@@ -81,7 +81,7 @@ final class GlobalSettingsMigrationTests: XCTestCase {
 
 		XCTAssertNotNil(store.copySettings[jsonWorkspaceID])
 		XCTAssertNil(store.copySettings[legacyWorkspaceID])
-		XCTAssertEqual(store.globalDiscoverAgentSelection().agentRaw, DiscoverAgentKind.gemini.rawValue)
+		XCTAssertEqual(store.globalDiscoverAgentSelection().agentRaw, DiscoverAgentKind.antigravity.rawValue)
 		XCTAssertEqual(store.proEditAgentKindRaw(), DiscoverAgentKind.claudeCode.rawValue)
 		XCTAssertEqual(store.proEditAgentModelRaw(), AgentModel.claudeSonnet.rawValue)
 		XCTAssertTrue(store.proEditAgentModeMigrated())
@@ -813,7 +813,7 @@ final class GlobalSettingsMigrationTests: XCTestCase {
 		GlobalSettingsLegacyBridge.writeLegacyMirrors(
 			copySettings: [legacyWorkspaceID: CopyGlobalSettings(workspaceID: legacyWorkspaceID)],
 			chatSettings: [legacyWorkspaceID: ChatGlobalSettings(workspaceID: legacyWorkspaceID)],
-			globalDefaults: GlobalDefaults(discoverAgentRaw: DiscoverAgentKind.gemini.rawValue, discoverModelsByAgent: [DiscoverAgentKind.gemini.rawValue: AgentModel.geminiPro3p1Preview.rawValue]),
+			globalDefaults: GlobalDefaults(discoverAgentRaw: DiscoverAgentKind.antigravity.rawValue, discoverModelsByAgent: [DiscoverAgentKind.antigravity.rawValue: AgentModel.defaultModel.rawValue]),
 			defaults: defaults,
 			updateShadow: false
 		)
@@ -822,7 +822,7 @@ final class GlobalSettingsMigrationTests: XCTestCase {
 
 		XCTAssertNil(migrated.copySettings[jsonWorkspaceID])
 		XCTAssertEqual(migrated.copySettings[legacyWorkspaceID]?.workspaceID, legacyWorkspaceID)
-		XCTAssertEqual(migrated.globalDefaults.discoverAgentRaw, DiscoverAgentKind.gemini.rawValue)
+		XCTAssertEqual(migrated.globalDefaults.discoverAgentRaw, DiscoverAgentKind.antigravity.rawValue)
 		XCTAssertFalse(GlobalSettingsLegacyBridge.shouldReimportLegacyMirrors(defaults: defaults))
 		let diskDocument = try fileStore.load()
 		XCTAssertEqual(diskDocument.copySettings[legacyWorkspaceID]?.workspaceID, legacyWorkspaceID)

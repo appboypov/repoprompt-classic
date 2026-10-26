@@ -163,12 +163,6 @@ final class HeadlessAgentModeRunner {
 
 			await hooks.prepareForTerminalPersistence(session, .completed, "headless-completed")
 			hooks.finalizeNonCodexTurnUsage(session, nil, nil, nil)
-			let supportsSessionResume = session.selectedAgent == .gemini
-			let queuedInstruction = supportsSessionResume ? session.pendingInstructions.first : nil
-			if queuedInstruction != nil {
-				session.mcpFollowUpRunPending = true
-				session.pendingInstructions.removeFirst()
-			}
 			session.activeHeadlessRunAttemptID = nil
 			session.agentTask = nil
 			session.provider = nil
@@ -183,10 +177,6 @@ final class HeadlessAgentModeRunner {
 			hooks.updateBindings(session)
 			hooks.notifyAgentTurnComplete(session)
 			hooks.scheduleSave(session.tabID)
-
-			if let queuedInstruction {
-				hooks.startFollowUpRun(session.tabID, queuedInstruction)
-			}
 		} catch is CancellationError {
 			await lease.cancelAndCleanup()
 			guard session.runID == runID,

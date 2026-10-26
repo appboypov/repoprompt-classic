@@ -1725,10 +1725,6 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 		return false
 	}
 
-	private func isHeadlessAgent(_ agent: DiscoverAgentKind) -> Bool {
-		agent == .gemini
-	}
-
 	private func stopCodexToolTracking(
 		for session: AgentModeViewModel.TabSession
 	) {
@@ -1785,9 +1781,6 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 		to newAgent: DiscoverAgentKind,
 		session: AgentModeViewModel.TabSession
 	) {
-		if isHeadlessAgent(oldAgent) || isHeadlessAgent(newAgent) {
-			session.providerSessionID = nil
-		}
 		if oldAgent == .codexExec && newAgent != .codexExec {
 			cancelCodexThreadNameSync(for: session.tabID)
 			cancelCodexIdleShutdown(for: session.tabID)
@@ -4104,9 +4097,10 @@ final class CodexAgentModeCoordinator: AgentModeRunInteractionStateObserving {
 			sealAssistantBoundary(session)
 			// Auto-approve RepoPrompt MCP tool approval requests instead of forwarding to the parent agent.
 			// Codex expects the literal option label (e.g. "Allow"), not a generic "accept" decision.
-			if Self.shouldAutoApproveCodexMCPToolRequest(request) {
+			if Self.shouldAutoApproveCodexMCPToolRequest(request),
+				case .codex(let codexRequestID) = request.requestID {
 				let response = Self.buildAutoApprovalResponse(for: request)
-				submitUserInputResponse(session: session, requestID: request.requestID, response: response)
+				submitUserInputResponse(session: session, requestID: codexRequestID, response: response)
 				return
 			}
 			let alreadyPending = session.pendingUserInputRequest?.requestID == request.requestID

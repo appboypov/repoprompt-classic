@@ -4,12 +4,12 @@ import XCTest
 final class ACPModelRegistryTests: XCTestCase {
 	override func setUp() {
 		super.setUp()
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		AgentACPModelRegistry.shared.test_reset(providerID: .openCode)
 	}
 
 	override func tearDown() {
-		AgentACPModelRegistry.shared.test_reset(providerID: .gemini)
+		AgentACPModelRegistry.shared.test_reset(providerID: .antigravity)
 		AgentACPModelRegistry.shared.test_reset(providerID: .openCode)
 		super.tearDown()
 	}
@@ -65,10 +65,10 @@ final class ACPModelRegistryTests: XCTestCase {
 			currentModelRaw: "gemini-2.5-pro"
 		)
 
-		XCTAssertTrue(AgentACPModelRegistry.shared.updateDiscoveredModels(initial, for: .gemini))
-		XCTAssertFalse(AgentACPModelRegistry.shared.updateDiscoveredModels(equivalent, for: .gemini))
+		XCTAssertTrue(AgentACPModelRegistry.shared.updateDiscoveredModels(initial, for: .antigravity))
+		XCTAssertFalse(AgentACPModelRegistry.shared.updateDiscoveredModels(equivalent, for: .antigravity))
 		XCTAssertEqual(
-			AgentACPModelRegistry.shared.test_snapshot(providerID: .gemini)?.preferredModelRaw,
+			AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)?.preferredModelRaw,
 			"gemini-2.5-pro"
 		)
 	}
@@ -87,13 +87,13 @@ final class ACPModelRegistryTests: XCTestCase {
 			currentModelRaw: "gemini-2.5-pro"
 		)
 
-		ACPDynamicModelStore.save(snapshot, for: .gemini)
-		XCTAssertNil(AgentACPModelRegistry.shared.currentSnapshot(for: .gemini))
+		ACPDynamicModelStore.save(snapshot, for: .antigravity)
+		XCTAssertNil(AgentACPModelRegistry.shared.currentSnapshot(for: .antigravity))
 
 		await AgentACPModelRegistry.shared.test_warmStandardStore()
 
-		XCTAssertEqual(AgentModelCatalog.options(for: .gemini).map(\.rawValue), ["gemini-2.5-pro"])
-		XCTAssertEqual(AgentModelCatalog.defaultModelRaw(for: .gemini), "gemini-2.5-pro")
+		XCTAssertEqual(AgentModelCatalog.options(for: .antigravity).map(\.rawValue), ["gemini-2.5-pro"])
+		XCTAssertEqual(AgentModelCatalog.defaultModelRaw(for: .antigravity), "gemini-2.5-pro")
 	}
 
 	func testCatalogDoesNotSynchronouslyLoadPersistedOpenCodeStoreBeforeWarm() async {
@@ -137,13 +137,13 @@ final class ACPModelRegistryTests: XCTestCase {
 			currentModelRaw: "gemini-2.5-pro"
 		)
 
-		XCTAssertTrue(AgentACPModelRegistry.shared.updateDiscoveredModels(snapshot, for: .gemini))
+		XCTAssertTrue(AgentACPModelRegistry.shared.updateDiscoveredModels(snapshot, for: .antigravity))
 		XCTAssertEqual(
-			AgentACPModelRegistry.shared.test_snapshot(providerID: .gemini)?.options.map(\.rawValue),
+			AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)?.options.map(\.rawValue),
 			["gemini-2.5-flash", "gemini-2.5-pro"]
 		)
 		XCTAssertEqual(
-			AgentACPModelRegistry.shared.test_snapshot(providerID: .gemini)?.preferredModelRaw,
+			AgentACPModelRegistry.shared.test_snapshot(providerID: .antigravity)?.preferredModelRaw,
 			"gemini-2.5-pro"
 		)
 	}
@@ -179,8 +179,8 @@ final class ACPModelRegistryTests: XCTestCase {
 			currentModelRaw: "gemini-2.5-pro"
 		)
 
-		ACPDynamicModelStore.save(snapshot, for: .gemini, defaults: defaults)
-		let loaded = ACPDynamicModelStore.load(providerID: .gemini, defaults: defaults)
+		ACPDynamicModelStore.save(snapshot, for: .antigravity, defaults: defaults)
+		let loaded = ACPDynamicModelStore.load(providerID: .antigravity, defaults: defaults)
 		XCTAssertEqual(loaded?.currentModelRaw, "gemini-2.5-pro")
 		XCTAssertEqual(loaded?.options.map(\.rawValue), ["gemini-2.5-flash", "gemini-2.5-pro"])
 		XCTAssertEqual(loaded?.options.last?.defaultReasoningEffort, .high)
@@ -220,13 +220,13 @@ final class ACPModelRegistryTests: XCTestCase {
 			currentModelRaw: "openai/gpt-5"
 		)
 
-		ACPDynamicModelStore.save(geminiSnapshot, for: .gemini, defaults: defaults)
+		ACPDynamicModelStore.save(geminiSnapshot, for: .antigravity, defaults: defaults)
 		ACPDynamicModelStore.save(openCodeSnapshot, for: .openCode, defaults: defaults)
 
 		let snapshots = ACPDynamicModelStore.loadAll(defaults: defaults)
-		XCTAssertEqual(snapshots[.gemini]?.preferredModelRaw, "gemini-2.5-pro")
+		XCTAssertEqual(snapshots[.antigravity]?.preferredModelRaw, "gemini-2.5-pro")
 		XCTAssertEqual(snapshots[.openCode]?.preferredModelRaw, "openai/gpt-5")
-		XCTAssertEqual(ACPDynamicModelStore.load(providerID: .gemini, defaults: defaults)?.preferredModelRaw, "gemini-2.5-pro")
+		XCTAssertEqual(ACPDynamicModelStore.load(providerID: .antigravity, defaults: defaults)?.preferredModelRaw, "gemini-2.5-pro")
 		XCTAssertEqual(ACPDynamicModelStore.load(providerID: .openCode, defaults: defaults)?.preferredModelRaw, "openai/gpt-5")
 	}
 

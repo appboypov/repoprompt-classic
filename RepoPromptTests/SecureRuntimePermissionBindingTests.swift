@@ -91,7 +91,7 @@ final class SecureRuntimePermissionBindingTests: XCTestCase {
 	]
 
 	private static let acpLegacyKeys = [
-		"geminiACPSessionMode",
+		"antigravityACPSessionMode",
 		"openCodeACPSessionMode",
 		"cursorACPToolPermissionLevel"
 	]
@@ -174,25 +174,25 @@ final class SecureRuntimePermissionBindingTests: XCTestCase {
 
 	func testACPRuntimeBindingReadsSharedSecureSessionAndAutoApprovePreferences() {
 		let restorer = StandardPermissionStorageRestorer(
-			domains: [.gemini, .openCode, .cursor],
+			domains: [.antigravity, .openCode, .cursor],
 			defaultKeys: Self.acpLegacyKeys
 		)
 		defer { restorer.restore() }
 
-		GeminiAgentToolPreferences.setPermissionLevel(.fullAccess)
+		AntigravityAgentToolPreferences.setPermissionLevel(.fullAccess)
 		OpenCodeAgentToolPreferences.setPermissionLevel(.fullAccess)
 		CursorAgentToolPreferences.setPermissionLevel(.fullAccess)
 
 		let defaults = UserDefaults.standard
-		defaults.set(GeminiAgentToolPreferences.PermissionLevel.default.sessionModeID, forKey: "geminiACPSessionMode")
+		defaults.set(AntigravityAgentToolPreferences.PermissionLevel.default.sessionModeID, forKey: "antigravityACPSessionMode")
 		defaults.set(OpenCodeAgentConfig.managedSessionModeID, forKey: "openCodeACPSessionMode")
 		defaults.set(CursorAgentToolPreferences.PermissionLevel.managedDefault.rawValue, forKey: "cursorACPToolPermissionLevel")
 		AgentPermissionSecureStore.shared.clearCachedDocuments()
 
 		let store = AgentProviderPreferenceSnapshotStore()
 
-		let gemini = store.runtimePermission(for: .gemini, profile: .userConfigured)
-		XCTAssertEqual(gemini.acpSessionModeID, GeminiAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID)
+		let gemini = store.runtimePermission(for: .antigravity, profile: .userConfigured)
+		XCTAssertEqual(gemini.acpSessionModeID, AntigravityAgentToolPreferences.PermissionLevel.fullAccess.sessionModeID)
 		XCTAssertTrue(gemini.acceptsPendingACPApprovalWhenActivated)
 
 		let openCode = store.runtimePermission(for: .openCode, profile: .userConfigured)
