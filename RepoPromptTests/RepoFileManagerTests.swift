@@ -403,6 +403,41 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testLoadFolderReadsEveryFolderOfAWideTreeWithNestedIgnoreRules() async throws {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let folderCount = 5_000
+		let wideURL = rootURL.appendingPathComponent("wide", isDirectory: true)
+		try FileManager.default.createDirectory(at: wideURL, withIntermediateDirectories: true)
+		try "*.log\n".write(to: wideURL.appendingPathComponent(".gitignore"), atomically: true, encoding: .utf8)
+		var expected = Set<String>()
+		for index in 0..<folderCount {
+			let name = String(format: "f%04d", index)
+			let folderURL = wideURL.appendingPathComponent(name, isDirectory: true)
+			try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+			XCTAssertTrue(FileManager.default.createFile(atPath: folderURL.appendingPathComponent("keep.swift").path, contents: Data()))
+			XCTAssertTrue(FileManager.default.createFile(atPath: folderURL.appendingPathComponent("skip.log").path, contents: Data()))
+			expected.insert("wide/\(name)/keep.swift")
+		}
+		let deepURL = rootURL.appendingPathComponent("deep/a/b/c/d/e", isDirectory: true)
+		try FileManager.default.createDirectory(at: deepURL, withIntermediateDirectories: true)
+		XCTAssertTrue(FileManager.default.createFile(atPath: deepURL.appendingPathComponent("leaf.swift").path, contents: Data()))
+		expected.insert("deep/a/b/c/d/e/leaf.swift")
+
+		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
+		let fileManagerVM = RepoFileManagerViewModel()
+		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+
+		let loaded = Set(
+			fileManagerVM.allFilesSnapshot(sorted: false)
+				.map(\.standardizedRelativePath)
+				.filter { $0.hasSuffix(".swift") || $0.hasSuffix(".log") }
+		)
+		XCTAssertEqual(loaded, expected)
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)

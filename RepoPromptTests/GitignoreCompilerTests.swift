@@ -393,6 +393,22 @@ final class GitignoreCompilerTests: XCTestCase {
 		XCTAssertFalse(isIgnored(patterns, path: "src/build/important/keep.txt"))
 		XCTAssertFalse(isIgnored(patterns, path: "deep/nested/build/important/keep.txt"))
 	}
+
+	func testDefaultIgnorePatternsMatchFolderAndFileNamesAtAnyDepth() {
+		let defaults = [IgnoreSettingsDefaults.canonicalGlobalIgnoreDefaults]
+
+		XCTAssertTrue(isIgnored(defaults, path: "node_modules", isDirectory: true))
+		XCTAssertTrue(isIgnored(defaults, path: "a/b/worktrees", isDirectory: true))
+		XCTAssertTrue(isIgnored(defaults, path: "a/DerivedData/Build/Out.swift"))
+		XCTAssertTrue(isIgnored(defaults, path: "a/b/notes.swp"))
+		XCTAssertTrue(isIgnored(defaults, path: "a/b/notes~"))
+
+		XCTAssertFalse(isIgnored(defaults, path: "a/worktrees"))
+		XCTAssertFalse(isIgnored(defaults, path: "a/my_worktrees/App.swift"))
+		XCTAssertFalse(isIgnored(defaults, path: "a/notes.swp/App.swift"))
+		XCTAssertFalse(isIgnored(defaults, path: "a~/App.swift"))
+		XCTAssertFalse(isIgnored(defaults, path: "a/b/App.swift"))
+	}
 	
 	func testAbsoluteVsRelativePatterns() {
 		// Test the difference between /pattern and pattern

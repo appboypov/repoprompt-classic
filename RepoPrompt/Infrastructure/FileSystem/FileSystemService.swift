@@ -450,6 +450,9 @@ actor FileSystemService {
 	
 	/// Maximum folders to scan in a single batch (bounds per-tick work)
 	private let maxFoldersPerBatch: Int
+
+	/// Folders read at the same time while reading a whole root folder: one per core.
+	private let readWindowWidth: Int
 	
 	// MARK: - Safety-Net Verification
 	
@@ -490,6 +493,7 @@ actor FileSystemService {
 		let cores = ProcessInfo.processInfo.activeProcessorCount
 		self.maxParallelScansPerActor = max(2, min(4, cores / 2))
 		self.maxFoldersPerBatch = 256
+		self.readWindowWidth = max(2, cores)
 		
 		// Load fresh ignore rules from manager, no caching done by manager
 		self.ignoreRules = try await IgnoreRulesManager.shared.getIgnoreRules(
@@ -634,6 +638,7 @@ actor FileSystemService {
 		let cores = ProcessInfo.processInfo.activeProcessorCount
 		self.maxParallelScansPerActor = maxParallelScansOverride ?? max(2, min(4, cores / 2))
 		self.maxFoldersPerBatch = maxFoldersPerBatchOverride ?? 256
+		self.readWindowWidth = max(2, cores)
 		
 		// Use test data if provided
 		if let paths = testVisitedPaths {
@@ -4304,24 +4309,24 @@ actor FileSystemService {
 			yield(chunk, totalFilesSeen)
 		}
 
-		// Use configured parallelism cap for consistent behavior across all scan paths
-		let maxConcurrent = maxParallelScansPerActor
+		let readWidth = readWindowWidth
+		let enableHierarchicalIgnores = self.enableHierarchicalIgnores
+		let respectGitignore = self.respectGitignore
+		let respectRepoIgnore = self.respectRepoIgnore
+		let respectCursorignore = self.respectCursorignore
 
-		while !directories.isEmpty {
-			try Task.checkCancellation()
+		// Sliding window: each finished folder frees its slot for the next one at once,
+		// so one slow folder never holds back the rest of the read.
+		// Folders are read depth-first, so a folder's parent rules are still in the
+		// bounded per-folder rules cache when the folder is read.
+		try await withThrowingTaskGroup(of: DirectoryChunkResult.self) { group in
+			var inFlight = 0
 
-			let batch = Array(directories.prefix(maxConcurrent))
-			directories.removeFirst(batch.count)
-
-			let enableHierarchicalIgnores = self.enableHierarchicalIgnores
-			let respectGitignore = self.respectGitignore
-			let respectRepoIgnore = self.respectRepoIgnore
-			let respectCursorignore = self.respectCursorignore
-
-			try await withThrowingTaskGroup(of: DirectoryChunkResult.self) { group in
-				for context in batch {
+			func scheduleMoreDirectories() {
+				while inFlight < readWidth, let context = directories.popLast() {
+					inFlight += 1
 					#if DEBUG
-					group.addTask { [self,
+					group.addTask(priority: .utility) { [self,
 						context,
 						isVirtualFS,
 						skipSymlinks,
@@ -4342,7 +4347,7 @@ actor FileSystemService {
 						)
 					}
 					#else
-					group.addTask { [self,
+					group.addTask(priority: .utility) { [self,
 						context,
 						skipSymlinks,
 						enableHierarchicalIgnores,
@@ -4362,33 +4367,40 @@ actor FileSystemService {
 					}
 					#endif
 				}
+			}
 
-				for try await result in group {
-					if !result.folders.isEmpty || !result.files.isEmpty {
-						chunkFolders.append(contentsOf: result.folders)
-						chunkFiles.append(contentsOf: result.files)
-						pendingFileCount += result.files.count
+			scheduleMoreDirectories()
 
-						for folder in result.folders {
-							visitedPaths.insert(folder.relativePath)
-							visitedItems[folder.relativePath] = true
-						}
-						for file in result.files {
-							visitedPaths.insert(file.relativePath)
-							visitedItems[file.relativePath] = false
-						}
+			while let result = try await group.next() {
+				inFlight -= 1
+				try Task.checkCancellation()
 
-						flush()
+				if !result.folders.isEmpty || !result.files.isEmpty {
+					chunkFolders.append(contentsOf: result.folders)
+					chunkFiles.append(contentsOf: result.files)
+					pendingFileCount += result.files.count
+
+					for folder in result.folders {
+						visitedPaths.insert(folder.relativePath)
+						visitedItems[folder.relativePath] = true
+					}
+					for file in result.files {
+						visitedPaths.insert(file.relativePath)
+						visitedItems[file.relativePath] = false
 					}
 
-					if !result.subdirs.isEmpty {
-						directories.append(contentsOf: result.subdirs)
-					}
-
-					if !result.ignoreCacheDelta.isEmpty {
-						mergeIgnoreCache(result.ignoreCacheDelta)
-					}
+					flush()
 				}
+
+				if !result.subdirs.isEmpty {
+					directories.append(contentsOf: result.subdirs)
+				}
+
+				if !result.ignoreCacheDelta.isEmpty {
+					mergeIgnoreCache(result.ignoreCacheDelta)
+				}
+
+				scheduleMoreDirectories()
 			}
 		}
 
