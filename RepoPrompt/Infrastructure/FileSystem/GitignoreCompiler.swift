@@ -499,7 +499,14 @@ public struct CompiledIgnoreRules: Sendable {
 	///   - isDirectory: Whether the path represents a directory.
 	/// Primary implementation - components-based to avoid repeated splits
 	public func outcome(for components: [Substring], isDirectory: Bool) -> MatchOutcome {
-		let path = components.joined(separator: "/")
+		// Most paths pass no pattern's prefilter, so the joined path is built only once a pattern needs it.
+		var joinedPath: String?
+		func path() -> String {
+			if let joinedPath { return joinedPath }
+			let joined = components.joined(separator: "/")
+			joinedPath = joined
+			return joined
+		}
 		#if DEBUG
 		let recordIgnoreMetrics = IgnoreDebugMetricsRecorder.isRecordingEnabled
 		var patternVisits = 0
@@ -545,7 +552,7 @@ public struct CompiledIgnoreRules: Sendable {
 				patternAttempts += 1
 			}
 			#endif
-			if matchOnePattern(path: path, components: components, isDirectory: isDirectory, pat: pattern) {
+			if matchOnePattern(path: path(), components: components, isDirectory: isDirectory, pat: pattern) {
 				return pattern.isNegation ? .allow : .ignore
 			}
 		}
@@ -762,7 +769,7 @@ public struct CompiledIgnoreRules: Sendable {
 	private func prefilterMayMatch(
 		_ prefilter: GitPatternPrefilter,
 		components: [Substring],
-		path: String,
+		path: () -> String,
 		isDirectory: Bool
 	) -> Bool {
 		switch prefilter {
@@ -776,10 +783,10 @@ public struct CompiledIgnoreRules: Sendable {
 			return components.prefix(count).contains { $0 == name }
 		case let .anchoredLiteralPath(literalPath):
 			guard !literalPath.isEmpty else { return true }
-			return path == literalPath || path.hasPrefix(literalPath + "/")
+			return path() == literalPath || path().hasPrefix(literalPath + "/")
 		case let .anchoredDirectoryPrefix(directoryPath):
 			guard !directoryPath.isEmpty else { return true }
-			return path == directoryPath || path.hasPrefix(directoryPath + "/")
+			return path() == directoryPath || path().hasPrefix(directoryPath + "/")
 		case let .basenameSuffix(suffix):
 			return components.contains { $0.hasSuffix(suffix) }
 		}
@@ -922,6 +929,12 @@ public final class GitignoreCompiler {
 	) -> GitPatternPrefilter {
 		guard !pattern.isEmpty else { return .always }
 		guard !pattern.contains("\\") else { return .always }
+		if pattern.hasPrefix("**/") {
+			// `**/name` matches `name` in any folder, so the name check of `name` filters it too.
+			let name = String(pattern.dropFirst(3))
+			guard !name.contains("/") else { return .always }
+			return makePrefilter(pattern: name, directoryOnly: directoryOnly, absolute: false)
+		}
 		guard !pattern.contains("**") else { return .always }
 		guard !pattern.contains("?") else { return .always }
 		guard !pattern.contains("[") && !pattern.contains("]") else { return .always }
@@ -935,8 +948,8 @@ public final class GitignoreCompiler {
 			if starCount == 1,
 			   !containsSlash,
 			   !directoryOnly,
-			   pattern.hasPrefix("*."),
-			   pattern.count > 2 {
+			   pattern.hasPrefix("*"),
+			   pattern.count > 1 {
 				return .basenameSuffix(String(pattern.dropFirst()))
 			}
 			return .always
