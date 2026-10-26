@@ -105,6 +105,13 @@ final class RepoFileManagerTests: XCTestCase {
 			referencedTypes: []
 		)
 	}
+
+	/// Replayed file adds only catalog files that exist on disk, so replay tests write each added file first.
+	private func writeReplayFixtureFile(_ relativePath: String, under rootURL: URL) throws {
+		let fileURL = rootURL.appendingPathComponent(relativePath)
+		try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try "struct Replayed {}\n".write(to: fileURL, atomically: true, encoding: .utf8)
+	}
 	
 	private func renderedMessage(for error: Error) -> String {
 		if let localized = error as? LocalizedError,
@@ -2445,6 +2452,8 @@ final class RepoFileManagerTests: XCTestCase {
 		let nonCanonicalA = rootURL.path + "/Sources/./A.swift"
 		let nonCanonicalB = rootURL.path + "/Sources/Feature/../B.swift"
 		let expectedRanges = [LineRange(start: 1, end: 3)]
+		let apiB = makeMinimalFileAPI(filePath: nonCanonicalB)
+		fileB.setCodeMap(apiB)
 
 		let entries = fileManagerVM.buildPromptEntries(
 			for: StoredSelection(
@@ -2454,7 +2463,7 @@ final class RepoFileManagerTests: XCTestCase {
 				codemapAutoEnabled: false
 			),
 			codeMapUsage: .complete,
-			allFileAPIs: [makeMinimalFileAPI(filePath: nonCanonicalB)]
+			allFileAPIs: [apiB]
 		)
 
 		let entryByPath = Dictionary(uniqueKeysWithValues: entries.map { ($0.file.standardizedFullPath, $0) })
@@ -3853,6 +3862,7 @@ extension RepoFileManagerTests {
 			.folderAdded(secondBurstFolder),
 			.fileAdded("\(secondBurstFolder)/\(secondBurstFile)")
 		]
+		try writeReplayFixtureFile("\(secondBurstFolder)/\(secondBurstFile)", under: rootURL)
 
 		var scheduledSecondBurst = false
 		var injectedSecondBurst = false
@@ -3956,6 +3966,8 @@ extension RepoFileManagerTests {
 				.fileAdded("\(queuedFolderName)/\(queuedFileName)")
 			]
 		}
+		try writeReplayFixtureFile("\(queuedFolderName)/\(queuedFileName)", under: firstRootURL)
+		try writeReplayFixtureFile("\(queuedFolderName)/\(queuedFileName)", under: secondRootURL)
 
 		let firstVM = RepoFileManagerViewModel()
 		let secondVM = RepoFileManagerViewModel()
@@ -4191,6 +4203,7 @@ extension RepoFileManagerTests {
 		let replacementFolderName = "ReplacementFolder-\(String(repeating: "r", count: payloadLength))"
 		let queuedFileName = syntheticFileName(index: 77, namePayloadLength: payloadLength)
 		let removedFolderName = syntheticFolderName(index: 2, namePayloadLength: payloadLength)
+		try writeReplayFixtureFile("\(queuedFolderName)/\(queuedFileName)", under: rootURL)
 		fileManagerVM.setWindowFocused(false)
 		await fileManagerVM.receiveLiveFileSystemDeltasForTesting(
 			[
@@ -4616,6 +4629,7 @@ extension RepoFileManagerTests {
 			)
 		)
 		fileManagerVM.seedSelectionSlicesForTesting(selectedRanges, for: oldFile)
+		try writeReplayFixtureFile("Node", under: rootURL)
 
 		await fileManagerVM.receiveLiveFileSystemDeltasForTesting(
 			[.folderRemoved("Node"), .fileAdded("Node")],
@@ -4671,6 +4685,7 @@ extension RepoFileManagerTests {
 		rootFolder.addSubfolder(nodeFolder)
 		fileManagerVM.registerRootFolderForTesting(rootFolder, service: service)
 		fileManagerVM.setDeltaReplayTuningForTesting(chunkSize: 4, interChunkDelayNanoseconds: 0)
+		try writeReplayFixtureFile("Node/New.swift", under: rootURL)
 
 		await fileManagerVM.applyPreparedDeltasWithoutCoalescingForTesting(
 			[.folderRemoved("Node"), .folderAdded("Node"), .fileAdded("Node/New.swift")],
@@ -4741,7 +4756,7 @@ extension RepoFileManagerTests {
 	}
 
 	@MainActor
-	func testReplayChunkBatchesCodeScanAndSliceRebaseSideEffectsOncePerChunk() async throws {
+	func testReplayRootPassBatchesCodeScanAndSliceRebaseSideEffectsOnce() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)
 		let rootURL = tempParent.appendingPathComponent("WorkspaceRoot", isDirectory: true)
@@ -4764,6 +4779,9 @@ extension RepoFileManagerTests {
 		let modifiedOne = syntheticFileRelativePath(folderIndex: 0, fileIndex: 0, namePayloadLength: payloadLength)
 		let modifiedTwo = syntheticFileRelativePath(folderIndex: 0, fileIndex: 1, namePayloadLength: payloadLength)
 		let newFileRelativePath = "\(syntheticFolderName(index: 0, namePayloadLength: payloadLength))/\(syntheticFileName(index: 99, namePayloadLength: payloadLength))"
+		for relativePath in [modifiedOne, modifiedTwo, newFileRelativePath] {
+			try writeReplayFixtureFile(relativePath, under: rootURL)
+		}
 		await fileManagerVM.enqueuePendingDeltasForTesting(
 			[
 				.fileModified(modifiedOne, nil),
@@ -4775,12 +4793,13 @@ extension RepoFileManagerTests {
 		await fileManagerVM.flushPendingDeltas()
 
 		let sample = try XCTUnwrap(fileManagerVM.latestDeltaReplayPerfSampleForTesting())
-		let chunk = try XCTUnwrap(sample.replayedRoots.last)
+		let pass = try XCTUnwrap(sample.rootPasses.last)
 		XCTAssertEqual(sample.totalChunkCount, 1)
-		XCTAssertEqual(chunk.codeScanBatchInvocationCount, 1)
-		XCTAssertEqual(chunk.codeScanBatchFileCount, 3)
-		XCTAssertEqual(chunk.sliceRebaseBatchInvocationCount, 1)
-		XCTAssertEqual(chunk.sliceRebaseCandidateCount, 2)
+		XCTAssertEqual(sample.rootPasses.count, 1)
+		XCTAssertEqual(pass.codeScanBatchInvocationCount, 1)
+		XCTAssertEqual(pass.codeScanBatchFileCount, 3)
+		XCTAssertEqual(pass.sliceRebaseBatchInvocationCount, 1)
+		XCTAssertEqual(pass.sliceRebaseCandidateCount, 2)
 		XCTAssertEqual(sample.totalCodeScanBatchFileCount, 3)
 		XCTAssertEqual(sample.totalSliceRebaseCandidateCount, 2)
 		XCTAssertNotNil(fileManagerVM.findFileByRelativePath(newFileRelativePath))
@@ -4819,6 +4838,7 @@ extension RepoFileManagerTests {
 			.folderAdded(secondBurstFolder),
 			.fileAdded("\(secondBurstFolder)/\(secondBurstFile)")
 		]
+		try writeReplayFixtureFile("\(secondBurstFolder)/\(secondBurstFile)", under: rootURL)
 
 		var cancellable: AnyCancellable?
 		var scheduledSecondBurst = false

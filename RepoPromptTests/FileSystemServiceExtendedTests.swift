@@ -90,7 +90,7 @@ final class FileSystemServiceExtendedTests: XCTestCase {
         
         let deltas2 = await service.simulateFSEvents([folderDeleteEvent])
         
-        // Verify folder and its contents are removed
+        // Verify the folder removal covers its contents
         let removedPaths = deltas2.compactMap { delta -> String? in
             switch delta {
             case .fileRemoved(let path), .folderRemoved(let path):
@@ -101,7 +101,9 @@ final class FileSystemServiceExtendedTests: XCTestCase {
         }
         
         XCTAssertTrue(removedPaths.contains("docs"), "Should remove the folder")
-        XCTAssertTrue(removedPaths.contains("docs/readme.md"), "Should remove files in deleted folder")
+        XCTAssertFalse(removedPaths.contains("docs/readme.md"), "The folder removal should cover its files")
+        let state = await service.getTestState()
+        XCTAssertFalse(state.visitedPaths.contains("docs/readme.md"), "Should stop tracking files in deleted folder")
     }
     
     // MARK: - Folder Rename Tests
@@ -162,7 +164,9 @@ final class FileSystemServiceExtendedTests: XCTestCase {
         }
         
         XCTAssertTrue(removedPaths.contains("old-name"), "Old folder should be removed")
-        XCTAssertTrue(removedPaths.contains("old-name/file1.txt"), "Files in old folder should be removed")
+        XCTAssertFalse(removedPaths.contains("old-name/file1.txt"), "The old folder removal should cover its files")
+        let state = await service.getTestState()
+        XCTAssertFalse(state.visitedPaths.contains("old-name/file1.txt"), "Files in old folder should stop being tracked")
         XCTAssertTrue(addedPaths.contains("new-name"), "New folder should be added")
         XCTAssertTrue(addedPaths.contains("new-name/file1.txt"), "Files in new folder should be added")
     }
