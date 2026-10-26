@@ -425,6 +425,14 @@ class RepoFileManagerViewModel: ObservableObject {
 	private var fileHierarchyIndex = FileHierarchyIndex()
 	/// The index of each root folder, by the root folder's standardized full path.
 	private(set) var rootFolderIndexes: [String: RootFolderIndex] = [:]
+	/// Files read so far of each root folder whose reading runs, by the root folder's standardized full path.
+	/// A root folder whose reading is complete has no entry.
+	let readingFileCounts = CurrentValueSubject<[String: Int], Never>([:])
+
+	private func dropRootFolderIndex(forKey rootKey: String) {
+		rootFolderIndexes.removeValue(forKey: rootKey)
+		readingFileCounts.value.removeValue(forKey: rootKey)
+	}
 
 	// Track window focus
 	private var isWindowFocused: Bool = true
@@ -586,7 +594,7 @@ class RepoFileManagerViewModel: ObservableObject {
 		let stdPath = folder.standardizedFullPath
 		unregisterExpansionTracking(for: folder)
 		rootFolders.removeAll { $0.id == folder.id }
-		rootFolderIndexes.removeValue(forKey: stdPath)
+		dropRootFolderIndex(forKey: stdPath)
 		
 		// Topology: root disappeared - remove per-root generation entry
 		removeHierarchyGenerationEntry(forRootFullPath: stdPath)
@@ -2203,7 +2211,7 @@ func loadFolder(
 
 			// Remove the root from the absolute-path index to avoid stale entries
 			fileHierarchyIndex.removeFolder(forKey: stdPath, expectedRootKey: stdPath)
-			rootFolderIndexes.removeValue(forKey: stdPath)
+			dropRootFolderIndex(forKey: stdPath)
 			
 			// Clean up per-root generation entry and invalidate snapshot
 			removeHierarchyGenerationEntry(forRootFullPath: stdPath)
@@ -2228,8 +2236,10 @@ func loadFolder(
 		let chunkedStream = await fileSystemService.loadContentsInChunks(of: url, chunkSize: 200)
 		
 		let isGitDataRoot = rootFolder.isSystemRoot && rootFolder.name == "_git_data"
-		let rootFolderIndex = RootFolderIndex(rootPath: rootFolder.standardizedFullPath)
-		rootFolderIndexes[rootFolder.standardizedFullPath] = rootFolderIndex
+		let rootKey = rootFolder.standardizedFullPath
+		let rootFolderIndex = RootFolderIndex(rootPath: rootKey)
+		rootFolderIndexes[rootKey] = rootFolderIndex
+		readingFileCounts.value[rootKey] = 0
 
 		@inline(__always)
 		func fullPath(forRelativePath rel: String) -> String {
@@ -2262,6 +2272,7 @@ func loadFolder(
 		func stageChunk(_ chunk: FSPreparedChunk) {
 			// We are on @MainActor (class is @MainActor)
 			rootFolderIndex.add(chunk)
+			readingFileCounts.value[rootKey] = rootFolderIndex.filePaths.count
 			// 1) Stage Folders
 			for folderDTO in chunk.folders {
 				let relPath = folderDTO.relativePath
@@ -2387,6 +2398,7 @@ func loadFolder(
 			}
 		}
 		rootFolderIndex.finishReading()
+		readingFileCounts.value.removeValue(forKey: rootKey)
 
 		// Commit staged content in a single pass to minimize UI thrash
 		// ➊ Index all staged VMs first (so parents can be found even if not yet attached).
@@ -5742,7 +5754,7 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 	/// Removes all index references for a given root folder's entire subtree.
 	@MainActor
 	private func removeRootFolderReferences(_ folder: FolderViewModel) {
-		rootFolderIndexes.removeValue(forKey: folder.standardizedFullPath)
+		dropRootFolderIndex(forKey: folder.standardizedFullPath)
 		let cleanup = rootReferenceCleanupPlan(for: folder)
 		for filePath in cleanup.filePaths {
 			codemapCapableAPIsByFullPath.removeValue(forKey: filePath)
@@ -6308,6 +6320,7 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 		
 		fileHierarchyIndex.clearAll()
 		rootFolderIndexes.removeAll()
+		readingFileCounts.value.removeAll()
 		fileHierarchyIndex = FileHierarchyIndex()
 		codemapCapableAPIsByFullPath.removeAll()
 		autoCodemapSyncTask?.cancel()

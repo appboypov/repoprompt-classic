@@ -35,11 +35,22 @@ class RootFolderCellView: NSTableCellView {
 	var hoverCheckbox: HoverCheckboxView!
 	private var hoverRegion: NSView!
 	private var stateCancellable: AnyCancellable?
+	private var readingCancellable: AnyCancellable?
 	
 	weak var treeViewController: FileTreeViewController?
 	
 	var folderIconImageView: NSImageView!
 	var folderNameTextField: NSTextField!
+	private var readingSpinner: NSProgressIndicator!
+	private var readingCountLabel: NSTextField!
+	private var nameTrailingWhileIdle: NSLayoutConstraint!
+	private var countTrailingWhileReading: NSLayoutConstraint!
+	
+	private static let fileCountFormatter: NumberFormatter = {
+		let formatter = NumberFormatter()
+		formatter.numberStyle = .decimal
+		return formatter
+	}()
 	
 	/// Current visual style applied to this cell
 	private var currentStyle: FolderVisualStyle = .normal
@@ -47,6 +58,7 @@ class RootFolderCellView: NSTableCellView {
 	var folder: FolderViewModel? {
 		didSet {
 			stateCancellable?.cancel()
+			readingCancellable?.cancel()
 			
 			if let folder = folder {
 				setupAccessibility(with: folder.name)
@@ -59,7 +71,46 @@ class RootFolderCellView: NSTableCellView {
 					.sink { [weak self] newState in
 						self?.hoverCheckbox.checkboxState = newState
 					}
+				
+				// Show the reading state of this root folder, at most a few paints per second
+				readingCountLabel.font = NSFont.monospacedDigitSystemFont(ofSize: FontScalePreset.current.nsFont.pointSize, weight: .regular)
+				let rootKey = folder.standardizedFullPath
+				let readingFileCounts = treeViewController?.fileManager?.readingFileCounts
+				showReading(fileCount: readingFileCounts?.value[rootKey])
+				readingCancellable = readingFileCounts?
+					.map { $0[rootKey] }
+					.removeDuplicates()
+					.throttle(for: .milliseconds(150), scheduler: DispatchQueue.main, latest: true)
+					.sink { [weak self] fileCount in
+						self?.showReading(fileCount: fileCount)
+					}
+			} else {
+				showReading(fileCount: nil)
 			}
+		}
+	}
+	
+	/// Shows a spinner and the files read so far while the root folder is read, and neither once it is complete.
+	private func showReading(fileCount: Int?) {
+		let isReading = fileCount != nil
+		if let fileCount {
+			let number = Self.fileCountFormatter.string(from: NSNumber(value: fileCount)) ?? "\(fileCount)"
+			readingCountLabel.stringValue = fileCount == 1 ? "\(number) file" : "\(number) files"
+			setAccessibilityValue("Reading, \(readingCountLabel.stringValue)")
+		} else {
+			setAccessibilityValue(nil)
+		}
+		guard readingCountLabel.isHidden == isReading else { return }
+		readingSpinner.isHidden = !isReading
+		readingCountLabel.isHidden = !isReading
+		if isReading {
+			nameTrailingWhileIdle.isActive = false
+			countTrailingWhileReading.isActive = true
+			readingSpinner.startAnimation(nil)
+		} else {
+			countTrailingWhileReading.isActive = false
+			nameTrailingWhileIdle.isActive = true
+			readingSpinner.stopAnimation(nil)
 		}
 	}
 	
@@ -125,6 +176,24 @@ class RootFolderCellView: NSTableCellView {
 		folderNameTextField.font = FontScalePreset.current.nsFont
 		hoverRegion.addSubview(folderNameTextField)
 		
+		readingSpinner = NSProgressIndicator(frame: .zero)
+		readingSpinner.translatesAutoresizingMaskIntoConstraints = false
+		readingSpinner.style = .spinning
+		readingSpinner.controlSize = .small
+		readingSpinner.isIndeterminate = true
+		readingSpinner.isHidden = true
+		hoverRegion.addSubview(readingSpinner)
+		
+		readingCountLabel = NSTextField(labelWithString: "")
+		readingCountLabel.translatesAutoresizingMaskIntoConstraints = false
+		readingCountLabel.textColor = .secondaryLabelColor
+		readingCountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+		readingCountLabel.isHidden = true
+		hoverRegion.addSubview(readingCountLabel)
+		
+		nameTrailingWhileIdle = folderNameTextField.trailingAnchor.constraint(equalTo: hoverRegion.trailingAnchor, constant: -8)
+		countTrailingWhileReading = readingCountLabel.trailingAnchor.constraint(equalTo: hoverRegion.trailingAnchor, constant: -8)
+		
 		NSLayoutConstraint.activate([
 			hoverCheckbox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
 			hoverCheckbox.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -142,7 +211,15 @@ class RootFolderCellView: NSTableCellView {
 			
 			folderNameTextField.leadingAnchor.constraint(equalTo: folderIconImageView.trailingAnchor, constant: 8),
 			folderNameTextField.centerYAnchor.constraint(equalTo: hoverRegion.centerYAnchor),
-			folderNameTextField.trailingAnchor.constraint(equalTo: hoverRegion.trailingAnchor, constant: -8),
+			nameTrailingWhileIdle,
+			
+			readingSpinner.leadingAnchor.constraint(equalTo: folderNameTextField.trailingAnchor, constant: 8),
+			readingSpinner.centerYAnchor.constraint(equalTo: hoverRegion.centerYAnchor),
+			readingSpinner.widthAnchor.constraint(equalToConstant: 14),
+			readingSpinner.heightAnchor.constraint(equalToConstant: 14),
+			
+			readingCountLabel.leadingAnchor.constraint(equalTo: readingSpinner.trailingAnchor, constant: 4),
+			readingCountLabel.centerYAnchor.constraint(equalTo: hoverRegion.centerYAnchor),
 			
 			hoverRegion.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8)
 		])
@@ -243,5 +320,6 @@ class RootFolderCellView: NSTableCellView {
 	
 	deinit {
 		stateCancellable?.cancel()
+		readingCancellable?.cancel()
 	}
 }
