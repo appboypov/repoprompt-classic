@@ -304,7 +304,7 @@ final class RootFolderIndex {
 		generation = Self.latestGeneration
 	}
 
-	private static func parentPath(of path: String) -> String {
+	private nonisolated static func parentPath(of path: String) -> String {
 		guard let slash = path.lastIndex(of: "/") else { return "" }
 		return String(path[..<slash])
 	}
