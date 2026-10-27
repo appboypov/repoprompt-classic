@@ -198,28 +198,6 @@ struct FileTreeView: View {
 		}
 	}
 
-	
-	/*
-	/// If we do have an active workspace and at least one root folder
-	private var fileListView: some View {
-		// MARK: - Original SwiftUI List implementation
-		List {
-			ForEach(fileManager.visibleRootFolders, id: \.id) { rootFolder in
-				RootFolderView(
-					folder: rootFolder,
-					sortMethod: fileManager.currentSortMethod,
-					onUnloadRootFolder: { folderToUnload in
-						fileManager.requestUnloadRootFolder(path: rootFolder.fullPath)
-					}
-				)
-			}
-		}
-		.listStyle(SidebarListStyle())
-		.scrollContentBackground(.hidden)
-		.background(Color.clear)
-	}
-	*/
-	
 	// MARK: - State Determination
 	
 	private var shouldShowNoFolders: Bool {
