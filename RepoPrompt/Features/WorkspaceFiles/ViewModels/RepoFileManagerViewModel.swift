@@ -10607,7 +10607,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		}
 		enqueueInitialRootLoadRequests(
 			rootPath: rootKey,
-			relativeFilePaths: index.filePaths,
+			relativeFilePaths: Array(index.filePaths),
 			filesByFullPath: fileHierarchyIndex.filesByFullPath,
 			rootServices: rootServices
 		)
@@ -10661,7 +10661,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	@MainActor
 	private func enqueueInitialRootLoadRequests(
 		rootPath: String,
-		relativeFilePaths: Set<String>,
+		relativeFilePaths: [String],
 		filesByFullPath: [String: FileViewModel],
 		rootServices: [String: FileSystemService]
 	) {
@@ -10731,7 +10731,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	/// tree item's identity and cached content; a file without one scans from disk under its path identity.
 	private nonisolated static func buildInitialRootLoadScanSnapshots(
 		rootPath: String,
-		relativeFilePaths: Set<String>,
+		relativeFilePaths: [String],
 		filesByFullPath: [String: FileViewModel]
 	) async -> [ScanSnapshot] {
 		var treeItemFiles: [FileViewModel] = []
@@ -11294,7 +11294,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 						case .folder:
 							let rootPath = resolution.root.standardizedFullPath
 							let prefix = resolution.standardizedRelativePath.isEmpty ? "" : resolution.standardizedRelativePath + "/"
-							for relativePath in rootFolderIndexes[rootPath]?.filePaths ?? [] where relativePath.hasPrefix(prefix) {
+							for relativePath in rootFolderIndexes[rootPath]?.filePaths.filter({ $0.hasPrefix(prefix) }) ?? [] {
 								matchedAbsPaths.insert(StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath))
 							}
 						case nil:
@@ -11308,14 +11308,14 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 						return restrictedRootPath
 					})
 					let systemSnapshots = systemRootPaths.flatMap { rootPath in
-						(rootFolderIndexes[rootPath]?.filePaths ?? []).map { relativePath in
+						rootFolderIndexes[rootPath]?.filePaths.map { relativePath in
 							FileSearchPathSnapshot(
 								standardizedFullPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath),
 								standardizedRelativePath: relativePath,
 								standardizedRootPath: rootPath,
 								clientDisplayPath: relativePath
 							)
-						}
+						} ?? []
 					}
 					let wildcardSpec = SearchPathFilterSpec(
 						caseInsensitive: caseInsensitive,
