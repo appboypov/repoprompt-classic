@@ -450,7 +450,7 @@ class SearchFileTreeViewModel: ObservableObject {
 		let rootPath = index.rootPath
 		func id(of relativePath: String) -> UUID {
 			RepoFileManagerViewModel.fileID(
-				forFileWithoutTreeItem: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
+				forStandardizedPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
 			)
 		}
 		func name(of relativePath: String) -> String {
