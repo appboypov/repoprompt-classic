@@ -35,89 +35,25 @@ class SearchFileTreeViewModel: ObservableObject {
 	
 	// Per-root snapshot caching
 	private struct RootSnapshotCacheEntry {
-		let rootID: UUID
 		let rootPath: String       // standardized full path
-		let index: RootFolderIndex
-		var generation: UInt64     // the index generation the snapshot was built from
+		let generation: UInt64     // the index generation the snapshot was built from
 		let showEmptyFolders: Bool
-		var snapshot: SnapshotFolder
+		let snapshot: SnapshotFolder
 	}
 	
 	private var rootSnapshotCache: [UUID: RootSnapshotCacheEntry] = [:]
 	
-	// OPTIMIZATION 2: Pre-compiled wildcard pattern caching
-	// Cache the parsed query to avoid recompiling for every file
-	private var cachedQuery: (raw: String, parsed: ParsedQuery)? = nil
-	
-	// Fast path search index for >1k files
-	private var pathSearchIndex: PathSearchIndex?
-	private var flatFilesPath: [(file: SnapshotFile, folderPath: [SnapshotFolder])] = []  // Full path info
+	// The path index of the last search, reused while no root's index generation changes
+	private var searchIndex: SearchIndexState?
 	
 	// Configurable constants
-	private static let resultLimit: Int = 300
-	private nonisolated static var fuzzyThreshold: Double { 0.85 }
-	
-	// Query parsing helper
-	private struct ParsedQuery {
-		let raw: String
-		let lowered: String
-		let hasSlash: Bool
-		let isWildcard: Bool
-	}
+	private nonisolated static var resultLimit: Int { 300 }
 	
 	init() {
 		setupSearchPublisher()
 	}
 	
 	private var workspaceManager: WorkspaceManagerViewModel?   // NEW
-	
-	// Parse query to extract metadata
-	private func parseQuery(_ s: String) -> ParsedQuery {
-		// OPTIMIZATION 2: Return cached query if it matches
-		if let cached = cachedQuery, cached.raw == s {
-			return cached.parsed
-		}
-		
-		let trimmed = s.trimmingCharacters(in: .whitespaces)
-		let lowered = trimmed.lowercased()
-		let hasSlash = trimmed.contains("/")
-		let isWildcard = trimmed.contains("*") || trimmed.contains("?")
-		
-		let parsed = ParsedQuery(
-			raw: trimmed,
-			lowered: lowered,
-			hasSlash: hasSlash,
-			isWildcard: isWildcard
-		)
-		
-		// Cache the parsed query
-		cachedQuery = (raw: s, parsed: parsed)
-		
-		return parsed
-	}
-	
-	// Score a file match based on hierarchical relevance using C implementation
-	private func scoreMatch(of snap: SnapshotFile, against q: ParsedQuery) -> Int? {
-		let score = snap.name.withCString { namePtr in
-			snap.relativePath.withCString { pathPtr in
-				snap.nameLower.withCString { nameLowerPtr in
-					snap.relativePathLower.withCString { pathLowerPtr in
-						q.raw.withCString { queryPtr in
-							q.lowered.withCString { queryLowerPtr in
-								Int(repo_score_match(namePtr, pathPtr, 
-													nameLowerPtr, pathLowerPtr,
-													queryPtr, queryLowerPtr,
-													q.hasSlash, q.isWildcard, 
-													Self.fuzzyThreshold))
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		return score > 0 ? score : nil
-	}
 	
 	/// Sets the workspace manager and binds to its "workspaceDidSwitch" event.
 	/// Sets the workspace manager and binds to its "workspaceDidSwitch" event.
@@ -154,7 +90,8 @@ class SearchFileTreeViewModel: ObservableObject {
 	func setFileManager(_ fileManager: RepoFileManagerViewModel) {
 		self.fileManager = fileManager
 		// New FM: reset all search caches
-		resetCaches(scope: .fileManagerChanged)
+		rootSnapshotCache.removeAll()
+		searchIndex = nil
 
 		fileManager.fileTogglePublisher
 			.sink { [weak self] toggledFile in
@@ -167,8 +104,8 @@ class SearchFileTreeViewModel: ObservableObject {
 		fileManager.folderRefreshPublisher
 			.sink { [weak self] updatedFolder in
 				Task { @MainActor in
-					// Note: Cache invalidation happens via fileSystemChangedPublisher
-					self?.performSearch(cancelExisting: false)	// Re-run the same search with fresh snapshot
+					// A search reuses its snapshots and index while the index generations stay the same
+					self?.performSearch(cancelExisting: false)
 				}
 			}
 			.store(in: &cancellables)
@@ -178,7 +115,7 @@ class SearchFileTreeViewModel: ObservableObject {
 		fileManager.folderDidFinishLoadingPublisher
 			.sink { [weak self] _ in
 				Task { @MainActor in
-					// Note: Cache invalidation happens via fileSystemChangedPublisher
+					// A search reuses its snapshots and index while the index generations stay the same
 					self?.performSearch(cancelExisting: false)
 				}
 			}
@@ -193,11 +130,10 @@ class SearchFileTreeViewModel: ObservableObject {
 			}
 			.store(in: &cancellables)
 		
-		// Subscribe to file system changes to invalidate snapshot cache
+		// Subscribe to file system changes to re-run an active search
 		fileManager.fileSystemChangedPublisher
 			.sink { [weak self] in
 				Task { @MainActor in
-					self?.invalidateSnapshotCache()
 					// Only re-perform search if we have an active search
 					if let self = self, !self.searchText.isEmpty {
 						self.performSearch(cancelExisting: false)
@@ -213,7 +149,6 @@ class SearchFileTreeViewModel: ObservableObject {
 			.sink { [weak self] _ in
 				Task { @MainActor in
 					guard let self, !self.searchText.isEmpty else { return }
-					self.invalidateSnapshotCache()
 					self.performSearch(cancelExisting: false)
 				}
 			}
@@ -235,7 +170,6 @@ class SearchFileTreeViewModel: ObservableObject {
 
 		folderIndex.removeAll()
 		fileIndex.removeAll()
-		cachedQuery = nil
 	}
 
 	func cancelSearch() {
@@ -243,36 +177,6 @@ class SearchFileTreeViewModel: ObservableObject {
 		workspaceSwitchTask?.cancel()
 		workspaceSwitchTask = nil
 		searchText = ""
-	}
-	
-	// Centralized cache reset helper
-	private enum CacheResetScope {
-		case fileSystemChanged   // FM same, topology changed
-		case fileManagerChanged  // new RepoFileManager instance
-	}
-	
-	@MainActor
-	private func resetCaches(scope: CacheResetScope) {
-		switch scope {
-		case .fileSystemChanged:
-			// We keep per-root snapshots and let per-root generation
-			// decide what to rebuild next time.
-			cachedQuery = nil
-			pathSearchIndex = nil
-			flatFilesPath = []
-			// rootSnapshotCache stays intact
-			
-		case .fileManagerChanged:
-			// New FM: throw away everything
-			cachedQuery = nil
-			pathSearchIndex = nil
-			flatFilesPath = []
-			rootSnapshotCache.removeAll()
-		}
-	}
-	
-	private func invalidateSnapshotCache() {
-		resetCaches(scope: .fileSystemChanged)
 	}
 	
 	private func setupSearchPublisher() {
@@ -358,16 +262,11 @@ class SearchFileTreeViewModel: ObservableObject {
 		// regex compilation or excessive work. Anything beyond 1 000 chars
 		// is simply ignored.
 		// ------------------------------------------------------------------
-		let cappedSearchText = String(searchText.prefix(1_000))
+		let searchTextCapture = String(searchText.prefix(1_000))
 		
-		// Build snapshot using per-root caching (only rebuilds changed roots)
-		let snapshot: [SnapshotFolder]
-		if let fm = fileManager {
-			snapshot = buildSnapshotFromFileManager(fm)
-		} else {
-			snapshot = []
-		}
-		let searchTextCapture = cappedSearchText   // use the capped version only
+		// The main actor only gathers each root's index values; the search builds and walks them off it
+		let inputs = fileManager.map(searchRootInputs(of:)) ?? []
+		let reusableIndex = searchIndex
 		
 		searchTask = Task { [weak self] in
 			guard let self else { return }
@@ -375,14 +274,21 @@ class SearchFileTreeViewModel: ObservableObject {
 			await MainActor.run { self.isSearching = true }
 			
 			do {
-				// We already had a 5 s timeout; no change needed here.
-				let found = try await withTimeout(seconds: 5) {
-					await self.searchSnapshot(snapshot, forPattern: searchTextCapture)
+				let work = Task.detached(priority: .userInitiated) {
+					try await SearchFileTreeViewModel.search(inputs, reusing: reusableIndex, forPattern: searchTextCapture)
 				}
+				let run = try await withTaskCancellationHandler {
+					try await work.value
+				} onCancel: {
+					work.cancel()
+				}
+				
+				await MainActor.run { self.store(run, for: inputs) }
 				
 				if Task.isCancelled { throw CancellationError() }
 				
 				await MainActor.run {
+					let found = run.matches.map { self.searchFolder(from: $0) }
 					self.rootFolders     = found
 					self.noResultsFound  = found.isEmpty
 					self.hasSearchResults = !found.isEmpty
@@ -416,541 +322,303 @@ class SearchFileTreeViewModel: ObservableObject {
 		}
 	}
 	
-	private struct SnapshotFolder {
+	private struct SnapshotFolder: Sendable {
 		let id: UUID
 		let name: String
 		let relativePath: String
 		let children: [SnapshotItem]
 	}
 	
-	private enum SnapshotItem {
+	private enum SnapshotItem: Sendable {
 		case folder(SnapshotFolder)
 		case file(SnapshotFile)
 	}
 	
-	private struct SnapshotFile {
+	private struct SnapshotFile: Sendable {
 		let id: UUID
 		let name: String
 		let relativePath: String
-		let nameLower: String
-		let relativePathLower: String
-		
-		init(id: UUID, name: String, relativePath: String) {
-			self.id = id
-			self.name = name
-			self.relativePath = relativePath
-			self.nameLower = name.lowercased()
-			self.relativePathLower = relativePath.lowercased()
+	}
+	
+	/// What a search needs of one visible root folder: its cached snapshot, or the index contents to build one from.
+	private struct SearchRootInput: Sendable {
+		enum Source: Sendable {
+			case cached(SnapshotFolder)
+			case contents(RootFolderIndex.Contents)
 		}
+		
+		let rootID: UUID
+		let rootName: String
+		let rootRelativePath: String
+		let rootPath: String
+		let generation: UInt64
+		let showEmptyFolders: Bool
+		let source: Source
+	}
+	
+	/// The path index over every file of the snapshots, with the index generation of each root it was built from.
+	private struct SearchIndexState: Sendable {
+		let index: PathSearchIndex
+		let files: [SnapshotFile]
+		let generations: [UUID: UInt64]
+	}
+	
+	/// A folder of the results: only its matching files and the folders that hold one.
+	private struct MatchedFolder: Sendable {
+		let id: UUID
+		let name: String
+		let relativePath: String
+		let rootID: UUID
+		let rootPath: String
+		let children: [MatchedItem]
+		let bestScore: Int
+	}
+	
+	private enum MatchedItem: Sendable {
+		case folder(MatchedFolder)
+		case file(SnapshotFile, score: Int)
+	}
+	
+	/// What one search found, with the snapshots and index it built so the next search can reuse them.
+	private struct SearchRun: Sendable {
+		let snapshots: [SnapshotFolder]
+		let searchIndex: SearchIndexState
+		let matches: [MatchedFolder]
+	}
+	
+	/// The search inputs of the visible root folders. Reads the index contents only of a root whose cached snapshot is stale.
+	@MainActor
+	private func searchRootInputs(of fm: RepoFileManagerViewModel) -> [SearchRootInput] {
+		fm.visibleRootFolders.compactMap { root in
+			let rootPath = root.standardizedFullPath
+			guard let index = fm.rootFolderIndexes[rootPath] else { return nil }
+			let source: SearchRootInput.Source
+			if let cached = rootSnapshotCache[root.id],
+			cached.rootPath == rootPath,
+			cached.generation == index.generation,
+			cached.showEmptyFolders == fm.showEmptyFolders {
+				source = .cached(cached.snapshot)
+			} else {
+				source = .contents(index.contents)
+			}
+			return SearchRootInput(
+				rootID: root.id,
+				rootName: root.name,
+				rootRelativePath: root.relativePath,
+				rootPath: rootPath,
+				generation: index.generation,
+				showEmptyFolders: fm.showEmptyFolders,
+				source: source
+			)
+		}
+	}
+	
+	/// Keeps the snapshots and index of a search for the next one. Roots that are gone drop out of the cache.
+	@MainActor
+	private func store(_ run: SearchRun, for inputs: [SearchRootInput]) {
+		var cache: [UUID: RootSnapshotCacheEntry] = [:]
+		for (input, snapshot) in zip(inputs, run.snapshots) {
+			cache[input.rootID] = RootSnapshotCacheEntry(
+				rootPath: input.rootPath,
+				generation: input.generation,
+				showEmptyFolders: input.showEmptyFolders,
+				snapshot: snapshot
+			)
+		}
+		rootSnapshotCache = cache
+		searchIndex = run.searchIndex
+	}
+	
+	/// Builds the snapshots and path index the inputs miss, then finds the files that match the pattern.
+	/// Runs off the main actor; only the index search itself has the 5 s timeout.
+	private nonisolated static func search(
+		_ inputs: [SearchRootInput],
+		reusing reusableIndex: SearchIndexState?,
+		forPattern pattern: String
+	) async throws -> SearchRun {
+		var snapshots: [SnapshotFolder] = []
+		snapshots.reserveCapacity(inputs.count)
+		for input in inputs {
+			try Task.checkCancellation()
+			switch input.source {
+			case .cached(let snapshot):
+				snapshots.append(snapshot)
+			case .contents(let contents):
+				snapshots.append(makeSnapshotFolder(of: input, contents: contents))
+			}
+		}
+		
+		let generations = Dictionary(inputs.map { ($0.rootID, $0.generation) }, uniquingKeysWith: { _, last in last })
+		let searchIndex: SearchIndexState
+		if let reusableIndex, reusableIndex.generations == generations {
+			searchIndex = reusableIndex
+		} else {
+			var files: [SnapshotFile] = []
+			for snapshot in snapshots {
+				collectFiles(of: snapshot, into: &files)
+			}
+			try Task.checkCancellation()
+			searchIndex = SearchIndexState(
+				index: await PathSearchIndex(paths: files.map(\.relativePath)),
+				files: files,
+				generations: generations
+			)
+		}
+		try Task.checkCancellation()
+		
+		let candidates = try await withTimeout(seconds: 5) {
+			await searchIndex.index.search(pattern, limit: resultLimit * 4)
+		}
+		
+		// De-duplicate indices (path_search_find can emit duplicates), then
+		// give each kept file a rank-based score: earlier in the list scores higher.
+		var seen = Set<Int>()
+		let ranked = candidates.filter { seen.insert($0.index).inserted }.prefix(resultLimit)
+		var scores: [UUID: Int] = [:]
+		for (rank, candidate) in ranked.enumerated() where searchIndex.files.indices.contains(candidate.index) {
+			scores[searchIndex.files[candidate.index].id] = resultLimit - rank
+		}
+		
+		let matches: [MatchedFolder] = scores.isEmpty
+			? []
+			: zip(inputs, snapshots).compactMap { input, snapshot in
+				matchedFolder(from: snapshot, rootID: input.rootID, rootPath: input.rootPath, scores: scores)
+			}
+		return SearchRun(snapshots: snapshots, searchIndex: searchIndex, matches: matches)
 	}
 	
 	/// The snapshot of a root folder, built from its index so it holds the folders that are not opened too.
-	@MainActor
-	private func makeSnapshotFolder(root: FolderViewModel, index: RootFolderIndex, showEmptyFolders: Bool) -> SnapshotFolder {
-		let rootPath = index.rootPath
+	/// Folders come before files, each sorted by lowercased name.
+	private nonisolated static func makeSnapshotFolder(of input: SearchRootInput, contents: RootFolderIndex.Contents) -> SnapshotFolder {
 		func id(of relativePath: String) -> UUID {
 			RepoFileManagerViewModel.fileID(
-				forStandardizedPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
+				forStandardizedPath: StandardizedPath.join(standardizedRoot: contents.rootPath, standardizedRelativePath: relativePath)
 			)
 		}
-		func name(of relativePath: String) -> String {
-			(relativePath as NSString).lastPathComponent
-		}
-		func children(of folder: RootFolderIndex.Folder) -> [SnapshotItem] {
-			let folders = folder.childFolderPaths
-				.compactMap { path in index.folders[path].map { (path, $0) } }
-				.filter { showEmptyFolders || !$0.1.isKnownEmpty }
-				.sorted { name(of: $0.0).lowercased() < name(of: $1.0).lowercased() }
-				.map { path, subfolder in
-					SnapshotItem.folder(SnapshotFolder(id: id(of: path), name: name(of: path), relativePath: path, children: children(of: subfolder)))
+		/// Each path with its name, sorted by the lowercased name alone.
+		func named(_ paths: Set<String>) -> [(path: String, name: String)] {
+			paths
+				.map { path -> (key: String, path: String, name: String) in
+					let name = (path as NSString).lastPathComponent
+					return (name.lowercased(), path, name)
 				}
-			let files = folder.childFilePaths
-				.sorted { name(of: $0).lowercased() < name(of: $1).lowercased() }
-				.map { SnapshotItem.file(SnapshotFile(id: id(of: $0), name: name(of: $0), relativePath: $0)) }
+				.sorted { $0.key < $1.key }
+				.map { (path: $0.path, name: $0.name) }
+		}
+		func children(of folder: RootFolderIndex.Contents.Folder) -> [SnapshotItem] {
+			let folders = named(folder.childFolderPaths).compactMap { child -> SnapshotItem? in
+				guard let subfolder = contents.folders[child.path],
+				input.showEmptyFolders || !subfolder.isKnownEmpty else { return nil }
+				return .folder(SnapshotFolder(id: id(of: child.path), name: child.name, relativePath: child.path, children: children(of: subfolder)))
+			}
+			let files = named(folder.childFilePaths).map { child in
+				SnapshotItem.file(SnapshotFile(id: id(of: child.path), name: child.name, relativePath: child.path))
+			}
 			return folders + files
 		}
 		return SnapshotFolder(
-			id: root.id,
-			name: root.name,
-			relativePath: root.relativePath,
-			children: index.folders[""].map(children(of:)) ?? []
+			id: input.rootID,
+			name: input.rootName,
+			relativePath: input.rootRelativePath,
+			children: contents.folders[""].map(children(of:)) ?? []
 		)
 	}
 	
-	/// Builds a snapshot using per-root caching. Only roots whose index
-	/// changed (or are new) get their snapshot rebuilt.
-	@MainActor
-	private func buildSnapshotFromFileManager(_ fm: RepoFileManagerViewModel) -> [SnapshotFolder] {
-		var newCache: [UUID: RootSnapshotCacheEntry] = [:]
-		var snapshots: [SnapshotFolder] = []
-		
-		for root in fm.visibleRootFolders {
-			let rootID   = root.id
-			let rootPath = root.standardizedFullPath
-			guard let index = fm.rootFolderIndexes[rootPath] else { continue }
-			
-			if let cached = rootSnapshotCache[rootID],
-			cached.rootPath == rootPath,
-			cached.index === index,
-			cached.generation == index.generation,
-			cached.showEmptyFolders == fm.showEmptyFolders {
-				// Still valid – reuse snapshot
-				newCache[rootID] = cached
-				snapshots.append(cached.snapshot)
-			} else {
-				// Root is new, moved to a different path, or its index changed
-				let snap = makeSnapshotFolder(root: root, index: index, showEmptyFolders: fm.showEmptyFolders)
-				let entry = RootSnapshotCacheEntry(
-					rootID: rootID,
-					rootPath: rootPath,
-					index: index,
-					generation: index.generation,
-					showEmptyFolders: fm.showEmptyFolders,
-					snapshot: snap
-				)
-				newCache[rootID] = entry
-				snapshots.append(snap)
-			}
-		}
-		
-		// Any roots that disappeared are implicitly dropped (not in newCache)
-		rootSnapshotCache = newCache
-		
-		return snapshots
-	}
-	
-	private func rebuildIndexIfNeeded(_ snapshot: [SnapshotFolder]) async {
-		// Rebuild if index is nil OR if flatFilesPath is empty (cache was invalidated)
-		guard pathSearchIndex == nil || flatFilesPath.isEmpty else { return }
-		
-		// Collect all files with their paths
-		var allFiles: [(file: SnapshotFile, folderPath: [SnapshotFolder])] = []
-		
-		func collectAllFiles(from folders: [SnapshotFolder], path: [SnapshotFolder]) {
-			for folder in folders {
-				var currentPath = path
-				currentPath.append(folder)
-				
-				for child in folder.children {
-					switch child {
-					case .folder(let subFolder):
-						collectAllFiles(from: [subFolder], path: currentPath)
-					case .file(let file):
-						allFiles.append((file: file, folderPath: currentPath))
-					}
-				}
-			}
-		}
-		
-		collectAllFiles(from: snapshot, path: [])
-		
-		// Extract just the paths for the index
-		let paths = allFiles.map { $0.file.relativePath }
-		
-		// Build the index
-		pathSearchIndex = await PathSearchIndex(paths: paths)
-		
-		// Store mapping (index → (file, folderPath))
-		flatFilesPath = allFiles
-	}
-	
-	private func searchSnapshot(
-		_ snapshot: [SnapshotFolder],
-		forPattern rawSearchText: String
-	) async -> [SearchFolderViewModel] {
-		let query = parseQuery(rawSearchText)
-		
-		// Build index if needed
-		await rebuildIndexIfNeeded(snapshot)
-		
-		// Always use fast path whenever an index exists
-		if let index = pathSearchIndex {
-			// Fast path using binary search index
-			var candidates = await index.search(rawSearchText, limit: Self.resultLimit * 4)
-			
-			// 1️⃣ De-duplicate indices (path_search_find can emit duplicates)
-			var seen = Set<Int>()
-			candidates = candidates.filter { seen.insert($0.index).inserted }
-			
-			// Convert candidates directly, preserving result order.
-			// We no longer compute a fuzzy score – just assign a rank-based
-			// score so the rest of the pipeline can keep sorting folders by
-			// "score" without extra work.
-			var kept: [(file: SnapshotFile,
-						score: Int,
-						folderPath: [SnapshotFolder])] = []
-			kept.reserveCapacity(min(candidates.count, Self.resultLimit))
-			
-			for (rank, candidate) in candidates.prefix(Self.resultLimit)
-												.enumerated() {
-				guard candidate.index >= 0,
-						candidate.index < flatFilesPath.count else { continue }
-				
-				let data   = flatFilesPath[candidate.index]
-				// Higher rank (earlier in list) gets a larger score value.
-				let score  = Self.resultLimit - rank
-				kept.append((file:       data.file,
-								score:      score,
-								folderPath: data.folderPath))
-			}
-			
-			// Build lookup for fast inclusion test
-			let keptById = Dictionary(
-				uniqueKeysWithValues: kept.map { ($0.file.id,
-													($0.score, $0.folderPath)) })
-			
-			// Reconstruct tree with only matched files
-			return await reconstructTree(from: snapshot,
-											keptFiles: keptById)
-		}
-		
-		// Fall back to original implementation for small file counts
-		// First pass: collect all files with their paths
-		var allFiles: [(file: SnapshotFile, folderPath: [SnapshotFolder])] = []
-		
-		func collectAllFiles(from folders: [SnapshotFolder], path: [SnapshotFolder]) {
-			for folder in folders {
-				var currentPath = path
-				currentPath.append(folder)
-				
-				for child in folder.children {
-					switch child {
-					case .folder(let subFolder):
-						collectAllFiles(from: [subFolder], path: currentPath)
-					case .file(let file):
-						allFiles.append((file: file, folderPath: currentPath))
-					}
-				}
-			}
-		}
-		
-		collectAllFiles(from: snapshot, path: [])
-		
-		// Batch score all files using C implementation for better performance
-		var scores = Array<Int32>(repeating: 0, count: allFiles.count)
-		
-		// OPTIMIZATION 3: Multi-threaded batch scoring
-		// Determine number of threads based on file count and CPU cores
-		let cpuCount = ProcessInfo.processInfo.processorCount
-		let minFilesPerThread = 500  // Don't create threads for tiny batches
-		let threadCount = min(cpuCount, max(1, allFiles.count / minFilesPerThread))
-		
-		if threadCount > 1 {
-			// Multi-threaded path
-			await withTaskGroup(of: Void.self) { group in
-				let filesPerThread = allFiles.count / threadCount
-				
-				for threadIndex in 0..<threadCount {
-					let threadStartIndex = threadIndex * filesPerThread
-					let threadEndIndex = (threadIndex == threadCount - 1)
-						? allFiles.count
-						: (threadIndex + 1) * filesPerThread
-					
-					group.addTask { [query, allFiles] in
-						// Process this thread's range in batches
-						let batchSize = 1000
-						for startIndex in stride(from: threadStartIndex, to: threadEndIndex, by: batchSize) {
-							let endIndex = min(startIndex + batchSize, threadEndIndex)
-							let batchFiles = Array(allFiles[startIndex..<endIndex])
-							
-							// OPTIMIZATION 1: Zero-copy batch interface
-							// Create a single contiguous buffer for all strings to reduce allocations
-							var totalSize = 0
-							for file in batchFiles {
-								totalSize += file.file.name.utf8.count + 1
-								totalSize += file.file.relativePath.utf8.count + 1
-								totalSize += file.file.nameLower.utf8.count + 1
-								totalSize += file.file.relativePathLower.utf8.count + 1
-							}
-							
-							// Allocate one buffer for all strings
-							let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: totalSize)
-							defer { buffer.deallocate() }
-							
-							// Create file info structs pointing into the buffer
-							var fileInfos: [repo_file_info] = []
-							fileInfos.reserveCapacity(batchFiles.count)
-							
-							var currentOffset = 0
-							for file in batchFiles {
-								// Copy name
-								let namePtr = buffer.advanced(by: currentOffset)
-								let nameBytes = file.file.name.utf8CString
-								nameBytes.withUnsafeBufferPointer { bytes in
-									namePtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-								}
-								currentOffset += nameBytes.count
-								
-								// Copy path
-								let pathPtr = buffer.advanced(by: currentOffset)
-								let pathBytes = file.file.relativePath.utf8CString
-								pathBytes.withUnsafeBufferPointer { bytes in
-									pathPtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-								}
-								currentOffset += pathBytes.count
-								
-								// Copy name_lower
-								let nameLowerPtr = buffer.advanced(by: currentOffset)
-								let nameLowerBytes = file.file.nameLower.utf8CString
-								nameLowerBytes.withUnsafeBufferPointer { bytes in
-									nameLowerPtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-								}
-								currentOffset += nameLowerBytes.count
-								
-								// Copy path_lower
-								let pathLowerPtr = buffer.advanced(by: currentOffset)
-								let pathLowerBytes = file.file.relativePathLower.utf8CString
-								pathLowerBytes.withUnsafeBufferPointer { bytes in
-									pathLowerPtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-								}
-								currentOffset += pathLowerBytes.count
-								
-								fileInfos.append(repo_file_info(
-									name: UnsafePointer(namePtr),
-									path: UnsafePointer(pathPtr),
-									name_lower: UnsafePointer(nameLowerPtr),
-									path_lower: UnsafePointer(pathLowerPtr)
-								))
-							}
-							
-							// Score this batch using optimized function
-							fileInfos.withUnsafeBufferPointer { infosPtr in
-								scores.withUnsafeMutableBufferPointer { scoresPtr in
-									let batchScoresPtr = scoresPtr.baseAddress?.advanced(by: startIndex)
-									query.raw.withCString { queryPtr in
-										query.lowered.withCString { queryLowerPtr in
-											repo_score_matches_batch(
-												infosPtr.baseAddress,
-												batchFiles.count,
-												queryPtr,
-												queryLowerPtr,
-												query.hasSlash,
-												query.isWildcard,
-												Self.fuzzyThreshold,
-												batchScoresPtr
-											)
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		} else {
-			// Single-threaded path (original code)
-			let batchSize = 1000
-			for startIndex in stride(from: 0, to: allFiles.count, by: batchSize) {
-				let endIndex = min(startIndex + batchSize, allFiles.count)
-				let batchFiles = Array(allFiles[startIndex..<endIndex])
-				
-				// OPTIMIZATION 1: Zero-copy batch interface
-				// Create a single contiguous buffer for all strings to reduce allocations
-				var totalSize = 0
-				for file in batchFiles {
-					totalSize += file.file.name.utf8.count + 1
-					totalSize += file.file.relativePath.utf8.count + 1
-					totalSize += file.file.nameLower.utf8.count + 1
-					totalSize += file.file.relativePathLower.utf8.count + 1
-				}
-				
-				// Allocate one buffer for all strings
-				let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: totalSize)
-				defer { buffer.deallocate() }
-				
-				// Create file info structs pointing into the buffer
-				var fileInfos: [repo_file_info] = []
-				fileInfos.reserveCapacity(batchFiles.count)
-				
-				var currentOffset = 0
-				for file in batchFiles {
-					// Copy name
-					let namePtr = buffer.advanced(by: currentOffset)
-					let nameBytes = file.file.name.utf8CString
-					nameBytes.withUnsafeBufferPointer { bytes in
-						namePtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-					}
-					currentOffset += nameBytes.count
-					
-					// Copy path
-					let pathPtr = buffer.advanced(by: currentOffset)
-					let pathBytes = file.file.relativePath.utf8CString
-					pathBytes.withUnsafeBufferPointer { bytes in
-						pathPtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-					}
-					currentOffset += pathBytes.count
-					
-					// Copy name_lower
-					let nameLowerPtr = buffer.advanced(by: currentOffset)
-					let nameLowerBytes = file.file.nameLower.utf8CString
-					nameLowerBytes.withUnsafeBufferPointer { bytes in
-						nameLowerPtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-					}
-					currentOffset += nameLowerBytes.count
-					
-					// Copy path_lower
-					let pathLowerPtr = buffer.advanced(by: currentOffset)
-					let pathLowerBytes = file.file.relativePathLower.utf8CString
-					pathLowerBytes.withUnsafeBufferPointer { bytes in
-						pathLowerPtr.initialize(from: bytes.baseAddress!, count: bytes.count)
-					}
-					currentOffset += pathLowerBytes.count
-					
-					fileInfos.append(repo_file_info(
-						name: UnsafePointer(namePtr),
-						path: UnsafePointer(pathPtr),
-						name_lower: UnsafePointer(nameLowerPtr),
-						path_lower: UnsafePointer(pathLowerPtr)
-					))
-				}
-				
-				// Score this batch using optimized function
-				fileInfos.withUnsafeBufferPointer { infosPtr in
-					scores.withUnsafeMutableBufferPointer { scoresPtr in
-						let batchScoresPtr = scoresPtr.baseAddress?.advanced(by: startIndex)
-						query.raw.withCString { queryPtr in
-							query.lowered.withCString { queryLowerPtr in
-								repo_score_matches_batch(
-									infosPtr.baseAddress,
-									batchFiles.count,
-									queryPtr,
-									queryLowerPtr,
-									query.hasSlash,
-									query.isWildcard,
-									Self.fuzzyThreshold,
-									batchScoresPtr
-								)
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		// Collect scored files (only those with score > 0)
-		var scoredFiles: [(file: SnapshotFile, score: Int, folderPath: [SnapshotFolder])] = []
-		for (index, score) in scores.enumerated() where score > 0 {
-			let fileData = allFiles[index]
-			scoredFiles.append((file: fileData.file, score: Int(score), folderPath: fileData.folderPath))
-		}
-		
-		// Sort by score (descending) and take top N
-		scoredFiles.sort { $0.score > $1.score }
-		let keptFiles = Array(scoredFiles.prefix(Self.resultLimit))
-		
-		// Build lookup for fast inclusion test
-		let keptFilesById = Dictionary(uniqueKeysWithValues: keptFiles.map { ($0.file.id, ($0.score, $0.folderPath)) })
-		
-		// Reconstruct tree with only matched files
-		let results = await reconstructTree(from: snapshot, keptFiles: keptFilesById)
-		
-		return results
-	}
-	
-	// Reconstruct tree structure with only matched files and their parent folders
-	private func reconstructTree(
-		from snapshot: [SnapshotFolder],
-		keptFiles: [UUID: (score: Int, folderPath: [SnapshotFolder])]
-	) async -> [SearchFolderViewModel] {
-		var results: [SearchFolderViewModel] = []
-		
-		// Process each root folder
-		for rootSnapshot in snapshot {
-			if let reconstructed = await reconstructFolder(
-				from: rootSnapshot,
-				keptFiles: keptFiles,
-				parentPath: []
-			) {
-				results.append(reconstructed)
-			}
-		}
-		
-		// Preserve the root ordering from the main file tree snapshot so search results
-		// reflect the same workspace order.
-		return results
-	}
-	
-	// Reconstruct a single folder if it contains any matched files
-	private func reconstructFolder(
-		from snapshot: SnapshotFolder,
-		keptFiles: [UUID: (score: Int, folderPath: [SnapshotFolder])],
-		parentPath: [SnapshotFolder]
-	) async -> SearchFolderViewModel? {
-		var currentPath = parentPath
-		currentPath.append(snapshot)
-		
-		var matchedChildren: [SearchFileSystemItem] = []
-		var maxChildScore = 0
-		
-		// Process children
-		for child in snapshot.children {
+	private nonisolated static func collectFiles(of folder: SnapshotFolder, into files: inout [SnapshotFile]) {
+		for child in folder.children {
 			switch child {
-			case .folder(let subFolder):
-				if let reconstructedSubFolder = await reconstructFolder(
-					from: subFolder,
-					keptFiles: keptFiles,
-					parentPath: currentPath
-				) {
-					maxChildScore = max(maxChildScore, reconstructedSubFolder.bestDescendantScore)
-					matchedChildren.append(.folder(reconstructedSubFolder))
-				}
-				
+			case .folder(let subfolder):
+				collectFiles(of: subfolder, into: &files)
 			case .file(let file):
-				if let (score, pathChain) = keptFiles[file.id] {
-					// Exact lookup under the root (the first ancestor), as the tree item or a file view model that reads it by path
-					let realFileVM = pathChain.first
-						.flatMap { rootSnapshotCache[$0.id]?.rootPath }
-						.flatMap { rootPath in
-							fileManager?.promptFile(
-								forStandardizedPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file.relativePath)
-							)
-						}
-					
-					// The result takes the file's id, so selection changes find it.
-					let searchFile = SearchFileViewModel(
-						id: realFileVM?.id ?? file.id,
-						name: file.name,
-						relativePath: file.relativePath,
-						matchScore: score,
-						originalFile: realFileVM
-					)
-					
-					maxChildScore = max(maxChildScore, score)
-					matchedChildren.append(.file(searchFile))
+				files.append(file)
+			}
+		}
+	}
+	
+	/// The folder with only its matching files and the folders that hold one, or nil when it holds none.
+	private nonisolated static func matchedFolder(
+		from folder: SnapshotFolder,
+		rootID: UUID,
+		rootPath: String,
+		scores: [UUID: Int]
+	) -> MatchedFolder? {
+		var children: [MatchedItem] = []
+		var bestScore = 0
+		for child in folder.children {
+			switch child {
+			case .folder(let subfolder):
+				if let matched = matchedFolder(from: subfolder, rootID: rootID, rootPath: rootPath, scores: scores) {
+					bestScore = max(bestScore, matched.bestScore)
+					children.append(.folder(matched))
+				}
+			case .file(let file):
+				if let score = scores[file.id] {
+					bestScore = max(bestScore, score)
+					children.append(.file(file, score: score))
 				}
 			}
 		}
-		
-		// Only create folder if it has matched children
-		guard !matchedChildren.isEmpty else { return nil }
+		guard !children.isEmpty else { return nil }
+		return MatchedFolder(
+			id: folder.id,
+			name: folder.name,
+			relativePath: folder.relativePath,
+			rootID: rootID,
+			rootPath: rootPath,
+			children: children,
+			bestScore: bestScore
+		)
+	}
+	
+	/// The view model of a matched folder, linked to the tree items it and its files show.
+	@MainActor
+	private func searchFolder(from matched: MatchedFolder) -> SearchFolderViewModel {
+		var children: [SearchFileSystemItem] = matched.children.map { child -> SearchFileSystemItem in
+			switch child {
+			case .folder(let subfolder):
+				return .folder(searchFolder(from: subfolder))
+			case .file(let file, let score):
+				// Exact lookup under the root, as the tree item or a file view model that reads it by path
+				let realFileVM = fileManager?.promptFile(
+					forStandardizedPath: StandardizedPath.join(standardizedRoot: matched.rootPath, standardizedRelativePath: file.relativePath)
+				)
+				// The result takes the file's id, so selection changes find it.
+				return .file(SearchFileViewModel(
+					id: realFileVM?.id ?? file.id,
+					name: file.name,
+					relativePath: file.relativePath,
+					matchScore: score,
+					originalFile: realFileVM
+				))
+			}
+		}
 		
 		// Sort children by score
-		sortChildren(&matchedChildren)
+		sortChildren(&children)
 		
 		// Resolve originalFolder against the correct root when possible
 		var resolvedOriginalFolder: FolderViewModel? = nil
-		if let rootID = currentPath.first?.id,
-			let rootFolder = fileManager?.visibleRootFolders.first(where: { $0.id == rootID }) {
+		if let rootFolder = fileManager?.visibleRootFolders.first(where: { $0.id == matched.rootID }) {
 			let fullPath: String
-			if snapshot.relativePath.isEmpty {
+			if matched.relativePath.isEmpty {
 				fullPath = rootFolder.fullPath
 			} else {
-				fullPath = (rootFolder.fullPath as NSString).appendingPathComponent(snapshot.relativePath)
+				fullPath = (rootFolder.fullPath as NSString).appendingPathComponent(matched.relativePath)
 			}
 			resolvedOriginalFolder = fileManager?.findFolderByFullPath(fullPath)
 		} else {
 			// Fallback to previous behavior
-			resolvedOriginalFolder = fileManager?.findFolderByRelativePath(snapshot.relativePath)
+			resolvedOriginalFolder = fileManager?.findFolderByRelativePath(matched.relativePath)
 		}
 		
 		let folder = SearchFolderViewModel(
-			id: resolvedOriginalFolder?.id ?? snapshot.id,
-			name: snapshot.name,
-			relativePath: snapshot.relativePath,
+			id: resolvedOriginalFolder?.id ?? matched.id,
+			name: matched.name,
+			relativePath: matched.relativePath,
 			isExpanded: true,
 			checkboxState: .unchecked,
-			children: matchedChildren,
-			bestDescendantScore: maxChildScore,
+			children: children,
+			bestDescendantScore: matched.bestScore,
 			originalFolder: resolvedOriginalFolder
 		)
 		
@@ -1514,7 +1182,7 @@ class SearchFileTreeViewModel: ObservableObject {
 		fm.refreshRootFolderState()
 	}
 	
-	private func withTimeout<T>(seconds: UInt64, operation: @escaping () async -> T) async throws -> T {
+	private nonisolated static func withTimeout<T: Sendable>(seconds: UInt64, operation: @escaping @Sendable () async -> T) async throws -> T {
 		try await withThrowingTaskGroup(of: T.self) { group in
 			group.addTask {
 				return await operation()
