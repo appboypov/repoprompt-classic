@@ -732,6 +732,8 @@ class RepoFileManagerViewModel: ObservableObject {
 	private struct SnapshotCache {
 		var staticDataByScope: [LookupRootScope: StaticPathMatchData] = [:]
 		var generation: UInt64 = 0    // Monotonic counter for index caching
+		/// The generation of each root folder index when `staticDataByScope` was built.
+		var indexGenerations: [String: UInt64] = [:]
 	}
 	
 	private var snapshotCache = SnapshotCache()
@@ -5260,6 +5262,12 @@ private func removeFolderRecursive(
 	private func currentStaticPathMatchContext(
 		scope: LookupRootScope = .allLoaded
 	) -> (StaticPathMatchData, Set<String>, SelectionSig) {
+		let indexGenerations = rootFolderIndexes.mapValues(\.generation)
+		if snapshotCache.indexGenerations != indexGenerations {
+			snapshotCache.staticDataByScope.removeAll()
+			snapshotCache.generation &+= 1
+			snapshotCache.indexGenerations = indexGenerations
+		}
 		if snapshotCache.staticDataByScope[scope] == nil {
 			let scopeDiscriminator: UInt64 = switch scope {
 			case .visibleWorkspace: 0
@@ -5310,7 +5318,7 @@ private func removeFolderRecursive(
 			}
 			folderRecords.reserveCapacity(folderRecords.count + index.folders.count)
 			for (path, folder) in index.folders where !path.isEmpty {
-				if !showEmptyFolders, folder.isSubtreeRead, folder.fileCount == 0 { continue }
+				if !showEmptyFolders, folder.isKnownEmpty { continue }
 				let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: path)
 				folderRecords[fullPath] = FrozenFolderRecord(
 					name: (path as NSString).lastPathComponent,
@@ -5830,14 +5838,16 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 		return allFiles
 	}
 
+	/// Every file that the indexes of the root folders in a scope hold, in path order per root folder:
+	/// its tree item, or for a file without one a file view model that reads it by path.
 	func getAllFileViewModels(in scope: LookupRootScope) -> [FileViewModel] {
-		switch scope {
-		case .allLoaded:
-			return getAllFileViewModels()
-		case .visibleWorkspace, .visibleWorkspacePlusGitData:
-			let allowedRoots = allowedRootPaths(in: scope)
-			return allFilesSnapshot(sorted: false).filter {
-				allowedRoots.contains($0.standardizedRootFolderPath)
+		roots(in: scope).flatMap { root -> [FileViewModel] in
+			guard let index = rootFolderIndexes[root.standardizedFullPath] else { return [] }
+			return index.filePaths.sorted().compactMap { relativePath in
+				promptFile(forStandardizedPath: StandardizedPath.join(
+					standardizedRoot: root.standardizedFullPath,
+					standardizedRelativePath: relativePath
+				))
 			}
 		}
 	}
@@ -11166,7 +11176,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			)
 		}
 		
-		// 1) Gather all loaded files once
+		// 1) Gather all indexed files once
 		let allFiles = getAllFileViewModels(in: rootScope)
 		let scopePerfState = EditFlowPerf.begin(
 			EditFlowPerf.Stage.Search.scopeFiltering,
@@ -12200,6 +12210,47 @@ extension RepoFileManagerViewModel {
 		let relativePath = String(path.dropFirst(root.standardizedFullPath.count + 1))
 		guard rootFolderIndexes[root.standardizedFullPath]?.filePaths.contains(relativePath) == true else { return nil }
 		return (root, relativePath)
+	}
+
+	/// A file or folder that a root folder's index holds.
+	struct IndexedItem: Equatable {
+		let relativePath: String
+		let isFolder: Bool
+	}
+
+	/// The item a user path names in a root folder's index, whether or not its folder is opened.
+	/// An absolute path belongs to the root folder that holds it. A relative path belongs to the first root folder
+	/// that holds it, else to the root folder its first component names.
+	@MainActor
+	func indexedItem(atPath userPath: String) -> IndexedItem? {
+		func item(_ relativePath: String, inRootAt rootPath: String) -> IndexedItem? {
+			guard !relativePath.isEmpty, let index = rootFolderIndexes[rootPath] else { return nil }
+			if index.filePaths.contains(relativePath) {
+				return IndexedItem(relativePath: relativePath, isFolder: false)
+			}
+			return index.folders[relativePath] == nil ? nil : IndexedItem(relativePath: relativePath, isFolder: true)
+		}
+		let normalized = normalizeUserInputPath(userPath)
+		if normalized.hasPrefix("/") {
+			let path = StandardizedPath.absolute(normalized)
+			guard let root = rootFolders
+				.filter({ path.hasPrefix($0.standardizedFullPath + "/") })
+				.max(by: { $0.standardizedFullPath.count < $1.standardizedFullPath.count })
+			else { return nil }
+			return item(String(path.dropFirst(root.standardizedFullPath.count + 1)), inRootAt: root.standardizedFullPath)
+		}
+		let relativePath = StandardizedPath.relative(normalized)
+		for root in rootFolders {
+			if let found = item(relativePath, inRootAt: root.standardizedFullPath) {
+				return found
+			}
+		}
+		guard case .prefixed(let root, _, let remainder) = resolveVisibleRootAlias(
+			normalized,
+			requireRemainder: true,
+			disambiguateRealSubpath: false
+		) else { return nil }
+		return item(StandardizedPath.relative(remainder), inRootAt: StandardizedPath.absolute(root.fullPath))
 	}
 
 	/// The file of a path for prompts: its tree item, or for a file of a root folder's index without a tree item,

@@ -300,18 +300,10 @@ struct PastePathsSheet: View {
 					resolvedPath = fileVM.relativePath
 					isFolder = false
 				}
-				// Check if it's a folder (try both relative and absolute lookups)
-				else if let folderVM = fileManager.findFolderByRelativePath(normalized) {
-					resolvedPath = folderVM.relativePath
-					isFolder = true
-				} else if let folderVM = fileManager.findFolderByFullPath(normalized) {
-					resolvedPath = folderVM.relativePath
-					isFolder = true
-				}
-				// Also check file by full path if bulk lookup missed it
-				else if let fileVM = fileManager.findFileByFullPath(normalized) {
-					resolvedPath = fileVM.relativePath
-					isFolder = false
+				// Otherwise look it up in the root folder indexes, which hold the folders that are not opened too
+				else if let item = fileManager.indexedItem(atPath: normalized) {
+					resolvedPath = item.relativePath
+					isFolder = item.isFolder
 				}
 
 				if resolvedPath != nil {

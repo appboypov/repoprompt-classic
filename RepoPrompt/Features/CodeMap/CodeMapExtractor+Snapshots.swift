@@ -210,7 +210,7 @@ extension CodeMapExtractor {
 			nodes.reserveCapacity(folder.childFolderPaths.count + folder.childFilePaths.count)
 			for relativePath in folder.childFolderPaths {
 				guard let subfolder = index.folders[relativePath] else { continue }
-				if !showEmptyFolders, subfolder.isSubtreeRead, subfolder.fileCount == 0 { continue }
+				if !showEmptyFolders, subfolder.isKnownEmpty { continue }
 				let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
 				let name = (relativePath as NSString).lastPathComponent
 				nodes.append(.folder(FileTreeFolderSnapshot(
