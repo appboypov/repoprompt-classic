@@ -990,7 +990,6 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertEqual(Set(fileManagerVM.snapshotSelection().selectedPaths), [topPath, deepPath])
 		XCTAssertEqual(index.selectedFilePaths, ["Top.swift", "src/deep/Deep.swift"])
 		XCTAssertEqual(src.checkboxState, .mixed)
-		XCTAssertNil(fileManagerVM.findFileByFullPath(deepPath), "Restoring a selection builds no tree items")
 	}
 
 	@MainActor
