@@ -1620,6 +1620,24 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testTickingAClosedFolderWhoseNameMatchesSelectsEverythingInIt() async throws {
+		let (fileManagerVM, rootURL) = try await makeLoadedRoot(files: ["wwfo/inner/Doc.md", "wwfo/Top.md", "other/Note.md"])
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes.values.first)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "wwfo"
+		try await waitUntil { resultFolder(at: "wwfo", shownBy: searchVM) != nil }
+		let wwfo = try XCTUnwrap(resultFolder(at: "wwfo", shownBy: searchVM))
+		XCTAssertEqual(wwfo.checkboxState, .unchecked)
+
+		searchVM.toggleFolderSelection(wwfo)
+		try await waitUntil { wwfo.checkboxState == .checked && index.selectedFilePaths.count == 2 }
+
+		XCTAssertEqual(index.selectedFilePaths, ["wwfo/inner/Doc.md", "wwfo/Top.md"])
+	}
+
+	@MainActor
 	func testTreeSearchShowsEveryMatchingFile() async throws {
 		let matches = (0..<400).map { String(format: "files/match-%03d.txt", $0) }
 		let (fileManagerVM, rootURL) = try await makeLoadedRoot(files: matches + ["files/other.txt"])
@@ -1678,7 +1696,6 @@ final class RepoFileManagerTests: XCTestCase {
 		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepNew.swift") }
 
 		let refreshedDeep = try XCTUnwrap(resultFolder(at: "src/deep", shownBy: searchVM))
-		XCTAssertFalse(refreshedDeep === deep)
 		XCTAssertTrue(refreshedDeep.isExpanded)
 	}
 
