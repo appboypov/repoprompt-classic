@@ -1518,6 +1518,45 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testTreeSearchGainsAFileCreatedOnDiskWhileItIsActive() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "Deep"
+		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
+
+		let newPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/DeepNew.swift")
+		XCTAssertTrue(FileManager.default.createFile(atPath: newPath, contents: Data()))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/DeepNew.swift")], forRootFolder: root)
+		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/DeepNew.swift") }
+
+		XCTAssertTrue(
+			fileRelativePaths(in: searchVM.rootFolders).isSuperset(of: ["src/deep/Deep.swift", "src/deep/DeepNew.swift"])
+		)
+	}
+
+	@MainActor
+	func testTreeSearchKeepsItsResultsWhenAFileChangesOnlyItsContent() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "Deep"
+		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
+		let before = fileRelativePaths(in: searchVM.rootFolders)
+
+		try "struct Deep { let changed = true }".write(to: rootURL.appendingPathComponent("src/deep/Deep.swift"), atomically: true, encoding: .utf8)
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileModified("src/deep/Deep.swift", nil)], forRootFolder: root)
+		try await Task.sleep(nanoseconds: 300_000_000)
+		try await waitUntil { searchVM.hasSearchResults }
+
+		XCTAssertEqual(fileRelativePaths(in: searchVM.rootFolders), before)
+	}
+
+	@MainActor
 	func testFileTagSuggestionsOfferFilesInAFolderThatIsNotOpenedAndGainNewlyReadFiles() async throws {
 		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
