@@ -2373,6 +2373,18 @@ func loadFolder(
 	}
 
 	private func applyReadingEvent(_ event: LoadContentsEvent, rootKey: String) {
+		#if DEBUG
+		let startMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
+		defer {
+			if let startMS, WorkspaceRestorePerfLog.elapsedMS(since: startMS) > 20 {
+				let fileCount: Int
+				if case .preparedItems(let chunk) = event { fileCount = chunk.files.count } else { fileCount = -1 }
+				WorkspaceRestorePerfLog.log(
+					"reading.slowEvent chunkFiles=\(fileCount) indexFiles=\(rootFolderIndexes[rootKey]?.filePaths.count ?? 0) duration=\(WorkspaceRestorePerfLog.formatElapsedMS(since: startMS)) endedAt=\(String(format: "%.1f", WorkspaceRestorePerfLog.timestampMS()))ms"
+				)
+			}
+		}
+		#endif
 		switch event {
 		case .totalFileCount:
 			break
@@ -2468,6 +2480,16 @@ func loadFolder(
 
 	private func finishReading(rootKey: String) {
 		guard let index = rootFolderIndexes[rootKey] else { return }
+		#if DEBUG
+		let startMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
+		defer {
+			if let startMS {
+				WorkspaceRestorePerfLog.log(
+					"reading.finish indexFiles=\(index.filePaths.count) duration=\(WorkspaceRestorePerfLog.formatElapsedMS(since: startMS)) endedAt=\(String(format: "%.1f", WorkspaceRestorePerfLog.timestampMS()))ms"
+				)
+			}
+		}
+		#endif
 		selectIndexedFiles(index.finishReading(), rootKey: rootKey)
 		syncWaitingFolders()
 		readingFileCounts.value.removeValue(forKey: rootKey)
