@@ -4832,6 +4832,24 @@ func loadFolder(
 			return true
 		}
 
+		if let file = promptFile(forStandardizedPath: standardizedAbsolutePath) {
+			// A file without a tree item leaves the index, the selection and the codemaps by its path.
+			await clearRemovedFileCaches([file])
+			pruneRemovedFilesFromSelectionAndCodemap([file])
+			rootFolderIndexes[root.standardizedFullPath]?.remove(standardizedRelativePath)
+			if let folder = nearestTreeFolder(above: standardizedAbsolutePath) {
+				recomputeAncestorStates(startingAtFolders: [folder])
+			}
+			invalidateStaticSnapshot(forRootFullPath: root.standardizedFullPath)
+			onRootFoldersChanged?()
+			if publishDelta {
+				fileSystemDeltasAppliedPublisher.send(
+					FileSystemDeltasAppliedEvent(rootKey: root.standardizedFullPath, deltas: [.fileRemoved(standardizedRelativePath)])
+				)
+			}
+			return true
+		}
+
 		let removedSubtree: RemovedFolderSubtree?
 		if let folderVM = findFolderByFullPath(standardizedAbsolutePath) {
 			removedSubtree = removeFolderRecursive(in: root, relativePath: folderVM.relativePath)
@@ -11442,11 +11460,10 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 						case .file:
 							matchedAbsPaths.insert(resolution.standardizedAbsolutePath)
 						case .folder:
-							let prefix = resolution.standardizedAbsolutePath.hasSuffix("/")
-								? resolution.standardizedAbsolutePath
-								: resolution.standardizedAbsolutePath + "/"
-							for file in fileHierarchyIndex.filesByFullPath.values where file.standardizedFullPath.hasPrefix(prefix) {
-								matchedAbsPaths.insert(file.standardizedFullPath)
+							let rootPath = resolution.root.standardizedFullPath
+							let prefix = resolution.standardizedRelativePath.isEmpty ? "" : resolution.standardizedRelativePath + "/"
+							for relativePath in rootFolderIndexes[rootPath]?.filePaths ?? [] where relativePath.hasPrefix(prefix) {
+								matchedAbsPaths.insert(StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath))
 							}
 						case nil:
 							break
@@ -11458,16 +11475,15 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 						guard case .glob(_, let restrictedRootPath) = clause else { return nil }
 						return restrictedRootPath
 					})
-					let systemFiles = fileHierarchyIndex.filesByFullPath.values.filter {
-						systemRootPaths.contains($0.standardizedRootFolderPath)
-					}
-					let systemSnapshots = systemFiles.map {
-						FileSearchPathSnapshot(
-							standardizedFullPath: $0.standardizedFullPath,
-							standardizedRelativePath: $0.standardizedRelativePath,
-							standardizedRootPath: $0.standardizedRootFolderPath,
-							clientDisplayPath: $0.standardizedRelativePath
-						)
+					let systemSnapshots = systemRootPaths.flatMap { rootPath in
+						(rootFolderIndexes[rootPath]?.filePaths ?? []).map { relativePath in
+							FileSearchPathSnapshot(
+								standardizedFullPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath),
+								standardizedRelativePath: relativePath,
+								standardizedRootPath: rootPath,
+								clientDisplayPath: relativePath
+							)
+						}
 					}
 					let wildcardSpec = SearchPathFilterSpec(
 						caseInsensitive: caseInsensitive,
@@ -11476,7 +11492,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 					let wildcardMatches = filterPaths(snapshots: systemSnapshots, spec: wildcardSpec)
 					matchedAbsPaths.formUnion(wildcardMatches)
 				}
-				filesToSearch = matchedAbsPaths.compactMap { fileHierarchyIndex.filesByFullPath[$0] }
+				filesToSearch = matchedAbsPaths.compactMap { promptFile(forStandardizedPath: $0) }
 			}
 		} else {
 			filesToSearch = allFiles
@@ -11716,6 +11732,24 @@ extension RepoFileManagerViewModel {
 			}
 		}
 		
+		/// Adds the clause of a file or folder of a root folder's index, whether or not its folder is opened.
+		func appendExactClause(forStandardizedFullPath path: String) -> Bool {
+			if let item = indexedItem(atPath: path) {
+				let rootPath = String(item.standardizedFullPath.dropLast(item.relativePath.count + 1))
+				appendClause(item.isFolder
+					? .exactFolder(absLower: item.standardizedFullPath.lowercased(), relLower: item.relativePath.lowercased(), restrictedRootPath: rootPath)
+					: .exactFile(absPath: item.standardizedFullPath, relPath: item.relativePath, restrictedRootPath: rootPath))
+				return true
+			}
+			guard let folder = findFolderByFullPath(path) else { return false }
+			appendClause(.exactFolder(
+				absLower: folder.standardizedFullPath.lowercased(),
+				relLower: (folder.relativePath as NSString).standardizingPath.lowercased(),
+				restrictedRootPath: (folder.rootPath as NSString).standardizingPath
+			))
+			return true
+		}
+		
 		for entry in normalizedEntries {
 			let normalized = entry.normalized
 			let isWildcard = normalized.contains("*") || normalized.contains("?") || normalized.contains("[")
@@ -11740,16 +11774,7 @@ extension RepoFileManagerViewModel {
 				}
 			}
 			if standardized.hasPrefix("/") {
-				if let file = findFileByFullPath(standardized) {
-					appendClause(.exactFile(absPath: file.standardizedFullPath, relPath: file.standardizedRelativePath, restrictedRootPath: file.standardizedRootFolderPath))
-					continue
-				}
-				if let folder = findFolderByFullPath(standardized) {
-					appendClause(.exactFolder(
-						absLower: folder.standardizedFullPath.lowercased(),
-						relLower: (folder.relativePath as NSString).standardizingPath.lowercased(),
-						restrictedRootPath: (folder.rootPath as NSString).standardizingPath
-					))
+				if appendExactClause(forStandardizedFullPath: standardized) {
 					continue
 				}
 				if let aliasResolution = resolveLeadingSlashRootAlias(from: standardized, requireRemainder: false) {
@@ -11765,16 +11790,7 @@ extension RepoFileManagerViewModel {
 						}
 					case .prefixed(let root, _, let remainder):
 						let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-						if let file = findFileByFullPath(abs) {
-							appendClause(.exactFile(absPath: file.standardizedFullPath, relPath: file.standardizedRelativePath, restrictedRootPath: file.standardizedRootFolderPath))
-							continue
-						}
-						if let folder = findFolderByFullPath(abs) {
-							appendClause(.exactFolder(
-								absLower: folder.standardizedFullPath.lowercased(),
-								relLower: (folder.relativePath as NSString).standardizingPath.lowercased(),
-								restrictedRootPath: (folder.rootPath as NSString).standardizingPath
-							))
+						if appendExactClause(forStandardizedFullPath: abs) {
 							continue
 						}
 					case .ambiguous(let alias, let matchingRoots):
@@ -11789,23 +11805,14 @@ extension RepoFileManagerViewModel {
 			}
 			
 			if !entry.hadTrailingSlash {
-				if let file = findFileByRelativePath(standardized, scope: rootScope) {
+				if let file = promptFile(forRelativePath: standardized, scope: rootScope) {
 					appendClause(.exactFile(absPath: file.standardizedFullPath, relPath: file.standardizedRelativePath, restrictedRootPath: file.standardizedRootFolderPath))
 					continue
 				}
 				switch resolveVisibleRootAlias(standardized, requireRemainder: true, disambiguateRealSubpath: false) {
 				case .prefixed(let root, _, let remainder):
 					let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-					if let file = findFileByFullPath(abs) {
-						appendClause(.exactFile(absPath: file.standardizedFullPath, relPath: file.standardizedRelativePath, restrictedRootPath: file.standardizedRootFolderPath))
-						continue
-					}
-					if let folder = findFolderByFullPath(abs) {
-						appendClause(.exactFolder(
-							absLower: folder.standardizedFullPath.lowercased(),
-							relLower: (folder.relativePath as NSString).standardizingPath.lowercased(),
-							restrictedRootPath: (folder.rootPath as NSString).standardizingPath
-						))
+					if appendExactClause(forStandardizedFullPath: abs) {
 						continue
 					}
 				case .ambiguous(let alias, let matchingRoots):
@@ -11852,16 +11859,7 @@ extension RepoFileManagerViewModel {
 						selectionSig: selectionSig
 				) {
 					let abs = ((match.rootPath as NSString).appendingPathComponent(match.correctedPath) as NSString).standardizingPath
-					if let folder = findFolderByFullPath(abs) {
-						appendClause(.exactFolder(
-							absLower: folder.standardizedFullPath.lowercased(),
-							relLower: (folder.relativePath as NSString).standardizingPath.lowercased(),
-							restrictedRootPath: (folder.rootPath as NSString).standardizingPath
-						))
-						continue
-					}
-					if let file = findFileByFullPath(abs) {
-						appendClause(.exactFile(absPath: file.standardizedFullPath, relPath: file.standardizedRelativePath, restrictedRootPath: file.standardizedRootFolderPath))
+					if appendExactClause(forStandardizedFullPath: abs) {
 						continue
 					}
 				}
@@ -12371,6 +12369,7 @@ extension RepoFileManagerViewModel {
 	/// A file or folder that a root folder's index holds.
 	struct IndexedItem: Equatable {
 		let relativePath: String
+		let standardizedFullPath: String
 		let isFolder: Bool
 	}
 
@@ -12427,10 +12426,13 @@ extension RepoFileManagerViewModel {
 	func indexedItem(atPath userPath: String) -> IndexedItem? {
 		func item(_ relativePath: String, inRootAt rootPath: String) -> IndexedItem? {
 			guard !relativePath.isEmpty, let index = rootFolderIndexes[rootPath] else { return nil }
+			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
 			if index.filePaths.contains(relativePath) {
-				return IndexedItem(relativePath: relativePath, isFolder: false)
+				return IndexedItem(relativePath: relativePath, standardizedFullPath: fullPath, isFolder: false)
 			}
-			return index.folders[relativePath] == nil ? nil : IndexedItem(relativePath: relativePath, isFolder: true)
+			return index.folders[relativePath] == nil
+				? nil
+				: IndexedItem(relativePath: relativePath, standardizedFullPath: fullPath, isFolder: true)
 		}
 		let normalized = normalizeUserInputPath(userPath)
 		if normalized.hasPrefix("/") {
@@ -13058,19 +13060,24 @@ extension RepoFileManagerViewModel {
 
 		let standardizedPath = (normalizedPath as NSString).standardizingPath
 		if standardizedPath.hasPrefix("/") {
-			return findFileByFullPath(standardizedPath)
+			return promptFile(forStandardizedPath: StandardizedPath.absolute(standardizedPath))
 		}
 
 		if taggedPathLooksRootQualified(standardizedPath),
-			let exactUnique = findFileByUniqueRelativePath(standardizedPath) {
-			return exactUnique
+			case .prefixed(let root, _, let remainder) = resolveVisibleRootAlias(
+				standardizedPath,
+				requireRemainder: true,
+				disambiguateRealSubpath: false
+			),
+			let file = promptFile(forStandardizedPath: StandardizedPath.join(
+				standardizedRoot: root.standardizedFullPath,
+				standardizedRelativePath: StandardizedPath.relative(remainder)
+			)) {
+			return file
 		}
 
-		if let exactRelative = findFileByRelativePath(standardizedPath) {
-			return exactRelative
-		}
-
-		return findFileByUniqueRelativePath(standardizedPath)
+		guard let item = indexedItem(atPath: standardizedPath), !item.isFolder else { return nil }
+		return promptFile(forStandardizedPath: item.standardizedFullPath)
 	}
 	
 	/// Unchanged: direct full-path lookup for folders
@@ -13079,14 +13086,6 @@ extension RepoFileManagerViewModel {
 		return fileHierarchyIndex.foldersByFullPath[key]
 	}
 
-	private func findFileByUniqueRelativePath(_ path: String) -> FileViewModel? {
-		let standardizedPath = StandardizedPath.relative(path)
-		let matches = fileHierarchyIndex.filesByFullPath.values.filter {
-			($0.uniqueRelativePath as NSString).standardizingPath == standardizedPath
-		}
-		guard matches.count == 1 else { return nil }
-		return matches[0]
-	}
 
 	private func taggedPathLooksRootQualified(_ path: String) -> Bool {
 		guard let firstComponent = StandardizedPath.relative(path).split(separator: "/").first else {
