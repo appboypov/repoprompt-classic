@@ -455,6 +455,8 @@ actor FileSystemService {
 
 	/// Folders read at the same time while reading a whole root folder: one per core.
 	private let readWindowWidth: Int
+	/// Folders, relative to the root, whose subtrees reading of the whole root folder reads before the rest.
+	private var readFirstPaths: Set<String> = []
 	
 	// MARK: - Safety-Net Verification
 	
@@ -4335,7 +4337,9 @@ actor FileSystemService {
 			var inFlight = 0
 
 			func scheduleMoreDirectories() {
-				while inFlight < readWidth, let context = directories.popLast() {
+				while inFlight < readWidth,
+					let index = Self.indexToReadNext(of: directories.lazy.map(\.relPath), readFirst: readFirstPaths) {
+					let context = directories.remove(at: index)
 					inFlight += 1
 					#if DEBUG
 					group.addTask(priority: .utility) { [self,
@@ -4543,6 +4547,41 @@ actor FileSystemService {
 
 	private func folderURLRootPath(_ folderURL: URL) -> String {
 		folderURL.standardizedFileURL.path
+	}
+
+	/// Makes reading of the whole root folder read the subtrees of these folders, relative to the root, before the rest.
+	func setReadFirst(_ relativePaths: Set<String>) {
+		readFirstPaths = relativePaths
+	}
+
+	/// The position in the reading queue of the folder to read next: the last queued folder on the way to
+	/// or inside a read-first folder, else the last queued folder, so reading goes depth-first.
+	nonisolated static func indexToReadNext<Queue: BidirectionalCollection>(
+		of queue: Queue,
+		readFirst: Set<String>
+	) -> Queue.Index? where Queue.Element == String {
+		guard !queue.isEmpty else { return nil }
+		let lastIndex = queue.index(before: queue.endIndex)
+		guard !readFirst.isEmpty else { return lastIndex }
+		var index = queue.endIndex
+		while index != queue.startIndex {
+			index = queue.index(before: index)
+			let path = queue[index]
+			if readFirst.contains(where: { isSelfOrAncestor(path, of: $0) || isSelfOrAncestor($0, of: path) }) {
+				return index
+			}
+		}
+		return lastIndex
+	}
+
+	/// Whether `ancestor` is `path` or a folder above it, both relative to the root.
+	private nonisolated static func isSelfOrAncestor(_ ancestor: String, of path: String) -> Bool {
+		let ancestorBytes = ancestor.utf8
+		let pathBytes = path.utf8
+		guard !ancestorBytes.isEmpty else { return true }
+		guard pathBytes.starts(with: ancestorBytes) else { return false }
+		let rest = pathBytes.dropFirst(ancestorBytes.count)
+		return rest.isEmpty || rest.first == UInt8(ascii: "/")
 	}
 
 	/// Lists the direct entries of one folder that the ignore rules allow, as reading lists them.
