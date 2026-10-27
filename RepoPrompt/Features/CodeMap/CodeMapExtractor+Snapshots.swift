@@ -297,7 +297,9 @@ private func visibleChildren(
 	var folders: [FileTreeNodeSnapshot] = []
 	var files: [FileTreeNodeSnapshot] = []
 
-	for child in folder.children {
+	// The folders view shows only the selected files, so it never builds the others
+	let children = normalizedMode == "folders" ? folder.children(keepingFilesIn: selectedFileIDs) : folder.children
+	for child in children {
 		if Task.isCancelled { break }
 		switch child {
 		case .folder(let subfolder):
@@ -311,24 +313,18 @@ private func visibleChildren(
 				folders.append(child)
 			}
 		case .file(let file):
-			if normalizedMode == "folders" {
-				if selectedFileIDs.contains(file.id) {
-					files.append(child)
-				}
-			} else {
-				let includeFile: Bool = switch normalizedMode {
-				case "auto":
-					if let ext = file.fileExtension?.lowercased(), snapshotBadExt.contains(ext) {
-						false
-					} else {
-						true
-					}
-				default:
+			let includeFile: Bool = switch normalizedMode {
+			case "auto":
+				if let ext = file.fileExtension?.lowercased(), snapshotBadExt.contains(ext) {
+					false
+				} else {
 					true
 				}
-				if includeFile {
-					files.append(child)
-				}
+			default:
+				true
+			}
+			if includeFile {
+				files.append(child)
 			}
 		}
 	}
@@ -341,7 +337,7 @@ private func selectedChildren(
 	selectedFileIDs: Set<String>,
 	selectedFolderIDs: Set<String>
 ) -> [FileTreeNodeSnapshot] {
-	folder.children
+	folder.children(keepingFilesIn: selectedFileIDs)
 		.filter { child in
 			switch child {
 			case .file(let file):

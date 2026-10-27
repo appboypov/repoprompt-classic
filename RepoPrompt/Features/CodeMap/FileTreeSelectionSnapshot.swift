@@ -52,6 +52,20 @@ struct FileTreeFolderSnapshot: Sendable, Hashable {
 		}
 	}
 
+	/// The folders directly in this folder, and only those of its files whose ids `fileIDs` holds.
+	/// A folder read from an index skips its other files without building them.
+	func children(keepingFilesIn fileIDs: Set<String>) -> [FileTreeNodeSnapshot] {
+		switch source {
+		case .nodes(let nodes):
+			nodes.filter { node in
+				guard case .file(let file) = node else { return true }
+				return fileIDs.contains(file.id)
+			}
+		case .index(let tree, let relativePath):
+			tree.children(ofFolder: relativePath, keepingFilesIn: fileIDs)
+		}
+	}
+
 	init(
 		id: String,
 		name: String,
@@ -154,11 +168,12 @@ struct IndexFileTree: Sendable {
 	let treeItemCodeMaps: [String: Bool]
 
 	/// The folders and then the files directly in a folder. A read folder without files is left out unless empty folders show.
-	func children(ofFolder relativePath: String) -> [FileTreeNodeSnapshot] {
+	/// With `fileIDs`, only the files whose ids it holds.
+	func children(ofFolder relativePath: String, keepingFilesIn fileIDs: Set<String>? = nil) -> [FileTreeNodeSnapshot] {
 		guard let folder = contents.folders[relativePath] else { return [] }
 		let rootPath = contents.rootPath
 		var nodes: [FileTreeNodeSnapshot] = []
-		nodes.reserveCapacity(folder.childFolderPaths.count + folder.childFilePaths.count)
+		nodes.reserveCapacity(folder.childFolderPaths.count + (fileIDs == nil ? folder.childFilePaths.count : 0))
 		for childPath in folder.childFolderPaths {
 			guard let subfolder = contents.folders[childPath] else { continue }
 			if !showEmptyFolders, subfolder.isKnownEmpty { continue }
@@ -175,19 +190,50 @@ struct IndexFileTree: Sendable {
 				relativePath: childPath
 			)))
 		}
-		for childPath in folder.childFilePaths {
+		func fileNode(_ childPath: String) -> FileTreeNodeSnapshot {
 			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: childPath)
 			let name = (childPath as NSString).lastPathComponent
 			let fileExtension = (name as NSString).pathExtension
-			nodes.append(.file(FileTreeFileSnapshot(
+			return .file(FileTreeFileSnapshot(
 				id: fullPath,
 				name: name,
 				nameSortKey: name.lowercased(),
 				fileExtension: fileExtension.isEmpty ? nil : fileExtension,
 				hasCodeMap: treeItemCodeMaps[fullPath] ?? (codemapPaths[fullPath] != nil)
-			)))
+			))
+		}
+		if let fileIDs {
+			for childPath in filePaths(of: folder, at: relativePath, keepingFilesIn: fileIDs) {
+				nodes.append(fileNode(childPath))
+			}
+		} else {
+			for childPath in folder.childFilePaths {
+				nodes.append(fileNode(childPath))
+			}
 		}
 		return nodes
+	}
+
+	/// The paths of the files directly in a folder whose ids `fileIDs` holds.
+	/// Walks whichever is smaller: the folder's files or `fileIDs`.
+	private func filePaths(
+		of folder: RootFolderIndex.Contents.Folder,
+		at relativePath: String,
+		keepingFilesIn fileIDs: Set<String>
+	) -> [String] {
+		let rootPath = contents.rootPath
+		guard fileIDs.count < folder.childFilePaths.count else {
+			return folder.childFilePaths.compactMap { childPath in
+				fileIDs.contains(StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: childPath)) ? childPath : nil
+			}
+		}
+		let rootPrefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+		return fileIDs.compactMap { fileID in
+			guard fileID.hasPrefix(rootPrefix) else { return nil }
+			let filePath = String(fileID.dropFirst(rootPrefix.count))
+			guard Self.parentPath(of: filePath) == relativePath, folder.childFilePaths.contains(filePath) else { return nil }
+			return filePath
+		}
 	}
 
 	/// The ids of a folder and the folders under it that hold one of the files at any depth,
