@@ -363,7 +363,7 @@ class TokenCountingViewModel: ObservableObject {
 		let duplicatePromptAtTop = includeUserPrompt ? copySnapshot.duplicateUserInstructionsAtTop : false
 		
 		let allFileViewModels = fileManager.allFilesSnapshot(sorted: false)
-		let allFileAPIs = fileManager.validatedFileAPIsSnapshot(sorted: false)
+		let allFileAPIs = fileManager.cachedFileAPIs()
 		
 		// Cache the file APIs for reuse
 		self.cachedFileAPIs = allFileAPIs
@@ -405,12 +405,11 @@ class TokenCountingViewModel: ObservableObject {
 		let fileTreeContext: FileTreeSelectionContext? = rendersFileTree
 			? FileTreeSelectionContext(
 				rootFolders: rootFoldersForTree,
-				selectedFileIDs: Set(selectedFilesForStats.map(\.id)),
+				selectedFilePaths: Set(selectedFilesForStats.map(\.standardizedFullPath)),
 				option: effectiveFileTreeOption,
 				filePathDisplay: settings.filePathDisplayOption,
 				onlyIncludeRootsWithSelectedFiles: settings.onlyIncludeRootsWithSelectedFiles,
 				includeLegend: true,
-				isMCPContext: false,
 				showCodeMapMarkers: !settings.codeMapsGloballyDisabled
 			)
 			: nil
@@ -529,8 +528,8 @@ class TokenCountingViewModel: ObservableObject {
 			filePathDisplay: filePathDisplay
 		)
 		guard !Task.isCancelled else { return nil }
-		let fileTree: TokenCalculationFileTreeInput = if let fileTreeContext, fileTreeContext.option != .none {
-			.snapshot(CodeMapExtractor.makeFileTreeSnapshot(using: fileTreeContext))
+		let fileTree: TokenCalculationFileTreeInput = if let fileTreeContext, fileTreeContext.option != .none, let fileManager {
+			.snapshot(fileManager.fileTreeSnapshot(using: fileTreeContext))
 		} else {
 			.none
 		}

@@ -4163,11 +4163,12 @@ Your goal is to choose the most efficient approach for each task - using direct 
 		)
 		let (diffEntries, _) = PromptPackagingService.partitionPromptEntriesForGitDiff(fileEntries)
 		// Tree markers must reflect explicit selection membership, not prompt inclusion.
-		let selectedIDs = explicitSelectedFileIDs()
+		let selectedPaths = explicitSelectedFilePaths()
 		let fileTreeContent = Self.fileTreeContentIfNeeded(
 			for: promptContext,
+			fileManager: fileManager,
 			rootFolders: fileManager.visibleRootFolders,
-			selectedFileIDs: selectedIDs,
+			selectedFilePaths: selectedPaths,
 			filePathDisplay: filePathDisplay,
 			onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
 			showCodeMapMarkers: !codeMapsGloballyDisabled
@@ -4226,11 +4227,12 @@ Your goal is to choose the most efficient approach for each task - using direct 
 		let (diffEntries, _) = PromptPackagingService.partitionPromptEntriesForGitDiff(fileEntries)
 		let filePathDisplayOption = self.filePathDisplayOption
 		// Tree markers must reflect explicit selection membership, not prompt inclusion.
-		let selectedIDs = explicitSelectedFileIDs()
+		let selectedPaths = explicitSelectedFilePaths()
 		let fileTreeContent = Self.fileTreeContentIfNeeded(
 			for: promptContext,
+			fileManager: fileManager,
 			rootFolders: fileManager.visibleRootFolders,
-			selectedFileIDs: selectedIDs,
+			selectedFilePaths: selectedPaths,
 			filePathDisplay: filePathDisplayOption,
 			onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
 			showCodeMapMarkers: !codeMapsGloballyDisabled
@@ -5400,11 +5402,12 @@ Your goal is to choose the most efficient approach for each task - using direct 
 		// Build file tree + code-map according to override (non-mutating)
 		let fileTreeString: String = {
 			guard includeFileTree else { return "" }
-			let selectedIDs = explicitSelectedFileIDs(for: selectionOverride)
+			let selectedPaths = explicitSelectedFilePaths(for: selectionOverride)
 			let tree = Self.fileTreeContentIfNeeded(
 				for: activeConfig,
+				fileManager: fileManager,
 				rootFolders: fileManager.visibleRootFolders,
-				selectedFileIDs: selectedIDs,
+				selectedFilePaths: selectedPaths,
 				filePathDisplay: filePathDisplay,
 				onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
 				showCodeMapMarkers: !codeMapsGloballyDisabled
@@ -5478,11 +5481,11 @@ Your goal is to choose the most efficient approach for each task - using direct 
 	}
 
 	@MainActor
-	private func explicitSelectedFileIDs(for selectionOverride: StoredSelection? = nil) -> Set<UUID> {
+	private func explicitSelectedFilePaths(for selectionOverride: StoredSelection? = nil) -> Set<String> {
 		if let selectionOverride {
-			return fileManager.computeSelectedIDs(from: selectionOverride)
+			return fileManager.selectedFilePaths(from: selectionOverride)
 		}
-		return Set(fileManager.selectedFiles.map(\.id))
+		return Set(fileManager.selectedFiles.map(\.standardizedFullPath))
 	}
 
 	@MainActor
@@ -6334,25 +6337,26 @@ extension PromptViewModel {
 }
 
 extension PromptViewModel {
+	@MainActor
 	internal static func fileTreeContentIfNeeded(
 		for cfg: PromptContextResolved,
+		fileManager: RepoFileManagerViewModel,
 		rootFolders: [FolderViewModel],
-		selectedFileIDs: Set<UUID>,
+		selectedFilePaths: Set<String>,
 		filePathDisplay: FilePathDisplay,
 		onlyIncludeRootsWithSelectedFiles: Bool,
 		showCodeMapMarkers: Bool
 	) -> String? {
 		guard cfg.rendersFileTree else { return nil }
-		let tree = CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
+		let tree = CodeMapExtractor.generateFileTree(using: fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
 			rootFolders: rootFolders,
-			selectedFileIDs: selectedFileIDs,
+			selectedFilePaths: selectedFilePaths,
 			option: cfg.effectiveFileTreeMode,
 			filePathDisplay: filePathDisplay,
 			onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
 			includeLegend: true,
-			isMCPContext: false,
 			showCodeMapMarkers: showCodeMapMarkers
-		))
+		)))
 		return tree.isEmpty ? nil : tree
 	}
 	
@@ -6440,8 +6444,9 @@ extension PromptViewModel {
 		// 1) File tree only (no codemap here - packaging will add it)
 		let combinedTreeAndMap = Self.fileTreeContentIfNeeded(
 			for: cfg,
+			fileManager: fileManager,
 			rootFolders: fileManager.visibleRootFolders,
-			selectedFileIDs: explicitSelectedFileIDs(),
+			selectedFilePaths: explicitSelectedFilePaths(),
 			filePathDisplay: filePathDisplayOption,
 			onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
 			showCodeMapMarkers: !codeMapsGloballyDisabled

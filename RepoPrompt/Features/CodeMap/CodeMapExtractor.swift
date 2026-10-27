@@ -31,31 +31,29 @@ struct FileTreeResult: Sendable {
 /// Selection membership is separate from prompt inclusion and drives `*` markers/root filtering.
 struct FileTreeSelectionContext {
 	let rootFolders: [FolderViewModel]
-	let selectedFileIDs: Set<UUID>
+	/// Standardized full paths of the selected files.
+	let selectedFilePaths: Set<String>
 	let option: FileTreeOption
 	let filePathDisplay: FilePathDisplay
 	let onlyIncludeRootsWithSelectedFiles: Bool
 	let includeLegend: Bool
-	let isMCPContext: Bool
 	let showCodeMapMarkers: Bool
 
 	init(
 		rootFolders: [FolderViewModel],
-		selectedFileIDs: Set<UUID>,
+		selectedFilePaths: Set<String>,
 		option: FileTreeOption,
 		filePathDisplay: FilePathDisplay,
 		onlyIncludeRootsWithSelectedFiles: Bool,
 		includeLegend: Bool,
-		isMCPContext: Bool,
 		showCodeMapMarkers: Bool = true
 	) {
 		self.rootFolders = rootFolders
-		self.selectedFileIDs = selectedFileIDs
+		self.selectedFilePaths = selectedFilePaths
 		self.option = option
 		self.filePathDisplay = filePathDisplay
 		self.onlyIncludeRootsWithSelectedFiles = onlyIncludeRootsWithSelectedFiles
 		self.includeLegend = includeLegend
-		self.isMCPContext = isMCPContext
 		self.showCodeMapMarkers = showCodeMapMarkers
 	}
 }
@@ -63,30 +61,6 @@ struct FileTreeSelectionContext {
 /// Standalone helper to gather relevant FileAPI-based definitions
 /// and also handle file tree generation logic.
 struct CodeMapExtractor {
-	static func generateFileTree(using context: FileTreeSelectionContext) -> String {
-		if context.option == .none { return "" }
-		
-		let mode: String = {
-			switch context.option {
-			case .none: return "none"
-			case .selected: return "selected"
-			case .files: return "full"
-			case .auto: return "auto"
-			}
-		}()
-		return generateFileTreeForRoots(
-			rootFolders: context.rootFolders,
-			mode: mode,
-			maxDepth: nil,
-			includeHidden: true,
-			filePathDisplay: context.filePathDisplay,
-			selectedFileIDs: context.selectedFileIDs,
-			onlyIncludeRootsWithSelectedFiles: context.onlyIncludeRootsWithSelectedFiles,
-			includeLegend: context.includeLegend,
-			isMCPContext: context.isMCPContext,
-			showCodeMapMarkers: context.showCodeMapMarkers
-		)
-	}
 
 	struct RootInfo: Sendable, Hashable {
 		let standardizedRootFullPath: String

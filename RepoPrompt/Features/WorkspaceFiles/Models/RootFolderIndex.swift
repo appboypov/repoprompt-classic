@@ -10,8 +10,8 @@ final class RootFolderIndex {
 	/// One folder of the index.
 	final class Folder {
 		fileprivate unowned let parent: Folder?
-		fileprivate var childFolderPaths: Set<String> = []
-		fileprivate var childFilePaths: Set<String> = []
+		fileprivate(set) var childFolderPaths: Set<String> = []
+		fileprivate(set) var childFilePaths: Set<String> = []
 		/// Folders at or under this folder whose entries reading has not listed yet.
 		fileprivate var unreadFolderCount = 0
 

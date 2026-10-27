@@ -2507,16 +2507,15 @@ final class DiscoverAgentViewModel: ObservableObject {
 		// PRIORITY 1: Use run-start captured state (prevents tab bleed)
 		if let promptText = session.runStartPromptText,
 		   let selection = session.runStartSelection {
-			let selectedIDs = fileManager.computeSelectedIDs(from: selection)
-			let fileTree = CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
+			let selectedPaths = fileManager.selectedFilePaths(from: selection)
+			let fileTree = CodeMapExtractor.generateFileTree(using: fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
 				rootFolders: fileManager.visibleRootFolders,
-				selectedFileIDs: selectedIDs,
+				selectedFilePaths: selectedPaths,
 				option: .auto,
 				filePathDisplay: .relative,
 				onlyIncludeRootsWithSelectedFiles: false,
-				includeLegend: true,
-				isMCPContext: false
-			))
+				includeLegend: true
+			)))
 			debugLog("Using run-start captured state for tab=\(session.tabID)")
 			return makeUserMessage(
 				fileTree: fileTree,
@@ -2530,16 +2529,15 @@ final class DiscoverAgentViewModel: ObservableObject {
 		// PRIORITY 2: Workspace snapshot (fallback, may be slightly stale)
 		if let snapshot = snapshotForTab(session.tabID) {
 			let storedSelection = snapshot.selection
-			let selectedIDs = fileManager.computeSelectedIDs(from: storedSelection)
-			let fileTree = CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
+			let selectedPaths = fileManager.selectedFilePaths(from: storedSelection)
+			let fileTree = CodeMapExtractor.generateFileTree(using: fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
 				rootFolders: fileManager.visibleRootFolders,
-				selectedFileIDs: selectedIDs,
+				selectedFilePaths: selectedPaths,
 				option: .auto,
 				filePathDisplay: .relative,
 				onlyIncludeRootsWithSelectedFiles: false,
-				includeLegend: true,
-				isMCPContext: false
-			))
+				includeLegend: true
+			)))
 			debugLog("Using workspace snapshot for tab=\(session.tabID)")
 			return makeUserMessage(
 				fileTree: fileTree,
@@ -2647,18 +2645,17 @@ Do not add any outer wrapping for the complete prompt, as it will already be wra
 	}
 
 	private func buildFileTreeFromUI() -> String {
-		let selectedIDs = Set(fileManager.selectedFiles.map(\.id))
+		let selectedPaths = Set(fileManager.selectedFiles.map(\.standardizedFullPath))
 		debugLog("Generating file tree for \(fileManager.rootFolders.count) roots")
-		debugLog("Selected files count: \(selectedIDs.count)")
-		let tree = CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
+		debugLog("Selected files count: \(selectedPaths.count)")
+		let tree = CodeMapExtractor.generateFileTree(using: fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
 			rootFolders: fileManager.visibleRootFolders,
-			selectedFileIDs: selectedIDs,
+			selectedFilePaths: selectedPaths,
 			option: .auto,
 			filePathDisplay: .relative,
 			onlyIncludeRootsWithSelectedFiles: false,
-			includeLegend: true,
-			isMCPContext: false
-		))
+			includeLegend: true
+		)))
 		debugLog("File tree length: \(tree.count) characters")
 		return tree
 	}

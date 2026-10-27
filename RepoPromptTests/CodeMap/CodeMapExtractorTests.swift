@@ -241,19 +241,24 @@ final class CodeMapExtractorTests: XCTestCase {
 		file.setCodeMap(makeAPI(filePath: file.standardizedFullPath, definedTypeName: "A"))
 		root.addFile(file)
 
-		let context = FileTreeSelectionContext(
+		let live = CodeMapExtractor.generateFileTreeForRoots(
 			rootFolders: [root],
+			option: .files,
+			filePathDisplay: .relative,
 			selectedFileIDs: [file.id],
+			onlyIncludeRootsWithSelectedFiles: false,
+			includeLegend: true,
+			showCodeMapMarkers: false
+		)
+		let rendered = treeFromIndexes(FileTreeSelectionContext(
+			rootFolders: [root],
+			selectedFilePaths: [file.standardizedFullPath],
 			option: .files,
 			filePathDisplay: .relative,
 			onlyIncludeRootsWithSelectedFiles: false,
 			includeLegend: true,
-			isMCPContext: false,
 			showCodeMapMarkers: false
-		)
-		let live = CodeMapExtractor.generateFileTree(using: context)
-		let snapshot = CodeMapExtractor.makeFileTreeSnapshot(using: context)
-		let rendered = CodeMapExtractor.generateFileTree(using: snapshot)
+		))
 
 		XCTAssertEqual(rendered, live)
 		XCTAssertTrue(live.contains("A.swift *"))
@@ -280,18 +285,22 @@ final class CodeMapExtractorTests: XCTestCase {
 		)
 		codexRoot.addSubfolder(codexRs)
 
-		let context = FileTreeSelectionContext(
+		let live = CodeMapExtractor.generateFileTreeForRoots(
 			rootFolders: [repoPromptRoot, codexRoot],
+			option: .files,
+			filePathDisplay: .relative,
 			selectedFileIDs: [],
+			onlyIncludeRootsWithSelectedFiles: false,
+			includeLegend: false
+		)
+		let rendered = treeFromIndexes(FileTreeSelectionContext(
+			rootFolders: [repoPromptRoot, codexRoot],
+			selectedFilePaths: [],
 			option: .files,
 			filePathDisplay: .relative,
 			onlyIncludeRootsWithSelectedFiles: false,
-			includeLegend: false,
-			isMCPContext: false
-		)
-		let live = CodeMapExtractor.generateFileTree(using: context)
-		let snapshot = CodeMapExtractor.makeFileTreeSnapshot(using: context)
-		let rendered = CodeMapExtractor.generateFileTree(using: snapshot)
+			includeLegend: false
+		), showEmptyFolders: true)
 
 		XCTAssertEqual(rendered, live)
 		XCTAssertTrue(live.contains("\ncodex\n└── codex-rs"), live)
@@ -317,18 +326,22 @@ final class CodeMapExtractorTests: XCTestCase {
 		file.setCodeMap(makeAPI(filePath: "\(rootPath)-old/A.swift", definedTypeName: "A"))
 		root.addFile(file)
 
-		let context = FileTreeSelectionContext(
+		let live = CodeMapExtractor.generateFileTreeForRoots(
 			rootFolders: [root],
+			option: .files,
+			filePathDisplay: .relative,
 			selectedFileIDs: [],
+			onlyIncludeRootsWithSelectedFiles: false,
+			includeLegend: false
+		)
+		let rendered = treeFromIndexes(FileTreeSelectionContext(
+			rootFolders: [root],
+			selectedFilePaths: [],
 			option: .files,
 			filePathDisplay: .relative,
 			onlyIncludeRootsWithSelectedFiles: false,
-			includeLegend: false,
-			isMCPContext: false
-		)
-		let live = CodeMapExtractor.generateFileTree(using: context)
-		let snapshot = CodeMapExtractor.makeFileTreeSnapshot(using: context)
-		let rendered = CodeMapExtractor.generateFileTree(using: snapshot)
+			includeLegend: false
+		))
 
 		XCTAssertEqual(rendered, live)
 		XCTAssertFalse(live.contains("A.swift +"), live)
@@ -451,20 +464,52 @@ final class CodeMapExtractorTests: XCTestCase {
 		sources.addFile(fileB)
 		gitData.addFile(gitArtifact)
 
-		let context = FileTreeSelectionContext(
+		let live = CodeMapExtractor.generateFileTreeForRoots(
 			rootFolders: [root],
+			option: .auto,
+			filePathDisplay: .relative,
 			selectedFileIDs: [fileA.id],
+			onlyIncludeRootsWithSelectedFiles: false,
+			includeLegend: true
+		)
+		let rendered = treeFromIndexes(FileTreeSelectionContext(
+			rootFolders: [root],
+			selectedFilePaths: [fileA.standardizedFullPath],
 			option: .auto,
 			filePathDisplay: .relative,
 			onlyIncludeRootsWithSelectedFiles: false,
-			includeLegend: true,
-			isMCPContext: false
-		)
-
-		let live = CodeMapExtractor.generateFileTree(using: context)
-		let snapshot = CodeMapExtractor.makeFileTreeSnapshot(using: context)
-		let rendered = CodeMapExtractor.generateFileTree(using: snapshot)
+			includeLegend: true
+		))
 
 		XCTAssertEqual(rendered, live)
+	}
+
+	/// Renders the tree of a context from indexes that hold exactly the folders and files of its root view models.
+	private func treeFromIndexes(_ context: FileTreeSelectionContext, showEmptyFolders: Bool = false) -> String {
+		var indexes: [String: RootFolderIndex] = [:]
+		var filesByPath: [String: FileViewModel] = [:]
+		for root in context.rootFolders {
+			let rootPath = root.standardizedFullPath
+			let index = RootFolderIndex(rootPath: rootPath)
+			var pending = [root]
+			while let folder = pending.popLast() {
+				for subfolder in folder.subfolders {
+					index.addFolder(RelativePath.from(absolutePath: subfolder.standardizedFullPath, rootPath: rootPath), isRead: true)
+					pending.append(subfolder)
+				}
+				for file in folder.files {
+					index.addFile(RelativePath.from(absolutePath: file.standardizedFullPath, rootPath: rootPath))
+					filesByPath[file.standardizedFullPath] = file
+				}
+			}
+			index.finishReading()
+			indexes[rootPath] = index
+		}
+		let snapshot = CodeMapExtractor.makeFileTreeSnapshot(
+			using: context,
+			indexes: indexes,
+			showEmptyFolders: showEmptyFolders
+		) { filesByPath[$0]?.hasAcceptedCodeMap ?? false }
+		return CodeMapExtractor.generateFileTree(using: snapshot)
 	}
 }

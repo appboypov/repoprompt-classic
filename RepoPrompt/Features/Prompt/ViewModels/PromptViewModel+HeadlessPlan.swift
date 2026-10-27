@@ -60,16 +60,15 @@ extension PromptViewModel {
 		)
 		
 		// 3. Build file tree (auto mode for plan)
-		let selectedIDs = fileManager.computeSelectedIDs(from: snapshot.selection)
-		let fileTree = CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
+		let selectedPaths = fileManager.selectedFilePaths(from: snapshot.selection)
+		let fileTree = CodeMapExtractor.generateFileTree(using: fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
 			rootFolders: fileManager.visibleRootFolders,
-			selectedFileIDs: selectedIDs,
+			selectedFilePaths: selectedPaths,
 			option: .auto,
 			filePathDisplay: filePathDisplayOption,
 			onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
-			includeLegend: true,
-			isMCPContext: false
-		))
+			includeLegend: true
+		)))
 		
 		// 4. System prompt based on mode
 		let systemPrompt: String = {

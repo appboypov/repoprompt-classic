@@ -2,7 +2,7 @@ import Foundation
 
 struct FileTreeSelectionSnapshot: Sendable {
 	let roots: [FileTreeFolderSnapshot]
-	let selectedFileIDs: Set<UUID>
+	let selectedFilePaths: Set<String>
 	let mode: String
 	let showFullPaths: Bool
 	let onlyIncludeRootsWithSelectedFiles: Bool
@@ -11,7 +11,7 @@ struct FileTreeSelectionSnapshot: Sendable {
 
 	init(
 		roots: [FileTreeFolderSnapshot],
-		selectedFileIDs: Set<UUID>,
+		selectedFilePaths: Set<String>,
 		mode: String,
 		showFullPaths: Bool,
 		onlyIncludeRootsWithSelectedFiles: Bool,
@@ -19,7 +19,7 @@ struct FileTreeSelectionSnapshot: Sendable {
 		showCodeMapMarkers: Bool = true
 	) {
 		self.roots = roots
-		self.selectedFileIDs = selectedFileIDs
+		self.selectedFilePaths = selectedFilePaths
 		self.mode = mode
 		self.showFullPaths = showFullPaths
 		self.onlyIncludeRootsWithSelectedFiles = onlyIncludeRootsWithSelectedFiles
@@ -28,8 +28,9 @@ struct FileTreeSelectionSnapshot: Sendable {
 	}
 }
 
+/// A folder of the tree. Its id is its standardized full path.
 struct FileTreeFolderSnapshot: Sendable, Hashable {
-	let id: UUID
+	let id: String
 	let name: String
 	let nameSortKey: String
 	let fullPath: String
@@ -38,8 +39,9 @@ struct FileTreeFolderSnapshot: Sendable, Hashable {
 	let children: [FileTreeNodeSnapshot]
 }
 
+/// A file of the tree. Its id is its standardized full path.
 struct FileTreeFileSnapshot: Sendable, Hashable {
-	let id: UUID
+	let id: String
 	let name: String
 	let nameSortKey: String
 	let fileExtension: String?
@@ -50,7 +52,7 @@ indirect enum FileTreeNodeSnapshot: Sendable, Hashable {
 	case folder(FileTreeFolderSnapshot)
 	case file(FileTreeFileSnapshot)
 
-	var id: UUID {
+	var id: String {
 		switch self {
 		case .folder(let folder): return folder.id
 		case .file(let file): return file.id

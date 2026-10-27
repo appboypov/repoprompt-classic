@@ -1589,7 +1589,7 @@ class RepoFileManagerViewModel: ObservableObject {
 				}
 				updated += 1
 			} else if let entry = pathEntries.reversed().first(where: { candidate in
-				candidate.result.fileID == Self.codemapScanID(forFileWithoutTreeItem: standardizedPath)
+				candidate.result.fileID == Self.fileID(forFileWithoutTreeItem: standardizedPath)
 			}), rootFolderIndexes[StandardizedPath.absolute(entry.result.rootFolderPath)]?.filePaths.contains(entry.result.relativePath) == true {
 				// A file without a tree item keeps its codemap by path.
 				let wasTracked = codemapCapableAPIsByFullPath[standardizedPath] != nil
@@ -8987,6 +8987,24 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		file.parentFolder?.removeFile(file)
 	}
 
+	/// Drops the tree items of a folder and everything under it while its root folder's index keeps the paths,
+	/// as for a folder the file tree has not opened.
+	@MainActor
+	func removeTreeItemsForTesting(underFolder fullPath: String) {
+		guard let folder = fileHierarchyIndex.removeFolder(forKey: StandardizedPath.absolute(fullPath)) else { return }
+		folder.parent?.removeSubfolder(folder)
+		var pending = [folder]
+		while let current = pending.popLast() {
+			for file in current.files {
+				_ = fileHierarchyIndex.removeFile(forKey: file.standardizedFullPath)
+			}
+			for subfolder in current.subfolders {
+				_ = fileHierarchyIndex.removeFolder(forKey: subfolder.standardizedFullPath)
+				pending.append(subfolder)
+			}
+		}
+	}
+
 	/// Attach the selection callback and toggle a file into `selectedFiles`
 	/// through the normal commit path. Mirrors what `attachSelectionCallback`
 	/// does for fresh view models so tests can exercise code paths that read
@@ -10704,9 +10722,10 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		initialRootScanEnqueueTasks[rootPath] = InitialRootEnqueueTask(id: taskID, task: task)
 	}
 
-	/// The identity a code file without a tree item scans under. The same path always gives the same identity,
-	/// so a newer scan request for the file replaces an older one in the scan queue.
-	nonisolated static func codemapScanID(forFileWithoutTreeItem standardizedFullPath: String) -> UUID {
+	/// The identity of a file without a tree item. The same path always gives the same identity,
+	/// so a newer scan request for the file replaces an older one in the scan queue and prompts
+	/// name the file the same way each time.
+	nonisolated static func fileID(forFileWithoutTreeItem standardizedFullPath: String) -> UUID {
 		var bytes = Array(Insecure.MD5.hash(data: Data(standardizedFullPath.utf8)))
 		bytes[6] = (bytes[6] & 0x0F) | 0x30
 		bytes[8] = (bytes[8] & 0x3F) | 0x80
@@ -10734,7 +10753,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 				treeItemFiles.append(file)
 			} else {
 				pathOnlySnapshots.append(ScanSnapshot(
-					id: codemapScanID(forFileWithoutTreeItem: fullPath),
+					id: fileID(forFileWithoutTreeItem: fullPath),
 					mod: .distantPast,
 					ext: ext,
 					rel: relativePath,
@@ -12141,8 +12160,7 @@ extension RepoFileManagerViewModel {
 		for api in apis {
 			let standardized = standardizedAPIFilePath(api)
 			guard seen.insert(standardized).inserted,
-				let file = findFileByFullPath(standardized),
-				let attachedAPI = validatedFileAPI(for: file)
+				let attachedAPI = codeMapAPI(forStandardizedPath: standardized)
 			else { continue }
 
 			validated.append(attachedAPI)
@@ -12151,9 +12169,82 @@ extension RepoFileManagerViewModel {
 		return validated
 	}
 
+	/// The codemap of the file at a path: its tree item's, or for a file without a tree item, the one stored by path.
+	@MainActor
+	private func codeMapAPI(forStandardizedPath path: String) -> FileAPI? {
+		if let file = findFileByFullPath(path) {
+			return validatedFileAPI(for: file)
+		}
+		guard indexedRootAndRelativePath(ofFileWithoutTreeItem: path) != nil else { return nil }
+		return codemapCapableAPIsByFullPath[path]
+	}
+
+	/// The codemaps of every code file: from the tree items, and stored by path for files without a tree item.
 	@MainActor
 	func cachedFileAPIs() -> [FileAPI] {
-		validatedFileAPIsSnapshot(sorted: false)
+		var apis = validatedFileAPIsSnapshot(sorted: false)
+		for (path, api) in codemapCapableAPIsByFullPath
+		where findFileByFullPath(path) == nil && indexedRootAndRelativePath(ofFileWithoutTreeItem: path) != nil {
+			apis.append(api)
+		}
+		return apis
+	}
+
+	/// The root folder whose index holds a file at a path, with the file's path relative to that root folder.
+	@MainActor
+	private func indexedRootAndRelativePath(ofFileWithoutTreeItem path: String) -> (FolderViewModel, String)? {
+		guard let root = rootFolders
+			.filter({ path.hasPrefix($0.standardizedFullPath + "/") })
+			.max(by: { $0.standardizedFullPath.count < $1.standardizedFullPath.count })
+		else { return nil }
+		let relativePath = String(path.dropFirst(root.standardizedFullPath.count + 1))
+		guard rootFolderIndexes[root.standardizedFullPath]?.filePaths.contains(relativePath) == true else { return nil }
+		return (root, relativePath)
+	}
+
+	/// The file of a path for prompts: its tree item, or for a file of a root folder's index without a tree item,
+	/// a file view model outside the tree that reads the file by path. That view model is built on each call,
+	/// so its content is never stale.
+	@MainActor
+	func promptFile(forStandardizedPath path: String) -> FileViewModel? {
+		if let file = fileHierarchyIndex.filesByFullPath[path] {
+			return file
+		}
+		guard let (root, relativePath) = indexedRootAndRelativePath(ofFileWithoutTreeItem: path),
+			let service = getFileSystemService(for: root.standardizedFullPath)
+		else { return nil }
+		let file = FileViewModel(
+			file: File(
+				id: Self.fileID(forFileWithoutTreeItem: path),
+				name: (relativePath as NSString).lastPathComponent,
+				path: path,
+				modificationDate: .distantPast
+			),
+			rootPath: root.standardizedFullPath,
+			rootIdentifier: root.id,
+			rootFolderPath: root.fullPath,
+			fileSystemService: service,
+			relativePathOverride: relativePath
+		)
+		if let api = codemapCapableAPIsByFullPath[path] {
+			file.setCodeMap(api)
+		}
+		return file
+	}
+
+	/// The file tree of a context, built from the indexes of its root folders.
+	@MainActor
+	func fileTreeSnapshot(using context: FileTreeSelectionContext) -> FileTreeSelectionSnapshot {
+		CodeMapExtractor.makeFileTreeSnapshot(
+			using: context,
+			indexes: rootFolderIndexes,
+			showEmptyFolders: showEmptyFolders
+		) { path in
+			if let file = fileHierarchyIndex.filesByFullPath[path] {
+				return file.hasAcceptedCodeMap
+			}
+			return codemapCapableAPIsByFullPath[path] != nil
+		}
 	}
 
 	@MainActor
@@ -12212,7 +12303,7 @@ extension RepoFileManagerViewModel {
 		var unique = Set<UUID>()
 		let resolved = referencedPaths.compactMap { standardizedPath -> FileViewModel? in
 			guard !selectedPaths.contains(standardizedPath),
-				let vm = fileHierarchyIndex.filesByFullPath[standardizedPath],
+				let vm = promptFile(forStandardizedPath: standardizedPath),
 				unique.insert(vm.id).inserted
 			else { return nil }
 			return vm
@@ -12250,13 +12341,15 @@ extension RepoFileManagerViewModel {
 	) -> [PromptFileEntry] {
 		var entries: [PromptFileEntry] = []
 		var addedIDs = Set<UUID>()
+		var selectedIDs = Set<UUID>()
 		let normalizedSlices = standardizedStoredSelectionSlices(selection.slices)
 		
 		// 1. Resolve selected files from paths
 		for path in selection.selectedPaths {
 			let standardized = standardizedStoredSelectionPath(path)
-			guard let file = fileHierarchyIndex.filesByFullPath[standardized] else { continue }
+			guard let file = promptFile(forStandardizedPath: standardized) else { continue }
 			guard addedIDs.insert(file.id).inserted else { continue }
+			selectedIDs.insert(file.id)
 			
 			let ranges = normalizedSlices[standardized]
 			entries.append(PromptFileEntry(file: file, isCodemap: false, ranges: ranges))
@@ -12265,17 +12358,13 @@ extension RepoFileManagerViewModel {
 		// 2. Resolve auto-codemap files from paths
 		for path in selection.autoCodemapPaths {
 			let standardized = standardizedStoredSelectionPath(path)
-			guard let file = fileHierarchyIndex.filesByFullPath[standardized] else { continue }
+			guard let file = promptFile(forStandardizedPath: standardized) else { continue }
 			guard addedIDs.insert(file.id).inserted else { continue }
 			
 			entries.append(PromptFileEntry(file: file, isCodemap: true, ranges: nil))
 		}
 		
 		// 3. Apply codeMapUsage filtering (same logic as existing buildPromptEntries)
-		let selectedIDs = Set(selection.selectedPaths.compactMap { path -> UUID? in
-			let standardized = standardizedStoredSelectionPath(path)
-			return fileHierarchyIndex.filesByFullPath[standardized]?.id
-		})
 		
 		switch codeMapUsage {
 		case .none:
@@ -12310,7 +12399,7 @@ extension RepoFileManagerViewModel {
 				let standardized = standardizedAPIFilePath(api)
 				if selectedPaths.contains(standardized) { continue }
 				if existingPaths.contains(standardized) { continue }
-				if let vm = fileHierarchyIndex.filesByFullPath[standardized] {
+				if let vm = promptFile(forStandardizedPath: standardized) {
 					entries.append(PromptFileEntry(file: vm, isCodemap: true, ranges: nil))
 					existingPaths.insert(standardized)
 				}
@@ -12506,7 +12595,7 @@ extension RepoFileManagerViewModel {
 				let standardized = standardizedAPIFilePath(api)
 				if selectedPaths.contains(standardized) { continue }
 				if existingPaths.contains(standardized) { continue }
-				if let vm = findFileByFullPath(standardized) {
+				if let vm = promptFile(forStandardizedPath: standardized) {
 					filtered.append(PromptFileEntry(file: vm, isCodemap: true, ranges: nil))
 					existingPaths.insert(standardized)
 				}
@@ -12518,16 +12607,10 @@ extension RepoFileManagerViewModel {
 		return entries
 	}
 
+	/// The standardized full paths of the selected files of a stored selection.
 	@MainActor
-	func computeSelectedIDs(from stored: StoredSelection) -> Set<UUID> {
-		var ids = Set<UUID>()
-		for rawPath in stored.selectedPaths {
-			let standardized = standardizedStoredSelectionPath(rawPath)
-			if let file = fileHierarchyIndex.filesByFullPath[standardized] {
-				ids.insert(file.id)
-			}
-		}
-		return ids
+	func selectedFilePaths(from stored: StoredSelection) -> Set<String> {
+		Set(standardizedStoredSelectionPaths(stored.selectedPaths))
 	}
 
 	@MainActor
