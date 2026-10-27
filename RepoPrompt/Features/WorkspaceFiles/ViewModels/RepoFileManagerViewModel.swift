@@ -9734,7 +9734,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		let normalizedSlices = standardizedStoredSelectionSlices(tabSelection.slices)
 		let sliceMetadata: [SliceHydrationMetadata] = normalizedSlices.compactMap { entry in
 			let standardizedFull = entry.key
-			guard let vm = fileHierarchyIndex.filesByFullPath[standardizedFull] else { return nil }
+			guard let vm = promptFile(forStandardizedPath: standardizedFull) else { return nil }
 			let rootKey = vm.standardizedRootFolderPath
 			let relKey = vm.standardizedRelativePath
 			let normalized = SliceRangeMath.normalize(entry.value)
@@ -11954,7 +11954,8 @@ extension RepoFileManagerViewModel {
 	}
 
 	/// Carries a selection change into the index of each root folder, then recomputes the checkbox state
-	/// of every folder above a changed file from it.
+	/// of every folder above a changed file from it. A file without a tree item starts from the nearest folder above it
+	/// that has one.
 	@MainActor
 	private func applySelectionToIndexes(
 		from oldFiles: [FileViewModel],
@@ -11965,17 +11966,30 @@ extension RepoFileManagerViewModel {
 		var changedParents: [FolderViewModel] = []
 		for file in newFiles where !oldIDs.contains(file.id) {
 			rootFolderIndexes[file.standardizedRootFolderPath]?.select(file.standardizedRelativePath)
-			if let parent = file.parentFolder {
+			if let parent = file.parentFolder ?? nearestTreeFolder(above: file.standardizedFullPath) {
 				changedParents.append(parent)
 			}
 		}
 		for file in oldFiles where !newIDs.contains(file.id) {
 			rootFolderIndexes[file.standardizedRootFolderPath]?.deselect(file.standardizedRelativePath)
-			if let parent = file.parentFolder {
+			if let parent = file.parentFolder ?? nearestTreeFolder(above: file.standardizedFullPath) {
 				changedParents.append(parent)
 			}
 		}
 		recomputeAncestorStates(startingAtFolders: changedParents)
+	}
+
+	/// The nearest folder above a standardized full path that has a tree item.
+	@MainActor
+	private func nearestTreeFolder(above standardizedFullPath: String) -> FolderViewModel? {
+		var path = (standardizedFullPath as NSString).deletingLastPathComponent
+		while path.count > 1 {
+			if let folder = fileHierarchyIndex.foldersByFullPath[path] {
+				return folder
+			}
+			path = (path as NSString).deletingLastPathComponent
+		}
+		return nil
 	}
 
 	/// Clear both selected files and IDs in one atomic operation.
@@ -12338,7 +12352,7 @@ extension RepoFileManagerViewModel {
 
 	/// The file of a path for prompts: its tree item, or for a file of a root folder's index without a tree item,
 	/// a file view model outside the tree that reads the file by path. That view model is built on each call,
-	/// so its content is never stale.
+	/// so its content is never stale. It is checked when its path is selected, and ticking it changes the selection.
 	@MainActor
 	func promptFile(forStandardizedPath path: String) -> FileViewModel? {
 		if let file = fileHierarchyIndex.filesByFullPath[path] {
@@ -12363,6 +12377,10 @@ extension RepoFileManagerViewModel {
 		if let api = codemapCapableAPIsByFullPath[path] {
 			file.setCodeMap(api)
 		}
+		if selectedFileIDs.contains(file.id) {
+			file.setIsChecked(true)
+		}
+		attachSelectionCallback(to: file)
 		return file
 	}
 
@@ -12700,13 +12718,13 @@ extension RepoFileManagerViewModel {
 		#endif
 
 		let restoredAutoCodemapFiles = standardizedStoredSelectionPaths(stored.autoCodemapPaths).compactMap { path in
-			fileHierarchyIndex.filesByFullPath[path]
+			promptFile(forStandardizedPath: path)
 		}
 		resetAutoCodemapFiles(restoredAutoCodemapFiles)
 
 		selectionSlicesByFileID.removeAll()
 		for (path, ranges) in standardizedStoredSelectionSlices(stored.slices) {
-			guard let file = fileHierarchyIndex.filesByFullPath[path] else { continue }
+			guard let file = promptFile(forStandardizedPath: path) else { continue }
 			selectionSlicesByFileID[file.id] = ranges
 		}
 		requestSelectionSliceSnapshotRebuild(reason: "applyStoredSelection")
