@@ -297,7 +297,7 @@ final class RepoFileManagerTests: XCTestCase {
 		await fileManagerVM.applyCodemapOnlySelection(paths: ["Sources"])
 
 		XCTAssertFalse(fileManagerVM.codemapAutoEnabled)
-		let file = fileManagerVM.findFileByRelativePath("Sources/A.swift")
+		let file = fileManagerVM.promptFile(forStandardizedPath: rootURL.appendingPathComponent("Sources/A.swift").path)
 		XCTAssertNotNil(file)
 		if let file {
 			XCTAssertTrue(fileManagerVM.isAutoCodemapFile(file))
@@ -435,11 +435,8 @@ final class RepoFileManagerTests: XCTestCase {
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
 		await fileManagerVM.waitUntilReadingIsComplete()
 
-		let loaded = Set(
-			fileManagerVM.allFilesSnapshot(sorted: false)
-				.map(\.standardizedRelativePath)
-				.filter { $0.hasSuffix(".swift") || $0.hasSuffix(".log") }
-		)
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[StandardizedPath.absolute(rootURL.path)])
+		let loaded = index.filePaths.filter { $0.hasSuffix(".swift") || $0.hasSuffix(".log") }
 		XCTAssertEqual(loaded, expected)
 	}
 
@@ -1786,7 +1783,7 @@ final class RepoFileManagerTests: XCTestCase {
 		)
 
 		XCTAssertTrue(FileManager.default.fileExists(atPath: targetURL.path))
-		XCTAssertNotNil(fileManagerVM.findFileByFullPath(targetURL.path))
+		XCTAssertTrue(fileManagerVM.indexHoldsFile(atStandardizedPath: StandardizedPath.absolute(targetURL.path)))
 		guard case .workspace(let readableFile)? = await fileManagerVM.resolveReadableFileForUserInput(targetURL.path) else {
 			return XCTFail("Expected created file to be readable from the catalog immediately")
 		}
@@ -2401,19 +2398,20 @@ final class RepoFileManagerTests: XCTestCase {
 		let readableAfterRemoval = await fileManagerVM.resolveReadableFileForUserInput(relativePath)
 		let existsAfterRemoval = await fileManagerVM.fileExistsStrictly(atPath: relativePath)
 		let editableAfterRemoval = await fileManagerVM.resolveExistingFileForToolEdit(atPath: relativePath)
-		let staleContentAfterRemoval = await staleFile.latestContent
+		let indexHoldsFileAfterRemoval = fileManagerVM.indexHoldsFile(atStandardizedPath: StandardizedPath.absolute(targetURL.path))
 		XCTAssertNil(absoluteReadableAfterRemoval)
 		XCTAssertNil(readableAfterRemoval)
 		XCTAssertFalse(existsAfterRemoval)
 		XCTAssertNil(editableAfterRemoval)
 		XCTAssertNil(fileManagerVM.findFileByFullPath(targetURL.path))
-		XCTAssertNil(staleContentAfterRemoval)
+		XCTAssertFalse(indexHoldsFileAfterRemoval)
 	}
 
 	@MainActor
 	func testStrictWorkspaceReadReloadsExternalModificationWithoutDeliveredDelta() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["Sources"])
 		let targetURL = rootURL.appendingPathComponent("Sources/A.swift")
 		let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
 		let staleContent = "struct A { let staleReadToken = true }\n"
@@ -2441,6 +2439,7 @@ final class RepoFileManagerTests: XCTestCase {
 	func testContentSearchReloadsExternalModificationWithoutDeliveredDelta() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["Sources"])
 		let targetURL = rootURL.appendingPathComponent("Sources/A.swift")
 		let staleDate = Date(timeIntervalSince1970: 1_700_000_100)
 		let freshDate = Date(timeIntervalSince1970: 1_700_000_200)
@@ -2477,6 +2476,7 @@ final class RepoFileManagerTests: XCTestCase {
 	func testDeliveredFileModifiedWithUnchangedMTimeForcesContentReloadForSearch() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["Sources"])
 		let targetURL = rootURL.appendingPathComponent("Sources/A.swift")
 		let rootFolder = try XCTUnwrap(fileManagerVM.rootFolders.first)
 		let fixedDate = Date(timeIntervalSince1970: 1_700_000_300)
@@ -2512,6 +2512,7 @@ final class RepoFileManagerTests: XCTestCase {
 	func testApplyEditsPreviewReadsFreshDiskContentAfterExternalModification() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["Sources"])
 		let targetURL = rootURL.appendingPathComponent("Sources/A.swift")
 		let fixedDate = Date(timeIntervalSince1970: 1_700_000_400)
 		let staleContent = "struct A { let staleApplyToken = true }\n"
@@ -2544,6 +2545,7 @@ final class RepoFileManagerTests: XCTestCase {
 	func testStrictWorkspaceReadPrunesDiskMissingCatalogFileWithoutFallback() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["Deleted.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["Sources"])
 		let targetURL = rootURL.appendingPathComponent("Sources/Deleted.swift")
 		let file = try XCTUnwrap(fileManagerVM.findFileByFullPath(targetURL.path))
 		let staleContent = try String(contentsOf: targetURL, encoding: .utf8)
@@ -2569,6 +2571,7 @@ final class RepoFileManagerTests: XCTestCase {
 	func testAggressiveFlushProcessesPublisherModificationBeforeCachedRead() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["Sources"])
 		let targetURL = rootURL.appendingPathComponent("Sources/A.swift")
 		let rootFolder = try XCTUnwrap(fileManagerVM.rootFolders.first)
 		let service = try XCTUnwrap(fileManagerVM.getFileSystemService(for: rootURL.path))
@@ -3429,6 +3432,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift", "B.swift", "C.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard
 			let fileA = fileManagerVM.findFileByRelativePath("Sources/A.swift"),
 			let fileB = fileManagerVM.findFileByRelativePath("Sources/B.swift"),
@@ -3461,6 +3465,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift", "B.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard
 			let fileA = fileManagerVM.findFileByRelativePath("Sources/A.swift"),
 			let fileB = fileManagerVM.findFileByRelativePath("Sources/B.swift")
@@ -3495,6 +3500,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift", "B.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard
 			let fileA = fileManagerVM.findFileByRelativePath("Sources/A.swift"),
 			let fileB = fileManagerVM.findFileByRelativePath("Sources/B.swift")
@@ -3525,6 +3531,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift", "B.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard
 			let fileA = fileManagerVM.findFileByRelativePath("Sources/A.swift"),
 			let fileB = fileManagerVM.findFileByRelativePath("Sources/B.swift")
@@ -3563,6 +3570,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let fileA = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
@@ -3596,6 +3604,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift", "B.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard
 			let fileA = await MainActor.run(body: { fileManagerVM.findFileByRelativePath("Sources/A.swift") }),
 			let fileB = await MainActor.run(body: { fileManagerVM.findFileByRelativePath("Sources/B.swift") })
@@ -3647,6 +3656,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let fileA = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
@@ -3667,6 +3677,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, workspace) = try await makeWorkspaceRoot()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let file = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
@@ -3695,6 +3706,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let file = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
@@ -3723,6 +3735,7 @@ final class RepoFileManagerTests: XCTestCase {
 			try? FileManager.default.removeItem(at: rootURL)
 		}
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let file = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
@@ -3778,6 +3791,7 @@ final class RepoFileManagerTests: XCTestCase {
 			try? FileManager.default.removeItem(at: rootURL)
 		}
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let file = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
@@ -3831,6 +3845,7 @@ final class RepoFileManagerTests: XCTestCase {
 			try? FileManager.default.removeItem(at: rootURL)
 		}
 
+		await fileManagerVM.openFolders(["Sources"])
 		guard let file = fileManagerVM.findFileByRelativePath("Sources/A.swift") else {
 			XCTFail("Expected file to be loaded")
 			return
