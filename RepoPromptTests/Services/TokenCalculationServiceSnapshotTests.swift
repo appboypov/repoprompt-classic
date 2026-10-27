@@ -69,7 +69,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 		let treeSnapshot = FileTreeSelectionSnapshot(
 			roots: [
 				FileTreeFolderSnapshot(
-					id: UUID(),
+					id: "/tmp/RepoPrompt",
 					name: "RepoPrompt",
 					nameSortKey: "repoprompt",
 					fullPath: "/tmp/RepoPrompt",
@@ -78,7 +78,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 					children: [
 						.folder(
 							FileTreeFolderSnapshot(
-								id: UUID(),
+								id: "/tmp/RepoPrompt/Sources",
 								name: "Sources",
 								nameSortKey: "sources",
 								fullPath: "/tmp/RepoPrompt/Sources",
@@ -87,7 +87,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 								children: [
 									.file(
 										FileTreeFileSnapshot(
-											id: UUID(),
+											id: "/tmp/RepoPrompt/Sources/A.swift",
 											name: "A.swift",
 											nameSortKey: "a.swift",
 											fileExtension: "swift",
@@ -100,7 +100,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 					]
 				)
 			],
-			selectedFileIDs: [],
+			selectedFilePaths: [],
 			mode: "full",
 			showFullPaths: false,
 			onlyIncludeRootsWithSelectedFiles: false,
@@ -130,7 +130,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 		let treeSnapshot = FileTreeSelectionSnapshot(
 			roots: [
 				FileTreeFolderSnapshot(
-					id: UUID(),
+					id: "/tmp/RepoPrompt",
 					name: "RepoPrompt",
 					nameSortKey: "repoprompt",
 					fullPath: "/tmp/RepoPrompt",
@@ -139,7 +139,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 					children: [
 						.file(
 							FileTreeFileSnapshot(
-								id: UUID(),
+								id: "/tmp/RepoPrompt/A.swift",
 								name: "A.swift",
 								nameSortKey: "a.swift",
 								fileExtension: "swift",
@@ -149,7 +149,7 @@ final class TokenCalculationServiceSnapshotTests: XCTestCase {
 					]
 				)
 			],
-			selectedFileIDs: [],
+			selectedFilePaths: [],
 			mode: "none",
 			showFullPaths: false,
 			onlyIncludeRootsWithSelectedFiles: false,

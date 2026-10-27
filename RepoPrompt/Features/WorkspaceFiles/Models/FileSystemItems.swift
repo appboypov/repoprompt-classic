@@ -25,10 +25,17 @@ extension FileSystemItem {
 }
 
 struct File: FileSystemItem {
-	let id = UUID()
+	let id: UUID
 	let name: String
 	let path: String
 	let modificationDate: Date
+
+	init(id: UUID = UUID(), name: String, path: String, modificationDate: Date) {
+		self.id = id
+		self.name = name
+		self.path = path
+		self.modificationDate = modificationDate
+	}
 	
 	static func == (lhs: File, rhs: File) -> Bool {
 		return lhs.path == rhs.path

@@ -12198,23 +12198,22 @@ File: \(displayPath)
 		let isActiveTab = tabID == currentTabID
 		let promptText = isActiveTab ? promptManager.promptText : tabState?.promptText
 		let selection = isActiveTab ? fileManager.snapshotSelection() : tabState?.selection
-		let selectedIDs: Set<UUID>
+		let selectedPaths: Set<String>
 		if let selection {
-			selectedIDs = fileManager.computeSelectedIDs(from: selection)
+			selectedPaths = fileManager.selectedFilePaths(from: selection)
 		} else if isActiveTab {
-			selectedIDs = Set(fileManager.selectedFiles.map(\.id))
+			selectedPaths = Set(fileManager.selectedFiles.map(\.standardizedFullPath))
 		} else {
-			selectedIDs = []
+			selectedPaths = []
 		}
-		let fileTree = CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
+		let fileTree = CodeMapExtractor.generateFileTree(using: fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
 			rootFolders: fileManager.visibleRootFolders,
-			selectedFileIDs: selectedIDs,
+			selectedFilePaths: selectedPaths,
 			option: .auto,
 			filePathDisplay: .relative,
 			onlyIncludeRootsWithSelectedFiles: false,
-			includeLegend: true,
-			isMCPContext: false
-		))
+			includeLegend: true
+		)))
 		return (fileTree, promptText)
 	}
 

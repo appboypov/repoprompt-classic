@@ -120,19 +120,17 @@ extension MCPServerViewModel {
 			rootsToUse = roots
 		}
 		guard !rootsToUse.isEmpty else { return "" }
-		let selectedIDs = Set(selectedFiles.map(\.id))
-		let showCodeMapMarkers = !promptVM.codeMapsGloballyDisabled
+		let snapshot = fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
+			rootFolders: rootsToUse,
+			selectedFilePaths: Set(selectedFiles.map(\.standardizedFullPath)),
+			option: resolvedContext.effectiveFileTreeMode,
+			filePathDisplay: displayOption,
+			onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
+			includeLegend: true,
+			showCodeMapMarkers: !promptVM.codeMapsGloballyDisabled
+		))
 		return await Task.detached(priority: .userInitiated) {
-			CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
-				rootFolders: rootsToUse,
-				selectedFileIDs: selectedIDs,
-				option: resolvedContext.effectiveFileTreeMode,
-				filePathDisplay: displayOption,
-				onlyIncludeRootsWithSelectedFiles: onlyIncludeRootsWithSelectedFiles,
-				includeLegend: true,
-				isMCPContext: false,
-				showCodeMapMarkers: showCodeMapMarkers
-			))
+			CodeMapExtractor.generateFileTree(using: snapshot)
 		}.value
 	}
 

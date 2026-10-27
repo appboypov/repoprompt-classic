@@ -85,7 +85,7 @@ extension MCPServerViewModel {
 
 		var fileTreeDTO: ToolResultDTOs.FileTreeDTO? = nil
 		if include.contains("tree"), let coll = collections {
-			let selectedIDs = Set(coll.selected.map { $0.file.id })
+			let selectedPaths = Set(coll.selected.map { $0.file.standardizedFullPath })
 			let (roots, displayOption) = tabRootFoldersAndDisplayOption()
 			if roots.isEmpty {
 				let msg = await tabWorkspaceContextMessage(forOperation: tabFileTreeToolName, path: nil)
@@ -96,18 +96,17 @@ extension MCPServerViewModel {
 					note: nil
 				)
 			} else {
-				let showCodeMapMarkers = !promptVM.codeMapsGloballyDisabled
+				let snapshot = fileManager.fileTreeSnapshot(using: FileTreeSelectionContext(
+					rootFolders: roots,
+					selectedFilePaths: selectedPaths,
+					option: .selected,
+					filePathDisplay: displayOption,
+					onlyIncludeRootsWithSelectedFiles: false,
+					includeLegend: true,
+					showCodeMapMarkers: !promptVM.codeMapsGloballyDisabled
+				))
 				let tree = await Task.detached(priority: .userInitiated) {
-					CodeMapExtractor.generateFileTree(using: FileTreeSelectionContext(
-						rootFolders: roots,
-						selectedFileIDs: selectedIDs,
-						option: .selected,
-						filePathDisplay: displayOption,
-						onlyIncludeRootsWithSelectedFiles: false,
-						includeLegend: true,
-						isMCPContext: false,
-						showCodeMapMarkers: showCodeMapMarkers
-					))
+					CodeMapExtractor.generateFileTree(using: snapshot)
 				}.value
 				fileTreeDTO = .init(
 					rootsCount: roots.count,
@@ -284,7 +283,7 @@ extension MCPServerViewModel {
 		var selectedFiles: [FileViewModel] = []
 		var seen = Set<UUID>()
 		for rawPath in StoredSelectionPathNormalization.standardizedPaths(selection.selectedPaths) {
-			if let vm = fileManager.findFileByFullPath(rawPath),
+			if let vm = fileManager.promptFile(forStandardizedPath: rawPath),
 			seen.insert(vm.id).inserted {
 				selectedFiles.append(vm)
 			}
@@ -296,12 +295,13 @@ extension MCPServerViewModel {
 			allFileAPIs: promptVM.tokenCountingViewModel.cachedFileAPIs
 		)
 
-		let selectedIDs = Set(selectedFiles.map(\.id))
+		let selectedPaths = Set(selectedFiles.map(\.standardizedFullPath))
 		let (roots, displayOption) = tabRootFoldersAndDisplayOption()
 		let combinedTreeAndMap = PromptViewModel.fileTreeContentIfNeeded(
 			for: cfg,
+			fileManager: fileManager,
 			rootFolders: roots,
-			selectedFileIDs: selectedIDs,
+			selectedFilePaths: selectedPaths,
 			filePathDisplay: displayOption,
 			onlyIncludeRootsWithSelectedFiles: promptVM.onlyIncludeRootsWithSelectedFiles,
 			showCodeMapMarkers: !promptVM.codeMapsGloballyDisabled

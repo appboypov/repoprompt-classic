@@ -709,7 +709,7 @@ final class RepoFileManagerTests: XCTestCase {
 		func result(_ relativePath: String, typeName: String) -> CodeScanActor.ScanResult {
 			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
 			let request = CodeScanActor.ScanRequest(
-				fileID: RepoFileManagerViewModel.codemapScanID(forFileWithoutTreeItem: fullPath),
+				fileID: RepoFileManagerViewModel.fileID(forFileWithoutTreeItem: fullPath),
 				modificationDate: Date(),
 				content: "",
 				fileExtension: "swift",
@@ -725,6 +725,115 @@ final class RepoFileManagerTests: XCTestCase {
 
 		XCTAssertEqual(fileManagerVM.cachedCodeMapAPIForTesting(fullPath: deepPath)?.definedTypeNames, ["Deep"])
 		XCTAssertNil(fileManagerVM.cachedCodeMapAPIForTesting(fullPath: ghostPath))
+	}
+
+	@MainActor
+	func testThePromptFileTreeIsTheSameInEveryModeWhenAFolderIsNotOpened() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let codePaths = ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift"].map { rootURL.appendingPathComponent($0).path }
+		try await waitForCodemaps(of: codePaths, in: fileManagerVM)
+		let selectedFiles = try ["Top.swift", "src/deep/Deep.swift"].map {
+			try XCTUnwrap(fileManagerVM.findFileByFullPath(rootURL.appendingPathComponent($0).path))
+		}
+		let options: [FileTreeOption] = [.files, .selected, .auto]
+		let treesWithEveryFolderOpened = options.map { option in
+			CodeMapExtractor.generateFileTreeForRoots(
+				rootFolders: fileManagerVM.visibleRootFolders,
+				option: option,
+				filePathDisplay: .relative,
+				selectedFileIDs: Set(selectedFiles.map(\.id)),
+				onlyIncludeRootsWithSelectedFiles: false
+			)
+		}
+
+		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
+
+		let trees = options.map { option in
+			CodeMapExtractor.generateFileTree(using: fileManagerVM.fileTreeSnapshot(using: FileTreeSelectionContext(
+				rootFolders: fileManagerVM.visibleRootFolders,
+				selectedFilePaths: Set(selectedFiles.map(\.standardizedFullPath)),
+				option: option,
+				filePathDisplay: .relative,
+				onlyIncludeRootsWithSelectedFiles: false,
+				includeLegend: true
+			)))
+		}
+		XCTAssertEqual(trees, treesWithEveryFolderOpened)
+		XCTAssertTrue(trees[0].contains("Deep.swift * +"), trees[0])
+		XCTAssertTrue(trees[0].contains("notes.md"), trees[0])
+	}
+
+	@MainActor
+	func testTokenCountsIncludeTheFullContentOfSelectedFilesInAFolderThatIsNotOpened() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let selection = StoredSelection(
+			selectedPaths: ["Top.swift", "src/deep/Deep.swift", "src/deep/notes.md"].map { rootURL.appendingPathComponent($0).path },
+			autoCodemapPaths: [],
+			slices: [:],
+			codemapAutoEnabled: false
+		)
+		func evaluate() async -> (evaluation: PromptEntriesEvaluation, contents: [String]) {
+			let entries = fileManagerVM.buildPromptEntries(for: selection, codeMapUsage: .auto, allFileAPIs: [])
+			let snapshots = await TokenCountingViewModel().buildPromptEntrySnapshots(from: entries, filePathDisplay: .relative)
+			let contents = await PromptPackagingService.generateFileContents(entries, filePathDisplay: .relative)
+			return (await TokenCalculationService().evaluatePromptEntries(snapshots), contents)
+		}
+		let withEveryFolderOpened = await evaluate()
+
+		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
+
+		let result = await evaluate()
+		XCTAssertEqual(result.evaluation.fullCount, 3)
+		XCTAssertEqual(result.evaluation.totalContentTokens, withEveryFolderOpened.evaluation.totalContentTokens)
+		XCTAssertEqual(result.contents, withEveryFolderOpened.contents)
+		XCTAssertTrue(result.contents.contains { $0.contains("final class Deep {") }, "\(result.contents)")
+	}
+
+	@MainActor
+	func testAnAutoCodemapCanBeAFileInAFolderThatIsNotOpened() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let rootPath = StandardizedPath.absolute(rootURL.path)
+		let topFile = try XCTUnwrap(fileManagerVM.findFileByRelativePath("Top.swift"))
+		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
+		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
+		func result(_ relativePath: String, fileID: UUID, api: FileAPI) -> CodeScanActor.ScanResult {
+			let request = CodeScanActor.ScanRequest(
+				fileID: fileID,
+				modificationDate: Date(),
+				content: "",
+				fileExtension: "swift",
+				relativePath: relativePath,
+				fullPath: api.filePath,
+				rootFolderPath: rootPath
+			)
+			return CodeScanActor.ScanResult(request: request, fileAPI: api)
+		}
+		let topAPI = FileAPI(filePath: topFile.standardizedFullPath, imports: [], classes: [ClassInfo(name: "Top", methods: [], properties: [])], functions: [], enums: [], globalVars: [], macros: [], referencedTypes: ["Deep"])
+		let deepAPI = FileAPI(filePath: deepPath, imports: [], classes: [ClassInfo(name: "Deep", methods: [], properties: [])], functions: [], enums: [], globalVars: [], macros: [], referencedTypes: [])
+		fileManagerVM.applyBatchCodeMapResultsForTesting([
+			result("Top.swift", fileID: topFile.id, api: topAPI),
+			result("src/deep/Deep.swift", fileID: RepoFileManagerViewModel.fileID(forFileWithoutTreeItem: deepPath), api: deepAPI)
+		])
+
+		fileManagerVM.codemapAutoEnabled = true
+		fileManagerVM.toggleFile(topFile)
+		fileManagerVM.flushAutoCodemapSyncNowIfNeeded()
+
+		XCTAssertEqual(fileManagerVM.snapshotSelection().autoCodemapPaths, [deepPath])
+		let entries = fileManagerVM.buildPromptEntries(codeMapUsage: .auto, allFileAPIs: fileManagerVM.cachedFileAPIs())
+		XCTAssertEqual(entries.map(\.file.standardizedFullPath), [topFile.standardizedFullPath, deepPath])
+		XCTAssertEqual(entries.map(\.isCodemap), [false, true])
 	}
 
 	@MainActor
@@ -2884,7 +2993,7 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
-	func testComputeSelectedIDsNormalizesStoredPaths() async throws {
+	func testSelectedFilePathsNormalizesStoredPaths() async throws {
 		let (fileManagerVM, rootURL, _) = try await makeWorkspaceRoot(fileNames: ["A.swift"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -2900,7 +3009,7 @@ final class RepoFileManagerTests: XCTestCase {
 			codemapAutoEnabled: false
 		)
 
-		XCTAssertEqual(fileManagerVM.computeSelectedIDs(from: stored), [fileA.id])
+		XCTAssertEqual(fileManagerVM.selectedFilePaths(from: stored), [fileA.standardizedFullPath])
 	}
 
 	@MainActor
