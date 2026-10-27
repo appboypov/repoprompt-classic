@@ -438,6 +438,12 @@ class RepoFileManagerViewModel: ObservableObject {
 		readingTasks.removeValue(forKey: rootKey)?.cancel()
 		rootFolderIndexes.removeValue(forKey: rootKey)
 		readingFileCounts.value.removeValue(forKey: rootKey)
+		// The codemaps kept by path of the root folder's files go too, except those of a root folder inside it.
+		let nestedRootPrefixes = rootFolderIndexes.keys.filter { $0.hasPrefix(rootKey + "/") }.map { $0 + "/" }
+		for path in codemapCapableAPIsByFullPath.keys
+			where path.hasPrefix(rootKey + "/") && !nestedRootPrefixes.contains(where: { path.hasPrefix($0) }) {
+			codemapCapableAPIsByFullPath.removeValue(forKey: path)
+		}
 	}
 
 	/// Returns once no root folder is being read. A failed or removed load drops its entry too.
@@ -1615,6 +1621,15 @@ class RepoFileManagerViewModel: ObservableObject {
 						shouldScheduleAutoSync = true
 					}
 					codemapCapableAPIsByFullPath.removeValue(forKey: standardizedPath)
+				}
+				// The selected and auto codemap instances of the file show the new codemap too.
+				let fileID = entry.result.fileID
+				let api = codemapCapableAPIsByFullPath[standardizedPath]
+				if selectedFileIDs.contains(fileID) {
+					selectedFiles.first { $0.id == fileID }?.setCodeMap(api)
+				}
+				if autoCodemapFileIDs.contains(fileID) {
+					autoCodemapFiles.first { $0.id == fileID }?.setCodeMap(api)
 				}
 				updated += 1
 			}
@@ -3473,6 +3488,9 @@ func loadFolder(
 					} else {
 						requiresFullRootFolderStateRefresh = true
 					}
+				} else if let file = promptFile(forStandardizedPath: fullPath) {
+					// A file without a tree item leaves the selection and the codemaps by its id.
+					pruneRemovedFilesFromSelectionAndCodemap([file])
 				} else {
 					#if DEBUG
 					if Self.isLoggingEnabled {
@@ -3485,6 +3503,10 @@ func loadFolder(
 			case .folderRemoved:
 				fileAddParentContextCache.removeAll(keepingCapacity: true)
 				orderedFileAddParentContextCursor.reset()
+				// Files under the folder without tree items leave the selection and the codemaps by their ids.
+				let filesWithoutTreeItem = indexedFolder(atStandardizedPath: fullPath).map { files(under: $0) }?
+					.filter { fileHierarchyIndex.filesByFullPath[$0.standardizedFullPath] == nil } ?? []
+				pruneRemovedFilesFromSelectionAndCodemap(filesWithoutTreeItem)
 				let removedSubtree: RemovedFolderSubtree?
 				if let folderVM = findFolderByFullPath(fullPath) {
 					removedSubtree = removeFolderRecursive(in: targetRootVM, relativePath: folderVM.relativePath)
@@ -3530,6 +3552,18 @@ func loadFolder(
 						relativePath: rel,
 						fsService: fsService
 					)
+				} else if let file = promptFile(forStandardizedPath: fullPath) {
+					// A file without a tree item drops its codemap and scans again; a selected one rebases its slices.
+					codemapCapableAPIsByFullPath.removeValue(forKey: fullPath)
+					batchedCodeScanFiles[file.id] = file
+					if selectedFileIDs.contains(file.id), let selected = selectedFiles.first(where: { $0.id == file.id }) {
+						selected.setCodeMap(nil)
+						batchedSliceRebases[fullPath] = ReplaySliceRebaseRequest(
+							file: selected,
+							relativePath: rel,
+							fsService: fsService
+						)
+					}
 				}
 				processedDigests.append(.fileModified(rel))
 
@@ -3801,6 +3835,13 @@ func loadFolder(
 				parentFolderForStateRecompute: found.parent ?? parentFolderForStateRecompute
 			)
 		}
+
+		// A folder whose tree items are not built gets the new folder in its index only. A missing parent
+		// counts as built when the nearest folder above it is, since the parent is new on disk too.
+		guard (parentFolderForStateRecompute ?? nearestTreeFolder(above: standardizedAbsPath))?.childrenAreBuilt == true else {
+			rootFolderIndexes[root.standardizedFullPath]?.addFolder(StandardizedPath.relative(relativePath), isRead: true)
+			return FolderTopologyApplyOutcome(parentFolderForStateRecompute: nearestTreeFolder(above: standardizedAbsPath))
+		}
 		
 		// ──────────────────────────────────────────────────────────────────
 		// B) Brand new folder – create, index, attach
@@ -3816,6 +3857,8 @@ func loadFolder(
 		let folderVM = FolderViewModel(folder: folder,
 										rootPath: root.fullPath,
 										sortMethodOverride: sortOverride)
+		// Changes on disk bring the new folder's entries one by one, as tree items.
+		folderVM.childrenAreBuilt = true
 		
 		fileHierarchyIndex.insertFolder(folderVM, rootKey: root.standardizedFullPath)
 		rootFolderIndexes[root.standardizedFullPath]?.addFolder(StandardizedPath.relative(relativePath), isRead: true)
@@ -4075,6 +4118,8 @@ func loadFolder(
 		let parentVM = FolderViewModel(folder: folder,
 										rootPath: root.fullPath,
 										sortMethodOverride: sortOverride)
+		// Changes on disk bring the new folder's entries one by one, as tree items.
+		parentVM.childrenAreBuilt = true
 		#if DEBUG
 		fileAddPathMetricsCollector?.recordCreateMissingParentFolderCreated()
 		#endif
@@ -4829,6 +4874,24 @@ private func handleNewFile(
 			file: existing,
 			parentFolderForStateRecompute: existing.parentFolder ?? intendedParentFolder
 		)
+	}
+
+	// A folder whose tree items are not built gets the file in its index only; opening the folder builds the item.
+	// A missing parent counts as built when the nearest folder above it is, since the parent is new on disk too.
+	guard (intendedParentFolder ?? nearestTreeFolder(above: stdAbs))?.childrenAreBuilt == true else {
+		rootFolderIndexes[root.standardizedFullPath]?.addFile(StandardizedPath.relative(relativePath))
+		guard let file = promptFile(forStandardizedPath: stdAbs) else { return nil }
+		if requestCodeScanImmediately {
+			requestCodeScan(for: file)
+		}
+		if consumeNewlyCreatedFileMarkerIfPresent(
+			rootFullPath: root.standardizedFullPath,
+			relativePath: relativePath,
+			fileAddPathMetricsCollector: fileAddPathMetricsCollector
+		) {
+			performSelectionBatch { file.setIsChecked(true) }
+		}
+		return FileAdditionApplyOutcome(file: file, parentFolderForStateRecompute: nearestTreeFolder(above: stdAbs))
 	}
 
 	#if DEBUG
@@ -8969,6 +9032,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	}
 
 	/// The index that reading builds for a root folder, here built from its tree items.
+	/// A hand-built tree stands for opened folders, so each of its folders counts as built.
 	@MainActor
 	private func readRootFolderIndexForTesting(of rootFolder: FolderViewModel) -> RootFolderIndex {
 		let rootPath = rootFolder.standardizedFullPath
@@ -8977,6 +9041,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		var visitedFolderIDs = Set<UUID>()
 		while let folder = pending.popLast() {
 			guard visitedFolderIDs.insert(folder.id).inserted else { continue }
+			folder.childrenAreBuilt = true
 			for subfolder in folder.subfolders {
 				index.addFolder(RelativePath.from(absolutePath: subfolder.standardizedFullPath, rootPath: rootPath), isRead: true)
 				pending.append(subfolder)
