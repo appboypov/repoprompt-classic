@@ -536,6 +536,27 @@ final class CodeMapExtractorTests: XCTestCase {
 		""")
 	}
 
+	func testAnIndexFolderListsItsFoldersAndOnlyTheKeptFiles() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		for path in ["src/A.swift", "src/B.swift", "src/C.swift", "src/sub/D.swift", "E.swift"] {
+			index.addFile(path)
+		}
+		let tree = IndexFileTree(contents: index.contents, showEmptyFolders: false, codemapPaths: [:], treeItemCodeMaps: [:])
+		func names(keeping fileIDs: Set<String>) -> Set<String> {
+			Set(tree.children(ofFolder: "src", keepingFilesIn: fileIDs).map(\.name))
+		}
+
+		XCTAssertEqual(names(keeping: []), ["sub"])
+		// Fewer kept ids than files in the folder
+		XCTAssertEqual(names(keeping: ["/repo/src/B.swift", "/repo/src/sub/D.swift"]), ["sub", "B.swift"])
+		// More kept ids than files in the folder
+		XCTAssertEqual(
+			names(keeping: ["/repo/src/A.swift", "/repo/src/C.swift", "/repo/src/sub/D.swift", "/repo/E.swift", "/other/src/A.swift"]),
+			["sub", "A.swift", "C.swift"]
+		)
+		XCTAssertEqual(Set(tree.children(ofFolder: "src").map(\.name)), ["sub", "A.swift", "B.swift", "C.swift"])
+	}
+
 	/// A loaded root folder `project` holding `README.md`, `src/A.swift` and `src/sub/B.swift`, with no folder opened.
 	/// Returns the file manager, the temporary folder to remove and the root's standardized path.
 	private func makeUnopenedProjectRoot() async throws -> (RepoFileManagerViewModel, URL, String) {
