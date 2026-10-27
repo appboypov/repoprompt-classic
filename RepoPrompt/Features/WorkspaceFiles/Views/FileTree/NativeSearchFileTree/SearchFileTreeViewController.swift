@@ -70,7 +70,7 @@ class SearchFileTreeViewController: NSViewController,
 	private struct OutlineSnapshot {
 		let generation: Int
 		let rootItems: [SearchItemType]
-		let childrenByID: [UUID: [SearchItemType]]
+		var childrenByID: [UUID: [SearchItemType]]
 	}
 
 	private var dataSnapshotGeneration: Int = 0
@@ -82,6 +82,7 @@ class SearchFileTreeViewController: NSViewController,
 
 	// --- CHUNKED-EXPANSION PROPERTIES ------------------------------------
 	private var foldersToExpandQueue: [SearchFolderViewModel] = []
+	private var queuedFolderIDs: Set<UUID> = []
 	private var isProcessingExpansions                     = false
 	private let expansionChunkSize: Int                    = 15   // Tune as needed
 
@@ -158,7 +159,7 @@ class SearchFileTreeViewController: NSViewController,
         if let fsItem = item as? SearchItemType {
             switch fsItem {
             case .folder(let folder):
-				return dataSnapshot.childrenByID[folder.id]?.count ?? 0
+				return outlineChildren(of: folder).count
             case .file:
                 return 0
             }
@@ -181,7 +182,7 @@ class SearchFileTreeViewController: NSViewController,
         if let fsItem = item as? SearchItemType {
             switch fsItem {
             case .folder(let folder):
-				let children = dataSnapshot.childrenByID[folder.id] ?? []
+				let children = outlineChildren(of: folder)
 				guard index >= 0 && index < children.count else {
 					scheduleSnapshotApply()
 					return children.last ?? NSNull()
@@ -199,7 +200,7 @@ class SearchFileTreeViewController: NSViewController,
         guard let fsItem = item as? SearchItemType else { return false }
         switch fsItem {
 		case .folder(let folder):
-			return (dataSnapshot.childrenByID[folder.id]?.isEmpty == false)
+			return folder.hasUnbuiltChildren || (dataSnapshot.childrenByID[folder.id]?.isEmpty == false)
 		case .file:
 			return false
         }
@@ -231,6 +232,43 @@ class SearchFileTreeViewController: NSViewController,
         // Disable row selection – we don’t use it and it interferes with first-click
         return false
     }
+
+	func outlineViewItemDidExpand(_ notification: Notification) {
+		guard case .folder(let folder)? = notification.userInfo?["NSObject"] as? SearchItemType else { return }
+		searchViewModel?.setFolder(folder, isOpen: true)
+	}
+
+	func outlineViewItemDidCollapse(_ notification: Notification) {
+		guard case .folder(let folder)? = notification.userInfo?["NSObject"] as? SearchItemType else { return }
+		searchViewModel?.setFolder(folder, isOpen: false)
+	}
+
+	/// The children of a result folder, built the first time the outline asks for them.
+	private func outlineChildren(of folder: SearchFolderViewModel) -> [SearchItemType] {
+		if searchViewModel?.buildChildren(of: folder) == true {
+			dataSnapshot.childrenByID[folder.id] = folder.children.map { child in
+				switch child {
+				case .folder(let subfolder): .folder(subfolder)
+				case .file(let file): .file(file)
+				}
+			}
+			// Open the folders that open by default or that the user left open
+			for case .folder(let subfolder) in folder.children where subfolder.isExpanded {
+				queueFolderForExpansion(subfolder)
+			}
+		}
+		return dataSnapshot.childrenByID[folder.id] ?? []
+	}
+
+	/// Opens a closed folder of the results and closes an open one.
+	func toggleExpansion(of folder: SearchFolderViewModel) {
+		let item = SearchItemType.folder(folder)
+		if outlineView.isItemExpanded(item) {
+			outlineView.collapseItem(item)
+		} else {
+			outlineView.expandItem(item)
+		}
+	}
 
     // MARK: - Binding helpers
     private func setupBindings() {
@@ -291,6 +329,7 @@ class SearchFileTreeViewController: NSViewController,
         scrollingDebounceTimer = nil
 
         foldersToExpandQueue.removeAll()
+        queuedFolderIDs.removeAll()
         isProcessingExpansions = false
     }
 
@@ -365,7 +404,7 @@ class SearchFileTreeViewController: NSViewController,
 
 	/// Queues a folder so it will be expanded on the main thread in small batches.
 	private func queueFolderForExpansion(_ folder: SearchFolderViewModel) {
-		if !foldersToExpandQueue.contains(where: { $0.id == folder.id }) {
+		if queuedFolderIDs.insert(folder.id).inserted {
 			foldersToExpandQueue.append(folder)
 		}
 		processExpansionQueueIfNeeded()
@@ -386,43 +425,33 @@ class SearchFileTreeViewController: NSViewController,
 		}
 
 		let batch = Array(foldersToExpandQueue.prefix(expansionChunkSize))
+		foldersToExpandQueue.removeFirst(batch.count)
 		var deferred: [SearchFolderViewModel] = []
 
 		outlineView.beginUpdates()
 		for folder in batch {
 			let item = SearchItemType.folder(folder)
 
-			// Ensure the item exists in the outline; if not, retry later
-			if outlineView.row(forItem: item) < 0 {
-				deferred.append(folder)
+			// Expand only when the parent is already expanded (or root). Wait for a parent
+			// that is still queued to open; drop a folder whose parent will not open.
+			if let parent = folder.parent, !outlineView.isItemExpanded(SearchItemType.folder(parent)) {
+				if parent.isExpanded && queuedFolderIDs.contains(parent.id) {
+					deferred.append(folder)
+				} else {
+					queuedFolderIDs.remove(folder.id)
+				}
 				continue
 			}
+			queuedFolderIDs.remove(folder.id)
 
-			// Expand only when the parent is already expanded (or root)
-			if let parent = folder.parent {
-				let parentItem = SearchItemType.folder(parent)
-				if outlineView.isItemExpanded(parentItem) {
-					outlineView.expandItem(item, expandChildren: false)
-				} else {
-					deferred.append(folder)
-				}
-			} else {
-				// Root items can always be expanded
-				outlineView.expandItem(item, expandChildren: false)
-			}
+			// A folder of earlier results is not in the outline
+			guard outlineView.row(forItem: item) >= 0 else { continue }
+			outlineView.expandItem(item, expandChildren: false)
 		}
 		outlineView.endUpdates()
 
-		// Remove processed head portion
-		let removeCount = min(expansionChunkSize, foldersToExpandQueue.count)
-		foldersToExpandQueue.removeFirst(removeCount)
-
-		// Re-enqueue deferred items at the tail, avoiding duplicates
-		if !deferred.isEmpty {
-			for f in deferred where !foldersToExpandQueue.contains(where: { $0.id == f.id }) {
-				foldersToExpandQueue.append(f)
-			}
-		}
+		// Re-enqueue deferred items at the tail
+		foldersToExpandQueue.append(contentsOf: deferred)
 
 		if !foldersToExpandQueue.isEmpty {
 			DispatchQueue.main.async { [weak self] in
@@ -690,6 +719,9 @@ extension SearchFileTreeViewController {
 		let newSnapshot = buildSnapshot()
 		dataSnapshotGeneration = newSnapshot.generation
 		dataSnapshot = newSnapshot
+		// Folders queued for the earlier results do not open in these
+		foldersToExpandQueue.removeAll()
+		queuedFolderIDs.removeAll()
 
 		outlineView?.reloadData()
 		// Re-apply expansion for matched folders

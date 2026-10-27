@@ -140,7 +140,7 @@ class SearchFolderCellView: NSTableCellView {
         if clickableArea.bounds.contains(localPoint) {
             let cbPoint = hoverCheckbox.convert(event.locationInWindow, from: nil)
             if !hoverCheckbox.bounds.contains(cbPoint) {
-                folder?.isExpanded.toggle()
+                if let folder { treeViewController?.toggleExpansion(of: folder) }
                 return                    // handled – skip super
             }
         }
