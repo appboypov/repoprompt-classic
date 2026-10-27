@@ -33,18 +33,20 @@ class SearchFileTreeViewModel: ObservableObject {
 	private var folderIndex: [UUID : SearchFolderViewModel] = [:]
 	private var fileIndex:   [UUID : SearchFileViewModel]   = [:]
 	
-	// Per-root snapshot caching
-	private struct RootSnapshotCacheEntry {
-		let rootPath: String       // standardized full path
-		let generation: UInt64     // the index generation the snapshot was built from
-		let showEmptyFolders: Bool
-		let snapshot: SnapshotFolder
+	/// The path index of one root folder, kept in step with the root's index through its path changes.
+	private struct RootNameIndex {
+		let index: PathSearchIndex
+		/// The root index it follows.
+		let source: ObjectIdentifier
+		/// The generation of the root index it holds the paths of.
+		let generation: UInt64
 	}
 	
-	private var rootSnapshotCache: [UUID: RootSnapshotCacheEntry] = [:]
+	/// The path index of each visible root folder, by root id.
+	private var nameIndexes: [UUID: RootNameIndex] = [:]
 	
-	// The path index of the last search, reused while no root's index generation changes
-	private var searchIndex: SearchIndexState?
+	/// The last search or index update. Each run waits for the one before it, so only one changes the path indexes at a time.
+	private var lastSearchRun: Task<Void, Never>?
 	
 	// Whether the user opened or closed a result folder, kept when the results refresh
 	private var folderIsOpen: [UUID: Bool] = [:]
@@ -90,8 +92,7 @@ class SearchFileTreeViewModel: ObservableObject {
 	func setFileManager(_ fileManager: RepoFileManagerViewModel) {
 		self.fileManager = fileManager
 		// New FM: reset all search caches
-		rootSnapshotCache.removeAll()
-		searchIndex = nil
+		nameIndexes.removeAll()
 
 		fileManager.fileTogglePublisher
 			.sink { [weak self] toggledFile in
@@ -104,7 +105,7 @@ class SearchFileTreeViewModel: ObservableObject {
 		fileManager.folderRefreshPublisher
 			.sink { [weak self] updatedFolder in
 				Task { @MainActor in
-					// A search reuses its snapshots and index while the index generations stay the same
+					// A search updates its path indexes with the changed paths only
 					self?.performSearch(cancelExisting: false)
 				}
 			}
@@ -115,8 +116,13 @@ class SearchFileTreeViewModel: ObservableObject {
 		fileManager.folderDidFinishLoadingPublisher
 			.sink { [weak self] _ in
 				Task { @MainActor in
-					// A search reuses its snapshots and index while the index generations stay the same
-					self?.performSearch(cancelExisting: false)
+					guard let self else { return }
+					// The first search after reading finds the path indexes ready
+					if self.searchText.isEmpty {
+						self.prepareNameIndexes()
+					} else {
+						self.performSearch(cancelExisting: false)
+					}
 				}
 			}
 			.store(in: &cancellables)
@@ -252,110 +258,85 @@ class SearchFileTreeViewModel: ObservableObject {
 		// ------------------------------------------------------------------
 		let searchTextCapture = String(searchText.prefix(1_000))
 		
-		// The main actor only gathers each root's index values; the search builds and walks them off it
-		let inputs = fileManager.map(searchRootInputs(of:)) ?? []
-		let reusableIndex = searchIndex
-		
 		// The results on screen stay until this search replaces them
 		isSearching = true
-		searchTask = Task { [weak self] in
+		let previous = lastSearchRun
+		let task = Task { [weak self] in
+			await previous?.value
 			guard let self else { return }
+			let inputs = self.fileManager.map(self.searchRootInputs(of:)) ?? []
+			// Path changes are applied even when the search is cancelled, so the next run starts from them
+			let indexes = await Self.sync(inputs)
+			self.store(indexes, for: inputs)
 			
 			do {
-				let work = Task.detached(priority: .userInitiated) {
-					try await SearchFileTreeViewModel.search(inputs, reusing: reusableIndex, forPattern: searchTextCapture)
-				}
-				let run = try await withTaskCancellationHandler {
-					try await work.value
-				} onCancel: {
-					work.cancel()
-				}
+				try Task.checkCancellation()
+				let matches = try await Self.matches(of: searchTextCapture, in: inputs, indexes: indexes)
+				try Task.checkCancellation()
 				
-				await MainActor.run { self.store(run, for: inputs) }
+				self.folderIndex.removeAll()
+				self.fileIndex.removeAll()
+				let found = matches.map { self.resultFolder(from: $0) }
+				self.rootFolders     = found
+				self.noResultsFound  = found.isEmpty
+				self.hasSearchResults = !found.isEmpty
 				
-				if Task.isCancelled { throw CancellationError() }
-				
-				await MainActor.run {
-					self.folderIndex.removeAll()
-					self.fileIndex.removeAll()
-					let found = run.matches.map { self.resultFolder(from: $0) }
-					self.rootFolders     = found
-					self.noResultsFound  = found.isEmpty
-					self.hasSearchResults = !found.isEmpty
-					
-					// Re-index for O(1) look-ups.
-					self.buildIndexes(for: self.rootFolders, parent: nil)
-					self.isSearching = false
-				}
-				
+				// Re-index for O(1) look-ups.
+				self.buildIndexes(for: self.rootFolders, parent: nil)
+				self.isSearching = false
 			} catch is CancellationError {
 				// Whatever cancelled this search sets the state that follows it
 				return
 			} catch {
-				await MainActor.run {
-					self.rootFolders.removeAll()
-					self.noResultsFound   = true
-					self.hasSearchResults = false
-					self.isSearching = false
-				}
+				self.rootFolders.removeAll()
+				self.noResultsFound   = true
+				self.hasSearchResults = false
+				self.isSearching = false
 			}
 			
-			await MainActor.run {
-				self.searchTask = nil
-				if self.pendingSearchRefresh {
-					self.pendingSearchRefresh = false
-					self.performSearch(cancelExisting: false)
-				}
+			self.searchTask = nil
+			if self.pendingSearchRefresh {
+				self.pendingSearchRefresh = false
+				self.performSearch(cancelExisting: false)
 			}
+		}
+		lastSearchRun = task
+		searchTask = task
+	}
+	
+	/// Brings the path indexes of the visible root folders in step ahead of a search.
+	@MainActor
+	private func prepareNameIndexes() {
+		let previous = lastSearchRun
+		lastSearchRun = Task { [weak self] in
+			await previous?.value
+			guard let self else { return }
+			let inputs = self.fileManager.map(self.searchRootInputs(of:)) ?? []
+			self.store(await Self.sync(inputs), for: inputs)
 		}
 	}
 	
-	fileprivate struct SnapshotFolder: Sendable {
-		let id: UUID
-		let name: String
-		let relativePath: String
-		let children: [SnapshotItem]
-	}
-	
-	fileprivate enum SnapshotItem: Sendable {
-		case folder(SnapshotFolder)
-		case file(SnapshotFile)
-	}
-	
-	fileprivate struct SnapshotFile: Sendable {
+	/// A file or folder of the results.
+	fileprivate struct ResultEntry: Sendable {
 		let id: UUID
 		let name: String
 		let relativePath: String
 	}
 	
-	/// What a search needs of one visible root folder: its cached snapshot, or the index contents to build one from.
+	/// What a search needs of one visible root folder: the path changes for its path index, or the index contents to build one from.
 	private struct SearchRootInput: Sendable {
-		enum Source: Sendable {
-			case cached(SnapshotFolder)
-			case contents(RootFolderIndex.Contents)
+		enum Sync: Sendable {
+			case changes(PathSearchIndex, [RootFolderIndex.PathChange])
+			case rebuild(RootFolderIndex.Contents)
 		}
 		
 		let rootID: UUID
 		let rootName: String
 		let rootRelativePath: String
 		let rootPath: String
+		let source: ObjectIdentifier
 		let generation: UInt64
-		let showEmptyFolders: Bool
-		let source: Source
-	}
-	
-	/// A file or folder of the path index.
-	private struct SearchEntry: Sendable {
-		let id: UUID
-		let relativePath: String
-		let isFolder: Bool
-	}
-	
-	/// The path index over every file and folder of the snapshots, with the index generation of each root it was built from.
-	private struct SearchIndexState: Sendable {
-		let index: PathSearchIndex
-		let entries: [SearchEntry]
-		let generations: [UUID: UInt64]
+		let sync: Sync
 	}
 	
 	/// A folder of the results: only its matches and the folders that hold one.
@@ -372,222 +353,201 @@ class SearchFileTreeViewModel: ObservableObject {
 	fileprivate enum MatchedItem: Sendable {
 		case folder(MatchedFolder)
 		/// A folder whose own path matches, shown with everything in it.
-		case contents(SnapshotFolder, score: Int)
-		case file(SnapshotFile, score: Int)
+		case contents(ResultEntry, score: Int)
+		case file(ResultEntry, score: Int)
+		
+		var score: Int {
+			switch self {
+			case .folder(let folder): return folder.bestScore
+			case .contents(_, let score), .file(_, let score): return score
+			}
+		}
 	}
 	
 	/// The children of a result folder before the results view opens it.
 	fileprivate enum UnbuiltChildren {
 		/// The matches under a folder that holds matches.
 		case matches(MatchedFolder)
-		/// Everything in a folder whose own path matches, or in a folder inside it.
-		case contents(SnapshotFolder, rootID: UUID, rootPath: String)
+		/// Everything in a folder whose own path matches, or in a folder inside it, as its root index holds it.
+		case contents(relativePath: String, rootID: UUID, rootPath: String)
 	}
 	
-	/// What one search found, with the snapshots and index it built so the next search can reuse them.
-	private struct SearchRun: Sendable {
-		let snapshots: [SnapshotFolder]
-		let searchIndex: SearchIndexState
-		let matches: [MatchedFolder]
-	}
-	
-	/// The search inputs of the visible root folders. Reads the index contents only of a root whose cached snapshot is stale.
+	/// The search inputs of the visible root folders. A root whose path index follows its root index gets the
+	/// path changes since, any other root the contents to build one.
 	@MainActor
 	private func searchRootInputs(of fm: RepoFileManagerViewModel) -> [SearchRootInput] {
 		fm.visibleRootFolders.compactMap { root in
 			let rootPath = root.standardizedFullPath
 			guard let index = fm.rootFolderIndexes[rootPath] else { return nil }
-			let source: SearchRootInput.Source
-			if let cached = rootSnapshotCache[root.id],
-			cached.rootPath == rootPath,
-			cached.generation == index.generation,
-			cached.showEmptyFolders == fm.showEmptyFolders {
-				source = .cached(cached.snapshot)
+			let source = ObjectIdentifier(index)
+			let sync: SearchRootInput.Sync
+			if let kept = nameIndexes[root.id], kept.source == source, let changes = index.pathChanges(after: kept.generation) {
+				sync = .changes(kept.index, changes)
 			} else {
-				source = .contents(index.contents)
+				sync = .rebuild(index.contents)
 			}
 			return SearchRootInput(
 				rootID: root.id,
 				rootName: root.name,
 				rootRelativePath: root.relativePath,
 				rootPath: rootPath,
+				source: source,
 				generation: index.generation,
-				showEmptyFolders: fm.showEmptyFolders,
-				source: source
+				sync: sync
 			)
 		}
 	}
 	
-	/// Keeps the snapshots and index of a search for the next one. Roots that are gone drop out of the cache.
+	/// Keeps the path indexes for the next run. Roots that are gone drop out.
 	@MainActor
-	private func store(_ run: SearchRun, for inputs: [SearchRootInput]) {
-		var cache: [UUID: RootSnapshotCacheEntry] = [:]
-		for (input, snapshot) in zip(inputs, run.snapshots) {
-			cache[input.rootID] = RootSnapshotCacheEntry(
-				rootPath: input.rootPath,
-				generation: input.generation,
-				showEmptyFolders: input.showEmptyFolders,
-				snapshot: snapshot
-			)
+	private func store(_ indexes: [PathSearchIndex], for inputs: [SearchRootInput]) {
+		var kept: [UUID: RootNameIndex] = [:]
+		for (input, index) in zip(inputs, indexes) {
+			kept[input.rootID] = RootNameIndex(index: index, source: input.source, generation: input.generation)
 		}
-		rootSnapshotCache = cache
-		searchIndex = run.searchIndex
+		nameIndexes = kept
 	}
 	
-	/// Builds the snapshots and path index the inputs miss, then finds every file and folder that matches the pattern.
-	/// Runs off the main actor; only the index search itself has the 5 s timeout.
-	private nonisolated static func search(
-		_ inputs: [SearchRootInput],
-		reusing reusableIndex: SearchIndexState?,
-		forPattern pattern: String
-	) async throws -> SearchRun {
-		var snapshots: [SnapshotFolder] = []
-		snapshots.reserveCapacity(inputs.count)
+	/// The path index of each input, with its path changes applied or built from its contents. Runs off the main actor.
+	private nonisolated static func sync(_ inputs: [SearchRootInput]) async -> [PathSearchIndex] {
+		var indexes: [PathSearchIndex] = []
+		indexes.reserveCapacity(inputs.count)
 		for input in inputs {
-			try Task.checkCancellation()
-			switch input.source {
-			case .cached(let snapshot):
-				snapshots.append(snapshot)
-			case .contents(let contents):
-				snapshots.append(makeSnapshotFolder(of: input, contents: contents))
+			switch input.sync {
+			case .changes(let index, let changes):
+				await apply(changes, to: index)
+				indexes.append(index)
+			case .rebuild(let contents):
+				var files: [String] = []
+				var folders: [String] = []
+				folders.reserveCapacity(contents.folders.count)
+				for (path, folder) in contents.folders {
+					if !path.isEmpty {
+						folders.append(path)
+					}
+					files.append(contentsOf: folder.childFilePaths)
+				}
+				indexes.append(await PathSearchIndex(paths: files, folderPaths: folders))
 			}
 		}
-		
-		let generations = Dictionary(inputs.map { ($0.rootID, $0.generation) }, uniquingKeysWith: { _, last in last })
-		let searchIndex: SearchIndexState
-		if let reusableIndex, reusableIndex.generations == generations {
-			searchIndex = reusableIndex
-		} else {
-			var entries: [SearchEntry] = []
-			for snapshot in snapshots {
-				collectEntries(of: snapshot, into: &entries)
-			}
-			try Task.checkCancellation()
-			searchIndex = SearchIndexState(
-				index: await PathSearchIndex(paths: entries.map(\.relativePath)),
-				entries: entries,
-				generations: generations
-			)
-		}
-		try Task.checkCancellation()
-		
-		let entries = searchIndex.entries
-		let candidates = try await withTimeout(seconds: 5) {
-			await searchIndex.index.search(pattern, limit: entries.count)
-		}
-		
-		// De-duplicate indices (path_search_find can emit duplicates), then
-		// give each match a rank-based score: earlier in the list scores higher.
-		var seen = Set<Int>()
-		var fileScores: [UUID: Int] = [:]
-		var folderScores: [UUID: Int] = [:]
-		var score = candidates.count
-		for candidate in candidates where entries.indices.contains(candidate.index) && seen.insert(candidate.index).inserted {
-			let entry = entries[candidate.index]
-			if entry.isFolder {
-				folderScores[entry.id] = score
-			} else {
-				fileScores[entry.id] = score
-			}
-			score -= 1
-		}
-		
-		let matches: [MatchedFolder] = fileScores.isEmpty && folderScores.isEmpty
-			? []
-			: zip(inputs, snapshots).compactMap { input, snapshot in
-				matchedFolder(from: snapshot, rootID: input.rootID, rootPath: input.rootPath, fileScores: fileScores, folderScores: folderScores)
-			}
-		return SearchRun(snapshots: snapshots, searchIndex: searchIndex, matches: matches)
+		return indexes
 	}
 	
-	/// The snapshot of a root folder, built from its index so it holds the folders that are not opened too.
-	/// Folders come before files, each sorted by lowercased name.
-	private nonisolated static func makeSnapshotFolder(of input: SearchRootInput, contents: RootFolderIndex.Contents) -> SnapshotFolder {
+	/// Applies path changes in order, each run of file adds, folder adds or removes as one batch.
+	private nonisolated static func apply(_ changes: [RootFolderIndex.PathChange], to index: PathSearchIndex) async {
+		enum Batch: Equatable {
+			case files, folders, removals
+		}
+		func flush(_ batch: Batch?, _ paths: [String]) async {
+			switch batch {
+			case .files: await index.add(paths, areFolders: false)
+			case .folders: await index.add(paths, areFolders: true)
+			case .removals: await index.remove(paths)
+			case nil: break
+			}
+		}
+		var batch: Batch?
+		var paths: [String] = []
+		for change in changes {
+			let next: Batch
+			let path: String
+			switch change {
+			case .added(let added, let isFolder):
+				next = isFolder ? .folders : .files
+				path = added
+			case .removed(let removed):
+				next = .removals
+				path = removed
+			}
+			if next != batch {
+				await flush(batch, paths)
+				paths.removeAll(keepingCapacity: true)
+				batch = next
+			}
+			paths.append(path)
+		}
+		await flush(batch, paths)
+	}
+	
+	/// Finds every file and folder of each root that matches the pattern. Runs off the main actor;
+	/// each index search has the 5 s timeout.
+	private nonisolated static func matches(
+		of pattern: String,
+		in inputs: [SearchRootInput],
+		indexes: [PathSearchIndex]
+	) async throws -> [MatchedFolder] {
+		var found: [MatchedFolder] = []
+		for (input, index) in zip(inputs, indexes) {
+			try Task.checkCancellation()
+			let candidates = try await withTimeout(seconds: 5) {
+				await index.search(pattern, limit: Int.max)
+			}
+			try Task.checkCancellation()
+			if let matched = matchedRoot(of: input, candidates: candidates) {
+				found.append(matched)
+			}
+		}
+		return found
+	}
+	
+	/// The root folder with only its matches and the folders that hold one, or nil when nothing matched.
+	/// A folder whose own path matches holds everything in it, so the files and folders in it are not matched again.
+	/// Earlier matches score higher.
+	private nonisolated static func matchedRoot(of input: SearchRootInput, candidates: [PathSearchIndex.Candidate]) -> MatchedFolder? {
 		func id(of relativePath: String) -> UUID {
 			RepoFileManagerViewModel.fileID(
-				forStandardizedPath: StandardizedPath.join(standardizedRoot: contents.rootPath, standardizedRelativePath: relativePath)
+				forStandardizedPath: StandardizedPath.join(standardizedRoot: input.rootPath, standardizedRelativePath: relativePath)
 			)
 		}
-		/// Each path with its name, sorted by the lowercased name alone.
-		func named(_ paths: Set<String>) -> [(path: String, name: String)] {
-			paths
-				.map { path -> (key: String, path: String, name: String) in
-					let name = (path as NSString).lastPathComponent
-					return (name.lowercased(), path, name)
-				}
-				.sorted { $0.key < $1.key }
-				.map { (path: $0.path, name: $0.name) }
+		func parentPath(of path: String) -> String {
+			guard let slash = path.lastIndex(of: "/") else { return "" }
+			return String(path[..<slash])
 		}
-		func children(of folder: RootFolderIndex.Contents.Folder) -> [SnapshotItem] {
-			let folders = named(folder.childFolderPaths).compactMap { child -> SnapshotItem? in
-				guard let subfolder = contents.folders[child.path],
-				input.showEmptyFolders || !subfolder.isKnownEmpty else { return nil }
-				return .folder(SnapshotFolder(id: id(of: child.path), name: child.name, relativePath: child.path, children: children(of: subfolder)))
+		
+		let matchedFolderPaths = Set(candidates.lazy.filter(\.isFolder).map(\.path))
+		func isInsideMatchedFolder(_ path: String) -> Bool {
+			var current = path
+			while !current.isEmpty {
+				current = parentPath(of: current)
+				if matchedFolderPaths.contains(current) { return true }
 			}
-			let files = named(folder.childFilePaths).map { child in
-				SnapshotItem.file(SnapshotFile(id: id(of: child.path), name: child.name, relativePath: child.path))
-			}
-			return folders + files
+			return false
 		}
-		return SnapshotFolder(
-			id: input.rootID,
-			name: input.rootName,
-			relativePath: input.rootRelativePath,
-			children: contents.folders[""].map(children(of:)) ?? []
-		)
-	}
-	
-	/// Every file and folder under a folder, each folder before what it holds.
-	private nonisolated static func collectEntries(of folder: SnapshotFolder, into entries: inout [SearchEntry]) {
-		for child in folder.children {
-			switch child {
-			case .folder(let subfolder):
-				entries.append(SearchEntry(id: subfolder.id, relativePath: subfolder.relativePath, isFolder: true))
-				collectEntries(of: subfolder, into: &entries)
-			case .file(let file):
-				entries.append(SearchEntry(id: file.id, relativePath: file.relativePath, isFolder: false))
+		
+		var items: [String: [MatchedItem]] = [:]
+		var subfolderPaths: [String: Set<String>] = [:]
+		var score = candidates.count
+		for candidate in candidates {
+			defer { score -= 1 }
+			guard !isInsideMatchedFolder(candidate.path) else { continue }
+			let entry = ResultEntry(id: id(of: candidate.path), name: candidate.filename, relativePath: candidate.path)
+			var parent = parentPath(of: candidate.path)
+			items[parent, default: []].append(candidate.isFolder ? .contents(entry, score: score) : .file(entry, score: score))
+			while !parent.isEmpty {
+				let grandparent = parentPath(of: parent)
+				guard subfolderPaths[grandparent, default: []].insert(parent).inserted else { break }
+				parent = grandparent
 			}
 		}
-	}
-	
-	/// The folder with only its matches and the folders that hold one, or nil when it holds none.
-	/// A folder whose own path matches holds everything in it, so the files and folders in it are not matched again.
-	private nonisolated static func matchedFolder(
-		from folder: SnapshotFolder,
-		rootID: UUID,
-		rootPath: String,
-		fileScores: [UUID: Int],
-		folderScores: [UUID: Int]
-	) -> MatchedFolder? {
-		var children: [MatchedItem] = []
-		var bestScore = 0
-		for child in folder.children {
-			switch child {
-			case .folder(let subfolder):
-				if let score = folderScores[subfolder.id] {
-					bestScore = max(bestScore, score)
-					children.append(.contents(subfolder, score: score))
-				} else if let matched = matchedFolder(from: subfolder, rootID: rootID, rootPath: rootPath, fileScores: fileScores, folderScores: folderScores) {
-					bestScore = max(bestScore, matched.bestScore)
-					children.append(.folder(matched))
-				}
-			case .file(let file):
-				if let score = fileScores[file.id] {
-					bestScore = max(bestScore, score)
-					children.append(.file(file, score: score))
-				}
+		guard !items.isEmpty else { return nil }
+		
+		func folder(at path: String, id folderID: UUID, name: String, relativePath: String) -> MatchedFolder {
+			var children = items[path] ?? []
+			for subfolder in subfolderPaths[path] ?? [] {
+				let subfolderName = subfolder.lastIndex(of: "/").map { String(subfolder[subfolder.index(after: $0)...]) } ?? subfolder
+				children.append(.folder(folder(at: subfolder, id: id(of: subfolder), name: subfolderName, relativePath: subfolder)))
 			}
+			return MatchedFolder(
+				id: folderID,
+				name: name,
+				relativePath: relativePath,
+				rootID: input.rootID,
+				rootPath: input.rootPath,
+				children: children,
+				bestScore: children.map(\.score).max() ?? 0
+			)
 		}
-		guard !children.isEmpty else { return nil }
-		return MatchedFolder(
-			id: folder.id,
-			name: folder.name,
-			relativePath: folder.relativePath,
-			rootID: rootID,
-			rootPath: rootPath,
-			children: children,
-			bestScore: bestScore
-		)
+		return folder(at: "", id: input.rootID, name: input.rootName, relativePath: input.rootRelativePath)
 	}
 	
 	/// The view model of a root folder of the results. Its children are built when the results view opens it.
@@ -652,21 +612,23 @@ class SearchFileTreeViewModel: ObservableObject {
 	
 	/// The view model of a folder shown with everything in it, closed until the user opens it.
 	@MainActor
-	private func makeContentsFolder(_ snapshot: SnapshotFolder, rootID: UUID, rootPath: String, score: Int) -> SearchFolderViewModel {
-		makeFolder(
-			id: snapshot.id,
-			name: snapshot.name,
-			relativePath: snapshot.relativePath,
+	private func makeContentsFolder(_ entry: ResultEntry, rootID: UUID, rootPath: String, score: Int) -> SearchFolderViewModel {
+		let node = fileManager?.rootFolderIndexes[rootPath]?.folders[entry.relativePath]
+		let holdsAnything = node.map { !$0.childFolderPaths.isEmpty || !$0.childFilePaths.isEmpty } ?? false
+		return makeFolder(
+			id: entry.id,
+			name: entry.name,
+			relativePath: entry.relativePath,
 			rootID: rootID,
 			opensByDefault: false,
 			bestScore: score,
-			unbuiltChildren: snapshot.children.isEmpty ? nil : .contents(snapshot, rootID: rootID, rootPath: rootPath)
+			unbuiltChildren: holdsAnything ? .contents(relativePath: entry.relativePath, rootID: rootID, rootPath: rootPath) : nil
 		)
 	}
 	
 	/// The view model of a result file, linked to the tree item it shows.
 	@MainActor
-	private func makeFile(_ file: SnapshotFile, rootPath: String, score: Int) -> SearchFileViewModel {
+	private func makeFile(_ file: ResultEntry, rootPath: String, score: Int) -> SearchFileViewModel {
 		// Exact lookup under the root, as the tree item or a file view model that reads it by path
 		let realFileVM = fileManager?.promptFile(
 			forStandardizedPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file.relativePath)
@@ -679,6 +641,20 @@ class SearchFileTreeViewModel: ObservableObject {
 			matchScore: score,
 			originalFile: realFileVM
 		)
+	}
+	
+	/// The entries of each path, sorted by lowercased name, as the file tree sorts them.
+	private static func entries(of paths: Set<String>, rootPath: String) -> [ResultEntry] {
+		paths
+			.map { path -> (key: String, entry: ResultEntry) in
+				let name = (path as NSString).lastPathComponent
+				let id = RepoFileManagerViewModel.fileID(
+					forStandardizedPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: path)
+				)
+				return (name.lowercased(), ResultEntry(id: id, name: name, relativePath: path))
+			}
+			.sorted { $0.key < $1.key }
+			.map(\.entry)
 	}
 	
 	/// Builds the children of a folder of the current results the first time the results view opens it.
@@ -711,16 +687,22 @@ class SearchFileTreeViewModel: ObservableObject {
 			}
 			// Sort children by score
 			sortChildren(&children)
-		case .contents(let snapshot, let rootID, let rootPath):
-			// Folders then files by name, as the snapshot holds them
-			children = snapshot.children.map { child -> SearchFileSystemItem in
-				switch child {
-				case .folder(let subfolder):
-					return .folder(makeContentsFolder(subfolder, rootID: rootID, rootPath: rootPath, score: 0))
-				case .file(let file):
-					return .file(makeFile(file, rootPath: rootPath, score: 0))
-				}
+		case .contents(let relativePath, let rootID, let rootPath):
+			// Folders then files by name, as the root index holds them now
+			guard let fm = fileManager, let index = fm.rootFolderIndexes[rootPath], let node = index.folders[relativePath] else {
+				children = []
+				break
 			}
+			let subfolderPaths = node.childFolderPaths.filter { path in
+				fm.showEmptyFolders || index.folders[path]?.isKnownEmpty != true
+			}
+			let folders = Self.entries(of: subfolderPaths, rootPath: rootPath).map { entry in
+				SearchFileSystemItem.folder(makeContentsFolder(entry, rootID: rootID, rootPath: rootPath, score: 0))
+			}
+			let files = Self.entries(of: node.childFilePaths, rootPath: rootPath).map { entry in
+				SearchFileSystemItem.file(makeFile(entry, rootPath: rootPath, score: 0))
+			}
+			children = folders + files
 		}
 		folder.children = children
 		buildIndexes(for: [folder], parent: folder.parent)
@@ -739,8 +721,8 @@ class SearchFileTreeViewModel: ObservableObject {
 	@MainActor
 	private func checkboxState(of unbuilt: UnbuiltChildren) -> CheckboxState {
 		switch unbuilt {
-		case .contents(let snapshot, _, let rootPath):
-			return fileManager?.rootFolderIndexes[rootPath]?.checkboxState(ofFolder: snapshot.relativePath) ?? .unchecked
+		case .contents(let relativePath, _, let rootPath):
+			return fileManager?.rootFolderIndexes[rootPath]?.checkboxState(ofFolder: relativePath) ?? .unchecked
 		case .matches(let matched):
 			guard let index = fileManager?.rootFolderIndexes[matched.rootPath] else { return .unchecked }
 			return Self.checkboxState(of: matched.children, in: index)
@@ -757,8 +739,8 @@ class SearchFileTreeViewModel: ObservableObject {
 			switch item {
 			case .folder(let subfolder):
 				state = checkboxState(of: subfolder.children, in: index)
-			case .contents(let snapshot, _):
-				state = index.checkboxState(ofFolder: snapshot.relativePath)
+			case .contents(let entry, _):
+				state = index.checkboxState(ofFolder: entry.relativePath)
 			case .file(let file, _):
 				state = index.selectedFilePaths.contains(file.relativePath) ? .checked : .unchecked
 			}
@@ -772,17 +754,19 @@ class SearchFileTreeViewModel: ObservableObject {
 		return checkedCount > 0 ? .checked : .unchecked
 	}
 	
-	/// The full paths of the files in children that are not built yet.
-	private static func filePaths(in unbuilt: UnbuiltChildren) -> [String] {
+	/// The full paths of the files in children that are not built yet, as their root index holds them now.
+	@MainActor
+	private func filePaths(in unbuilt: UnbuiltChildren) -> [String] {
 		var paths: [String] = []
-		func addFiles(of snapshot: SnapshotFolder, rootPath: String) {
-			for child in snapshot.children {
-				switch child {
-				case .folder(let subfolder):
-					addFiles(of: subfolder, rootPath: rootPath)
-				case .file(let file):
-					paths.append(StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file.relativePath))
+		func addFiles(under relativePath: String, rootPath: String) {
+			guard let index = fileManager?.rootFolderIndexes[rootPath] else { return }
+			var pending = [relativePath]
+			while let path = pending.popLast() {
+				guard let node = index.folders[path] else { continue }
+				for file in node.childFilePaths {
+					paths.append(StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file))
 				}
+				pending.append(contentsOf: node.childFolderPaths)
 			}
 		}
 		func addFiles(of matched: MatchedFolder) {
@@ -790,8 +774,8 @@ class SearchFileTreeViewModel: ObservableObject {
 				switch child {
 				case .folder(let subfolder):
 					addFiles(of: subfolder)
-				case .contents(let snapshot, _):
-					addFiles(of: snapshot, rootPath: matched.rootPath)
+				case .contents(let entry, _):
+					addFiles(under: entry.relativePath, rootPath: matched.rootPath)
 				case .file(let file, _):
 					paths.append(StandardizedPath.join(standardizedRoot: matched.rootPath, standardizedRelativePath: file.relativePath))
 				}
@@ -800,8 +784,8 @@ class SearchFileTreeViewModel: ObservableObject {
 		switch unbuilt {
 		case .matches(let matched):
 			addFiles(of: matched)
-		case .contents(let snapshot, _, let rootPath):
-			addFiles(of: snapshot, rootPath: rootPath)
+		case .contents(let relativePath, _, let rootPath):
+			addFiles(under: relativePath, rootPath: rootPath)
 		}
 		return paths
 	}
@@ -1101,7 +1085,7 @@ class SearchFileTreeViewModel: ObservableObject {
 
 			func walkSelect(_ f: SearchFolderViewModel) {
 				if let unbuilt = f.unbuiltChildren {
-					toSelect.append(contentsOf: Self.filePaths(in: unbuilt))
+					toSelect.append(contentsOf: filePaths(in: unbuilt))
 					return
 				}
 				for (idx, child) in f.children.enumerated() {
@@ -1143,7 +1127,7 @@ class SearchFileTreeViewModel: ObservableObject {
 
 			func walkUnselect(_ f: SearchFolderViewModel) {
 				if let unbuilt = f.unbuiltChildren {
-					toUnselect.append(contentsOf: Self.filePaths(in: unbuilt))
+					toUnselect.append(contentsOf: filePaths(in: unbuilt))
 					return
 				}
 				for (idx, child) in f.children.enumerated() {

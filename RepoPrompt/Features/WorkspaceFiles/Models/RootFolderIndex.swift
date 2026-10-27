@@ -80,6 +80,13 @@ final class RootFolderIndex {
 		let folders: [String: Folder]
 	}
 
+	/// A file or folder path the index gained or lost.
+	enum PathChange: Sendable, Equatable {
+		case added(String, isFolder: Bool)
+		/// A removed folder takes everything under it along.
+		case removed(String)
+	}
+
 	let rootPath: String
 	var filePaths: FilePaths { FilePaths(folders: folders, count: root.fileCount) }
 	/// The files of the selection.
@@ -97,6 +104,12 @@ final class RootFolderIndex {
 	/// Changes whenever the files or folders of the index or their read state change, to a value no index had before.
 	private(set) var generation: UInt64 = 0
 	private var cachedContents: Contents?
+	/// The path changes in the order they happened, each with the generation it brought.
+	private var pathChangeLog: [(generation: UInt64, change: PathChange)] = []
+	/// The log holds every path change after this generation.
+	private var pathChangeLogStart: UInt64
+	/// The number of changes the log keeps at least once it trims its oldest ones.
+	private let pathChangeLimit: Int
 
 	/// The files and folders of the index now. Built once per generation; the sets are shared, not copied.
 	var contents: Contents {
@@ -126,12 +139,33 @@ final class RootFolderIndex {
 		folders[path] != nil && !unreadFolderPaths.contains(path)
 	}
 
-	init(rootPath: String) {
+	init(rootPath: String, pathChangeLimit: Int = 100_000) {
 		self.rootPath = rootPath
+		self.pathChangeLimit = pathChangeLimit
 		let root = Folder(parent: nil)
 		root.unreadFolderCount = 1
 		self.root = root
 		self.folders = ["": root]
+		self.pathChangeLogStart = 0
+		advanceGeneration()
+		pathChangeLogStart = generation
+	}
+
+	/// The paths added and removed after a generation of this index, in order. Nil when the log no longer
+	/// reaches back that far or the generation is not one of this index.
+	func pathChanges(after generation: UInt64) -> [PathChange]? {
+		guard generation >= pathChangeLogStart, generation <= self.generation else { return nil }
+		var low = 0
+		var high = pathChangeLog.count
+		while low < high {
+			let mid = (low + high) / 2
+			if pathChangeLog[mid].generation > generation {
+				high = mid
+			} else {
+				low = mid + 1
+			}
+		}
+		return pathChangeLog[low...].map(\.change)
 	}
 
 	/// Adds the entries of one reading chunk and marks the folders it finished listing as read.
@@ -196,6 +230,7 @@ final class RootFolderIndex {
 		parent.childFolderPaths.insert(path)
 		let folder = Folder(parent: parent)
 		folders[path] = folder
+		logPathChange(.added(path, isFolder: true))
 		guard !isRead else { return }
 		unreadFolderPaths.insert(path)
 		var current: Folder? = folder
@@ -214,6 +249,7 @@ final class RootFolderIndex {
 		}
 		let parent = folder(at: Self.parentPath(of: path))
 		parent.childFilePaths.insert(path)
+		logPathChange(.added(path, isFolder: false))
 		var current: Folder? = parent
 		while let node = current {
 			node.fileCount += 1
@@ -285,6 +321,7 @@ final class RootFolderIndex {
 		guard !path.isEmpty else { return }
 		if let parent = folders[Self.parentPath(of: path)], parent.childFilePaths.remove(path) != nil {
 			advanceGeneration()
+			logPathChange(.removed(path))
 			let selectedCount = selectedFilePaths.remove(path) == nil ? 0 : 1
 			var current: Folder? = parent
 			while let node = current {
@@ -296,6 +333,7 @@ final class RootFolderIndex {
 		}
 		guard let folder = folders[path], let parent = folder.parent else { return }
 		advanceGeneration()
+		logPathChange(.removed(path))
 		parent.childFolderPaths.remove(path)
 		var current: Folder? = parent
 		while let node = current {
@@ -337,6 +375,14 @@ final class RootFolderIndex {
 		Self.latestGeneration &+= 1
 		generation = Self.latestGeneration
 		cachedContents = nil
+	}
+
+	private func logPathChange(_ change: PathChange) {
+		pathChangeLog.append((generation, change))
+		guard pathChangeLog.count > pathChangeLimit * 2 else { return }
+		let dropped = pathChangeLog.count - pathChangeLimit
+		pathChangeLogStart = pathChangeLog[dropped - 1].generation
+		pathChangeLog.removeFirst(dropped)
 	}
 
 	private nonisolated static func parentPath(of path: String) -> String {

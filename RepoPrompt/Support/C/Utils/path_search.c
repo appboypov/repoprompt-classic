@@ -14,6 +14,70 @@
 #define SEARCH_LOG(...) ((void)0)
 #endif
 
+// A path with the slot it belongs to, as the sorted arrays hold it.
+typedef struct {
+    char* path;
+    size_t original_index;
+} path_with_index_t;
+
+// The position of a path in the sorted forward array, or SIZE_MAX when the index does not hold it.
+static size_t forward_position(const path_search_index_t* index, const char* path) {
+    size_t left = 0;
+    size_t right = index->count;
+    while (left < right) {
+        size_t mid = (left + right) / 2;
+        if (strcmp(index->forward_paths[mid], path) < 0) {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+    if (left < index->count && strcmp(index->forward_paths[left], path) == 0) {
+        return left;
+    }
+    return SIZE_MAX;
+}
+
+static bool grow(void** array, size_t capacity, size_t size) {
+    void* grown = realloc(*array, capacity * size);
+    if (!grown) return false;
+    *array = grown;
+    return true;
+}
+
+// Makes room for `needed` slots. Live paths never outnumber slots, so the sorted arrays share the capacity.
+static bool reserve(path_search_index_t* index, size_t needed) {
+    if (needed <= index->capacity) return true;
+    size_t capacity = index->capacity * 2;
+    if (capacity < needed) capacity = needed;
+    if (!grow((void**)&index->original_paths, capacity, sizeof(char*))) return false;
+    if (!grow((void**)&index->forward_paths, capacity, sizeof(char*))) return false;
+    if (!grow((void**)&index->reversed_paths, capacity, sizeof(char*))) return false;
+    if (!grow((void**)&index->forward_indices, capacity, sizeof(size_t))) return false;
+    if (!grow((void**)&index->reversed_indices, capacity, sizeof(size_t))) return false;
+    index->capacity = capacity;
+    return true;
+}
+
+// Merges `count` sorted entries into the first `live` entries of a sorted array that has room for both.
+static void merge_sorted(char** paths, size_t* indices, size_t live, const path_with_index_t* entries, size_t count) {
+    size_t i = live;
+    size_t j = count;
+    size_t w = live + count;
+    while (j > 0) {
+        if (i > 0 && strcmp(paths[i - 1], entries[j - 1].path) > 0) {
+            paths[w - 1] = paths[i - 1];
+            indices[w - 1] = indices[i - 1];
+            i--;
+        } else {
+            paths[w - 1] = entries[j - 1].path;
+            indices[w - 1] = entries[j - 1].original_index;
+            j--;
+        }
+        w--;
+    }
+}
+
 // Create path search index
 path_search_index_t* path_search_create(const char** paths, size_t count) {
     SEARCH_LOG("path_search_create: count=%zu\n", count);
@@ -24,113 +88,170 @@ path_search_index_t* path_search_create(const char** paths, size_t count) {
     
     path_search_index_t* index = calloc(1, sizeof(path_search_index_t));
     if (!index) return NULL;
-    
-    index->count = count;
-    index->capacity = count;
-    
-    // Allocate arrays
-    index->forward_paths = calloc(count, sizeof(char*));
-    index->reversed_paths = calloc(count, sizeof(char*));
-    index->original_paths = calloc(count, sizeof(char*));
-    index->forward_indices = calloc(count, sizeof(size_t));
-    index->reversed_indices = calloc(count, sizeof(size_t));
-    
-    if (!index->forward_paths || !index->reversed_paths || 
-        !index->original_paths || !index->forward_indices || 
-        !index->reversed_indices) {
+    if (!path_search_add(index, paths, count, NULL)) {
         path_search_destroy(index);
         return NULL;
     }
-    
-    // Copy original paths
-    for (size_t i = 0; i < count; i++) {
-        index->original_paths[i] = strdup(paths[i]);
-    }
-    
-    // Copy and sort forward paths
-    for (size_t i = 0; i < count; i++) {
-        index->forward_paths[i] = strdup(paths[i]);
-        index->forward_indices[i] = i;
-    }
-    
-    // Sort forward paths with index tracking
-    // We need a custom sort that maintains the index mapping
-    typedef struct {
-        char* path;
-        size_t original_index;
-    } path_with_index_t;
-    
-    path_with_index_t* temp = calloc(count, sizeof(path_with_index_t));
-    for (size_t i = 0; i < count; i++) {
-        temp[i].path = index->forward_paths[i];
-        temp[i].original_index = i;
-    }
-    
-    qsort(temp, count, sizeof(path_with_index_t), 
-          (int (*)(const void*, const void*))path_compare);
-    
-    // Update arrays with sorted data
-    for (size_t i = 0; i < count; i++) {
-        index->forward_paths[i] = temp[i].path;
-        index->forward_indices[i] = temp[i].original_index;
-    }
-    
-    // Create reversed paths
-    for (size_t i = 0; i < count; i++) {
-        size_t orig_idx = index->forward_indices[i];
-        index->reversed_paths[i] = path_reverse(index->original_paths[orig_idx]);
-        index->reversed_indices[i] = orig_idx;
-    }
-    
-    // Sort reversed paths
-    for (size_t i = 0; i < count; i++) {
-        temp[i].path = index->reversed_paths[i];
-        temp[i].original_index = index->reversed_indices[i];
-    }
-    
-    qsort(temp, count, sizeof(path_with_index_t),
-          (int (*)(const void*, const void*))path_compare);
-    
-    for (size_t i = 0; i < count; i++) {
-        index->reversed_paths[i] = temp[i].path;
-        index->reversed_indices[i] = temp[i].original_index;
-    }
-    
-    
-    free(temp);
     return index;
+}
+
+bool path_search_add(path_search_index_t* index, const char** paths, size_t count, size_t* slots) {
+    if (!index || (!paths && count > 0)) return false;
+    if (count == 0) return true;
+    
+    // Slots follow the order of `paths`, so callers can find their own data for a match by slot.
+    path_with_index_t* forward = calloc(count, sizeof(path_with_index_t));
+    path_with_index_t* reversed = calloc(count, sizeof(path_with_index_t));
+    bool ok = forward && reversed;
+    size_t added_count = 0;
+    for (size_t i = 0; ok && i < count; i++) {
+        if (slots) slots[i] = SIZE_MAX;
+        if (!paths[i] || forward_position(index, paths[i]) != SIZE_MAX) continue;
+        forward[added_count].path = strdup(paths[i]);
+        reversed[added_count].path = path_reverse(paths[i]);
+        forward[added_count].original_index = index->slot_count + added_count;
+        reversed[added_count].original_index = index->slot_count + added_count;
+        added_count++;
+        if (!forward[added_count - 1].path || !reversed[added_count - 1].path) ok = false;
+    }
+    ok = ok && reserve(index, index->slot_count + added_count);
+    if (!ok) {
+        for (size_t k = 0; forward && reversed && k < added_count; k++) {
+            free(forward[k].path);
+            free(reversed[k].path);
+        }
+        free(forward);
+        free(reversed);
+        return false;
+    }
+    
+    for (size_t i = 0, k = 0; slots && i < count; i++) {
+        if (k < added_count && paths[i] && strcmp(paths[i], forward[k].path) == 0) {
+            slots[i] = forward[k++].original_index;
+        }
+    }
+    for (size_t k = 0; k < added_count; k++) {
+        index->original_paths[forward[k].original_index] = forward[k].path;
+    }
+    index->slot_count += added_count;
+    qsort(forward, added_count, sizeof(path_with_index_t),
+          (int (*)(const void*, const void*))path_compare);
+    qsort(reversed, added_count, sizeof(path_with_index_t),
+          (int (*)(const void*, const void*))path_compare);
+    merge_sorted(index->forward_paths, index->forward_indices, index->count, forward, added_count);
+    merge_sorted(index->reversed_paths, index->reversed_indices, index->count, reversed, added_count);
+    index->count += added_count;
+    
+    free(forward);
+    free(reversed);
+    return true;
+}
+
+size_t path_search_remove(path_search_index_t* index, const char** paths, size_t count, size_t** removed_slots) {
+    if (removed_slots) *removed_slots = NULL;
+    if (!index || !paths || count == 0 || index->count == 0) return 0;
+    
+    bool* removed = calloc(index->slot_count, sizeof(bool));
+    size_t* list = malloc(index->count * sizeof(size_t));
+    if (!removed || !list) {
+        free(removed);
+        free(list);
+        return 0;
+    }
+    size_t removed_count = 0;
+    
+    for (size_t i = 0; i < count; i++) {
+        if (!paths[i]) continue;
+        size_t position = forward_position(index, paths[i]);
+        if (position != SIZE_MAX && !removed[index->forward_indices[position]]) {
+            removed[index->forward_indices[position]] = true;
+            list[removed_count++] = index->forward_indices[position];
+        }
+        
+        // Every path under it starts with "path/", so they sit next to each other in sorted order.
+        size_t length = strlen(paths[i]);
+        char* prefix = malloc(length + 2);
+        if (!prefix) continue;
+        memcpy(prefix, paths[i], length);
+        prefix[length] = '/';
+        prefix[length + 1] = '\0';
+        size_t start = path_search_lower_bound((const char**)index->forward_paths, index->count, prefix);
+        size_t end = path_search_upper_bound((const char**)index->forward_paths, index->count, prefix);
+        for (size_t p = start; p < end; p++) {
+            size_t slot = index->forward_indices[p];
+            if (!removed[slot]) {
+                removed[slot] = true;
+                list[removed_count++] = slot;
+            }
+        }
+        free(prefix);
+    }
+    
+    if (removed_count > 0) {
+        size_t w = 0;
+        for (size_t r = 0; r < index->count; r++) {
+            if (removed[index->forward_indices[r]]) continue;
+            index->forward_paths[w] = index->forward_paths[r];
+            index->forward_indices[w] = index->forward_indices[r];
+            w++;
+        }
+        w = 0;
+        for (size_t r = 0; r < index->count; r++) {
+            if (removed[index->reversed_indices[r]]) {
+                free(index->reversed_paths[r]);
+                continue;
+            }
+            index->reversed_paths[w] = index->reversed_paths[r];
+            index->reversed_indices[w] = index->reversed_indices[r];
+            w++;
+        }
+        for (size_t i = 0; i < removed_count; i++) {
+            free(index->original_paths[list[i]]);
+            index->original_paths[list[i]] = NULL;
+        }
+        index->count -= removed_count;
+    }
+    
+    free(removed);
+    if (removed_count > 0 && removed_slots) {
+        *removed_slots = list;
+    } else {
+        free(list);
+    }
+    return removed_count;
+}
+
+void path_search_free_slots(size_t* slots) {
+    free(slots);
+}
+
+const char* path_search_path(const path_search_index_t* index, size_t slot) {
+    if (!index || slot >= index->slot_count) return NULL;
+    return index->original_paths[slot];
 }
 
 // Destroy path search index
 void path_search_destroy(path_search_index_t* index) {
     if (!index) return;
     
-    if (index->forward_paths) {
-        for (size_t i = 0; i < index->count; i++) {
-            free(index->forward_paths[i]);
+    // The forward array shares its strings with original_paths.
+    if (index->original_paths) {
+        for (size_t i = 0; i < index->slot_count; i++) {
+            free(index->original_paths[i]);
         }
-        free(index->forward_paths);
     }
-    
     if (index->reversed_paths) {
         for (size_t i = 0; i < index->count; i++) {
             free(index->reversed_paths[i]);
         }
-        free(index->reversed_paths);
     }
-    
-    if (index->original_paths) {
-        for (size_t i = 0; i < index->count; i++) {
-            free(index->original_paths[i]);
-        }
-        free(index->original_paths);
-    }
-    
+    free(index->original_paths);
+    free(index->forward_paths);
+    free(index->reversed_paths);
     free(index->forward_indices);
     free(index->reversed_indices);
     free(index);
 }
-
 
 // Pattern decomposition
 pattern_parts_t* pattern_decompose(const char* pattern) {
@@ -373,7 +494,7 @@ search_result_t* path_search_find(
         
         
         // Build set of original indices from suffix matches
-        bool* suffix_set = calloc(index->count, sizeof(bool));
+        bool* suffix_set = calloc(index->slot_count, sizeof(bool));
         for (size_t i = suffix_start; i < suffix_end; i++) {
             suffix_set[index->reversed_indices[i]] = true;
         }
@@ -405,10 +526,10 @@ search_result_t* path_search_find(
     result->indices = calloc(result->capacity, sizeof(size_t));
     result->count = 0;
     
-    // Check if this is a space-separated AND pattern
-    if (strncmp(parts->regex_pattern, "SPACE_AND:", 10) == 0) {
-        // Extract the original pattern
-        const char* space_pattern = parts->regex_pattern + 10;
+    // A pattern without wildcards matches every path that holds each of its space-separated terms.
+    // A plain substring check is many times faster than the equivalent `.*term.*` regex.
+    if (!parts->is_wildcard) {
+        const char* space_pattern = pattern;
         
         SEARCH_LOG("path_search_find: handling space-separated AND pattern '%s'\n", space_pattern);
         
@@ -513,11 +634,6 @@ char* path_reverse(const char* path) {
 
 // Helper: compare paths for sorting
 int path_compare(const void* a, const void* b) {
-    typedef struct {
-        char* path;
-        size_t original_index;
-    } path_with_index_t;
-    
     const path_with_index_t* pa = (const path_with_index_t*)a;
     const path_with_index_t* pb = (const path_with_index_t*)b;
     

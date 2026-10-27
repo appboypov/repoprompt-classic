@@ -1620,6 +1620,23 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testTreeSearchDropsAFolderDeletedOnDiskWhileItIsActive() async throws {
+		let (fileManagerVM, rootURL) = try await makeLoadedRoot(files: ["wwfo/Top.md", "archive/wwfo-old/Note.md"])
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "wwfo"
+		try await waitUntil { resultFolder(at: "wwfo", shownBy: searchVM) != nil }
+
+		try FileManager.default.removeItem(at: rootURL.appendingPathComponent("wwfo"))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.folderRemoved("wwfo")], forRootFolder: root)
+		try await waitUntil { resultFolder(at: "wwfo", shownBy: searchVM) == nil }
+
+		XCTAssertEqual(fileRelativePaths(shownBy: searchVM), ["archive/wwfo-old/Note.md"])
+	}
+
+	@MainActor
 	func testTickingAClosedFolderWhoseNameMatchesSelectsEverythingInIt() async throws {
 		let (fileManagerVM, rootURL) = try await makeLoadedRoot(files: ["wwfo/inner/Doc.md", "wwfo/Top.md", "other/Note.md"])
 		defer { try? FileManager.default.removeItem(at: rootURL) }
