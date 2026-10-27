@@ -1100,6 +1100,117 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertEqual(Set(childNames(of: root)), ["empty", "hollow", "src", "Top.swift"])
 	}
 
+	/// A loaded code root whose `src/deep` folder is not opened, with `src/deep/Deep.swift` selected from a tab.
+	@MainActor
+	private func selectDeepFileInUnopenedFolder() async throws -> (RepoFileManagerViewModel, URL, RootFolderIndex, FolderViewModel, String) {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let deepPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Deep.swift")
+		fileManagerVM.setCurrentWorkspaceID(UUID())
+		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Tab", selection: StoredSelection(
+			selectedPaths: [deepPath],
+			autoCodemapPaths: [],
+			slices: [:],
+			codemapAutoEnabled: false
+		)))
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [deepPath])
+		return (fileManagerVM, rootURL, index, root, deepPath)
+	}
+
+	@MainActor
+	func testAFileCreatedOnDiskInAFolderThatIsNotOpenedJoinsTheIndexAndShowsWhenTheFolderOpens() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let newPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/New.swift")
+
+		XCTAssertTrue(FileManager.default.createFile(atPath: newPath, contents: Data()))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/New.swift")], forRootFolder: root)
+
+		XCTAssertTrue(index.filePaths.contains("src/deep/New.swift"))
+		XCTAssertNotNil(fileManagerVM.promptFile(forStandardizedPath: newPath))
+		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedFullPath), [])
+
+		await fileManagerVM.openFolders(["src/deep"])
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+		XCTAssertEqual(Set(childNames(of: deep)), ["Deep.swift", "New.swift", "notes.md"])
+	}
+
+	@MainActor
+	func testAFileAnAgentCreatesInAFolderThatIsNotOpenedIsSelected() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		try await fileManagerVM.writeFileFromTool(
+			userPath: "src/deep/FromAgent.swift",
+			content: "struct FromAgent {}\n",
+			ifExists: "error",
+			selectAfterCreate: true
+		)
+
+		XCTAssertEqual(index.selectedFilePaths, ["src/deep/FromAgent.swift"])
+		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedRelativePath), ["src/deep/FromAgent.swift"])
+	}
+
+	@MainActor
+	func testASelectedFileInAFolderThatIsNotOpenedLeavesTheSelectionWhenDeletedOnDisk() async throws {
+		let (fileManagerVM, rootURL, index, root, deepPath) = try await selectDeepFileInUnopenedFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+
+		try FileManager.default.removeItem(atPath: deepPath)
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileRemoved("src/deep/Deep.swift")], forRootFolder: root)
+
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [])
+		XCTAssertFalse(index.filePaths.contains("src/deep/Deep.swift"))
+	}
+
+	@MainActor
+	func testSelectedFilesInARemovedFolderThatIsNotOpenedLeaveTheSelection() async throws {
+		let (fileManagerVM, rootURL, index, root, _) = try await selectDeepFileInUnopenedFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+
+		try FileManager.default.removeItem(at: rootURL.appendingPathComponent("src/deep"))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.folderRemoved("src/deep")], forRootFolder: root)
+
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [])
+		XCTAssertNil(index.folders["src/deep"])
+	}
+
+	@MainActor
+	func testModifyingASelectedFileInAFolderThatIsNotOpenedDropsItsStaleCodemap() async throws {
+		let (fileManagerVM, rootURL, index, root, deepPath) = try await selectDeepFileInUnopenedFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		let deepAPI = FileAPI(filePath: deepPath, imports: [], classes: [ClassInfo(name: "Deep", methods: [], properties: [])], functions: [], enums: [], globalVars: [], macros: [], referencedTypes: [])
+		fileManagerVM.applyBatchCodeMapResultsForTesting([CodeScanActor.ScanResult(
+			request: CodeScanActor.ScanRequest(
+				fileID: RepoFileManagerViewModel.fileID(forStandardizedPath: deepPath),
+				modificationDate: Date(),
+				content: "",
+				fileExtension: "swift",
+				relativePath: "src/deep/Deep.swift",
+				fullPath: deepPath,
+				rootFolderPath: index.rootPath
+			),
+			fileAPI: deepAPI
+		)])
+		let selected = try XCTUnwrap(fileManagerVM.selectedFiles.first)
+		XCTAssertNotNil(selected.fileAPI)
+
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileModified("src/deep/Deep.swift", nil)], forRootFolder: root)
+
+		XCTAssertNil(selected.fileAPI)
+		XCTAssertFalse(fileManagerVM.cachedFileAPIs().contains { $0.filePath == deepPath })
+	}
+
 	@MainActor
 	private func waitUntil(_ condition: () -> Bool) async throws {
 		let deadline = Date().addingTimeInterval(10)
