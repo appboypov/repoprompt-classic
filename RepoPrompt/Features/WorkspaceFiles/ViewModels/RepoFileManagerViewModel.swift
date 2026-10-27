@@ -429,6 +429,8 @@ class RepoFileManagerViewModel: ObservableObject {
 	/// Files read so far of each root folder whose reading runs, by the root folder's standardized full path.
 	/// A root folder whose reading is complete has no entry.
 	let readingFileCounts = CurrentValueSubject<[String: Int], Never>([:])
+	/// The running builds of folders' tree items, by the folder's standardized full path.
+	private var childBuildTasks: [String: Task<Void, Never>] = [:]
 
 	private func dropRootFolderIndex(forKey rootKey: String) {
 		rootFolderIndexes.removeValue(forKey: rootKey)
@@ -1705,6 +1707,9 @@ private func setCodeMapForScanResult(_ result: CodeScanActor.ScanResult) {
 							expansionSubscriptions[folder.id] = folder.$isExpanded.sink { [weak self, weak folder] expanded in
                                 guard let self = self, let folder = folder else { return }
                                 if expanded {
+									if !folder.childrenAreBuilt {
+										Task { await self.buildChildren(of: folder) }
+									}
 									let inserted = self.expandedFolderPaths.insert(folder.standardizedFullPath).inserted
 									if inserted, !self.isApplyingExpansionState {
 										self.workspaceManager?.markWorkspaceDirty()
@@ -1993,9 +1998,7 @@ func loadFolder(
 				try await loadContentsRecursively(
 					for: newFileSystemService,
 					rootFolder: rootFolderVM,
-					url: url,
-					rootPath: rootPath,
-					workspace: workspace
+					url: url
 				)
 				#if DEBUG
 				WorkspaceRestorePerfLog.event(
@@ -2016,10 +2019,7 @@ func loadFolder(
 				#if DEBUG
 				let postProcessStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 				#endif
-				removeEmptyFolders(in: rootFolderVM, allowSorting: false)
-				// Keep sorting localized to expanded nodes to avoid full-tree cost.
-				// Use recomputeCheckbox: false since refreshRootFolderState() will compute once at the end.
-				rootFolderVM.sortChildrenIfNeeded(currentSortMethod, recomputeCheckbox: false, recursion: .expandedOnly)
+				await buildChildren(of: rootFolderVM)
 				registerExpansionTracking(for: rootFolderVM)
 				
 				// No longer need to register subfolders with ExpansionManager
@@ -2251,16 +2251,9 @@ func loadFolder(
 	private func loadContentsRecursively(
 		for fileSystemService: FileSystemService,
 		rootFolder: FolderViewModel,
-		url: URL,
-		rootPath: String,
-		workspace: WorkspaceModel
+		url: URL
 	) async throws {
-		let canonicalRootPath = (rootPath as NSString).standardizingPath
-		let expandedSet = Set(workspace.workingExpandedFolders.map { ($0 as NSString).standardizingPath })
-		var depthLimit = Int.max
 		let chunkedStream = await fileSystemService.loadContentsInChunks(of: url, chunkSize: 200)
-		
-		let isGitDataRoot = rootFolder.isSystemRoot && rootFolder.name == "_git_data"
 		let rootKey = rootFolder.standardizedFullPath
 		let rootFolderIndex = RootFolderIndex(rootPath: rootKey)
 		rootFolderIndexes[rootKey] = rootFolderIndex
@@ -2272,129 +2265,22 @@ func loadFolder(
 		}
 		readingFileCounts.value[rootKey] = 0
 
-		@inline(__always)
-		func fullPath(forRelativePath rel: String) -> String {
-			guard !rel.isEmpty else { return canonicalRootPath }
-			if canonicalRootPath.hasSuffix("/") {
-				return canonicalRootPath + rel
-			}
-			return canonicalRootPath + "/" + rel
-		}
-
-		@inline(__always)
-		func parentRelativePath(of rel: String) -> String {
-			guard let idx = rel.lastIndex(of: "/") else { return "" }
-			return String(rel[..<idx])
-		}
-
-		@inline(__always)
-		func name(from rel: String) -> String {
-			guard let idx = rel.lastIndex(of: "/") else { return rel }
-			return String(rel[rel.index(after: idx)...])
-		}
-
-		// Staging maps keyed by absolute full path
-		var stagedFoldersByFullPath: [String: FolderViewModel] = [:]
-		var stagedFilesByFullPath: [String: FileViewModel] = [:]
-		// Group children by their parent full path for one-shot addChildrenBatch
-		var groupedChildrenByParent: [String: [FileSystemItemType]] = [:]
-
-		@inline(__always)
-		func stageChunk(_ chunk: FSPreparedChunk) {
-			// We are on @MainActor (class is @MainActor)
+		func indexChunk(_ chunk: FSPreparedChunk) {
 			rootFolderIndex.add(chunk)
 			readingFileCounts.value[rootKey] = rootFolderIndex.filePaths.count
-			// 1) Stage Folders
-			for folderDTO in chunk.folders {
-				let relPath = folderDTO.relativePath
-				guard !relPath.isEmpty else { continue }
-				
-				let folderFullPath = fullPath(forRelativePath: relPath)
-				let parentRel = parentRelativePath(of: relPath)
-				
-				let parentFullPath = parentRel.isEmpty
-					? canonicalRootPath
-					: fullPath(forRelativePath: parentRel)
-				let allowAutoExpand = depthLimit == .max || folderDTO.hierarchy < depthLimit
-				let initialExpand = allowAutoExpand && expandedSet.contains(folderFullPath)
-				let folderName = relPath.isEmpty ? rootFolder.name : name(from: relPath)
-
-				// Avoid duplicate VM creation for the same folder path
-				if stagedFoldersByFullPath[folderFullPath] == nil {
-					let folder = Folder(
-						name: folderName,
-						path: folderFullPath,
-						modificationDate: .distantPast
-					)
-					// For _git_data subtree: use dateNewest sort override so newest items appear first
-					let sortOverride: SortMethod? = isGitDataRoot ? .dateNewest : nil
-					let folderVM = FolderViewModel(
-						folder: folder,
-						rootPath: canonicalRootPath,
-						hierarchyLevel: folderDTO.hierarchy,
-						isExpanded: initialExpand,
-						sortMethod: currentSortMethod,
-						sortMethodOverride: sortOverride,
-						relativePathOverride: relPath
-					)
-					stagedFoldersByFullPath[folderFullPath] = folderVM
-				}
-				// Stage the relationship only (defer attaching to UI)
-				groupedChildrenByParent[parentFullPath, default: []].append(.folder(stagedFoldersByFullPath[folderFullPath]!))
-			}
-
-			// 2) Stage Files
-			for fileDTO in chunk.files {
-				let relPath = fileDTO.relativePath
-				guard !relPath.isEmpty else { continue }
-				let fileFullPath = fullPath(forRelativePath: relPath)
-				let parentRel = parentRelativePath(of: relPath)
-				
-				let parentFullPath = parentRel.isEmpty
-					? canonicalRootPath
-					: fullPath(forRelativePath: parentRel)
-				let fileName = relPath.isEmpty ? "" : name(from: relPath)
-				if stagedFilesByFullPath[fileFullPath] == nil {
-					let file = File(
-						id: Self.fileID(forStandardizedPath: fileFullPath),
-						name: fileName,
-						path: fileFullPath,
-						modificationDate: .distantPast
-					)
-					let fileVM = FileViewModel(
-						file: file,
-						rootPath: canonicalRootPath,
-						hierarchyLevel: fileDTO.hierarchy,
-						rootIdentifier: rootFolder.id,
-						rootFolderPath: rootFolder.fullPath,
-						fileSystemService: fileSystemService,
-						relativePathOverride: relPath
-					)
-					attachSelectionCallback(to: fileVM)
-					stagedFilesByFullPath[fileFullPath] = fileVM
-				}
-				// Stage the relationship only (defer attaching to UI)
-				groupedChildrenByParent[parentFullPath, default: []].append(.file(stagedFilesByFullPath[fileFullPath]!))
-			}
 		}
 
 		for try await event in chunkedStream {
 			if Task.isCancelled { return }
 
 			switch event {
-			case .totalFileCount(let count):
-				depthLimit = (count < 100)    ? .max
-					: (count < 500)    ? 5
-					: (count < 1_000)  ? 4
-					: (count < 2_500)  ? 3
-					: (count < 5_000) ? 2
-					: 1
+			case .totalFileCount:
+				break
 			case .preparedItems(let chunk):
-				// Stage without touching UI
-				stageChunk(chunk)
+				indexChunk(chunk)
 				await Task.yield()
 			case .items(let legacy):
-				// Convert legacy to a single FSPreparedChunk then stage once
+				// Convert legacy to a single FSPreparedChunk then index once
 				var folders: [FSItemDTO] = []
 				var files: [FSItemDTO] = []
 				folders.reserveCapacity(legacy.count)
@@ -2424,89 +2310,131 @@ func loadFolder(
 				}
 
 				if !folders.isEmpty || !files.isEmpty {
-					stageChunk(FSPreparedChunk(folders: folders, files: files, readFolders: []))
+					indexChunk(FSPreparedChunk(folders: folders, files: files, readFolders: []))
 					await Task.yield()
 				}
 			}
 		}
 		rootFolderIndex.finishReading()
 		readingFileCounts.value.removeValue(forKey: rootKey)
+	}
 
-		// Commit staged content in a single pass to minimize UI thrash
-		// ➊ Index all staged VMs first (so parents can be found even if not yet attached).
-		// Large roots hold hundreds of thousands of items, so the loop hands the main
-		// actor back every few milliseconds to keep the window responsive.
-		let indexSliceBudget = Duration.milliseconds(8)
-		var indexSliceStart = ContinuousClock.now
-		fileHierarchyIndex.reserveAdditionalCapacity(
-			folders: stagedFoldersByFullPath.count + 1,
-			files: stagedFilesByFullPath.count,
-			rootKey: StandardizedPath.absolute(canonicalRootPath)
+	/// Builds the tree items of a folder's direct files and folders from its root folder's index, once.
+	/// A folder reading has not listed yet is listed from disk first.
+	@MainActor
+	func buildChildren(of folder: FolderViewModel) async {
+		guard !folder.childrenAreBuilt else { return }
+		let folderPath = folder.standardizedFullPath
+		if let running = childBuildTasks[folderPath] {
+			await running.value
+			return
+		}
+		let task = Task { @MainActor [weak self] in
+			guard let self else { return }
+			await self.buildChildrenOnce(of: folder)
+		}
+		childBuildTasks[folderPath] = task
+		await task.value
+		childBuildTasks[folderPath] = nil
+	}
+
+	@MainActor
+	private func buildChildrenOnce(of folder: FolderViewModel) async {
+		let rootKey = StandardizedPath.absolute(folder.rootPath)
+		guard let root = rootFolders.first(where: { $0.standardizedFullPath == rootKey }),
+			let index = rootFolderIndexes[rootKey],
+			let service = getFileSystemService(for: rootKey)
+		else { return }
+		let relativePath = RelativePath.fromStandardized(
+			standardizedAbsolutePath: folder.standardizedFullPath,
+			standardizedRootPath: rootKey
 		)
-		fileHierarchyIndex.insertFolder(rootFolder, rootKey: canonicalRootPath)
-		for folderVM in stagedFoldersByFullPath.values {
-			fileHierarchyIndex.insertFolder(folderVM, rootKey: canonicalRootPath)
-			if ContinuousClock.now - indexSliceStart > indexSliceBudget {
-				await Task.yield()
-				indexSliceStart = .now
+		if !index.isListed(relativePath) {
+			let chunk: FSPreparedChunk
+			do {
+				chunk = try await service.listFolder(atRelativePath: relativePath)
+			} catch {
+				repoFileManagerDebugLog("Listing folder failed: \(relativePath) \(error)")
+				return
 			}
+			guard rootFolderIndexes[rootKey] === index else { return }
+			index.add(chunk)
 		}
-		for fileVM in stagedFilesByFullPath.values {
-			fileHierarchyIndex.insertFile(fileVM, rootKey: canonicalRootPath)
-			if ContinuousClock.now - indexSliceStart > indexSliceBudget {
-				await Task.yield()
-				indexSliceStart = .now
-			}
-		}
+		guard !folder.childrenAreBuilt,
+			fileHierarchyIndex.foldersByFullPath[folder.standardizedFullPath] === folder,
+			let indexedFolder = index.folders[relativePath]
+		else { return }
 
-		// ➋ Attach children to parents – create missing parent chains once
-		var parentsProcessed = 0
-		let yieldEveryParents = 100
-		for (parentFullPathRaw, children) in groupedChildrenByParent {
-			let parentFullPath = parentFullPathRaw
-			// If the parent is not the root and is not materialized yet, create its chain under root
-			if findFolderByFullPath(parentFullPath) == nil && parentFullPath != canonicalRootPath {
-				if parentFullPath.hasPrefix(canonicalRootPath) {
-					var rel = String(parentFullPath.dropFirst(canonicalRootPath.count))
-					if rel.hasPrefix("/") { rel.removeFirst() }
-					if !rel.isEmpty {
-						createMissingParentFolder(parentPath: rel, under: rootFolder)
-					}
-				}
-			}
-			let parentVM = findFolderByFullPath(parentFullPath) ?? rootFolder
-
-			// NOTE:
-			// During initial load we attach unsorted and defer sorting to a later targeted pass.
-			var seen = Set<UUID>()
-			let uniqueChildren: [FileSystemItemType] = children.compactMap { item in
-				switch item {
-				case .file(let file):
-					return seen.insert(file.id).inserted ? item : nil
-				case .folder(let folder):
-					if folder.id == parentVM.id || folder.standardizedFullPath == parentVM.standardizedFullPath {
-						return nil
-					}
-					return seen.insert(folder.id).inserted ? item : nil
-				}
-			}
-			guard !uniqueChildren.isEmpty else { continue }
-			parentVM.addChildrenBatch(
-				uniqueChildren,
-				options: .init(
-					recomputeCheckbox: false,
-					ensureSorted: false,
-					rebuildChildren: true,
-					assumeAllUnchecked: true
-				)
+		let sortOverride: SortMethod? = (root.isSystemRoot && root.name == "_git_data") ? .dateNewest : nil
+		var children: [FileSystemItemType] = []
+		var newFolders: [FolderViewModel] = []
+		var newFiles: [FileViewModel] = []
+		for childPath in indexedFolder.childFolderPaths.sorted() {
+			if !showEmptyFolders, index.folders[childPath]?.isKnownEmpty == true { continue }
+			let fullPath = StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: childPath)
+			guard fileHierarchyIndex.foldersByFullPath[fullPath] == nil else { continue }
+			let childFolder = FolderViewModel(
+				folder: Folder(name: (childPath as NSString).lastPathComponent, path: fullPath, modificationDate: .distantPast),
+				rootPath: rootKey,
+				hierarchyLevel: childPath.split(separator: "/").count - 1,
+				isExpanded: false,
+				sortMethod: currentSortMethod,
+				sortMethodOverride: sortOverride,
+				relativePathOverride: childPath
 			)
-
-			parentsProcessed += 1
-			if parentsProcessed % yieldEveryParents == 0 {
-				await Task.yield()
-			}
-
+			fileHierarchyIndex.insertFolder(childFolder, rootKey: rootKey)
+			newFolders.append(childFolder)
+			children.append(.folder(childFolder))
 		}
+		for childPath in indexedFolder.childFilePaths.sorted() {
+			let fullPath = StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: childPath)
+			guard fileHierarchyIndex.filesByFullPath[fullPath] == nil else { continue }
+			let file = FileViewModel(
+				file: File(
+					id: Self.fileID(forStandardizedPath: fullPath),
+					name: (childPath as NSString).lastPathComponent,
+					path: fullPath,
+					modificationDate: .distantPast
+				),
+				rootPath: rootKey,
+				hierarchyLevel: childPath.split(separator: "/").count - 1,
+				rootIdentifier: root.id,
+				rootFolderPath: root.fullPath,
+				fileSystemService: service,
+				relativePathOverride: childPath
+			)
+			if let api = codemapCapableAPIsByFullPath[fullPath] {
+				file.setCodeMap(api)
+			}
+			// Ticked before the selection callback is attached, so no selection change fires.
+			if selectedFileIDs.contains(file.id) {
+				file.setIsChecked(true)
+			}
+			attachSelectionCallback(to: file)
+			fileHierarchyIndex.insertFile(file, rootKey: rootKey)
+			newFiles.append(file)
+			children.append(.file(file))
+		}
+		folder.addChildrenBatch(
+			children,
+			options: .init(recomputeCheckbox: true, ensureSorted: true, rebuildChildren: true, assumeAllUnchecked: false)
+		)
+		folder.childrenAreBuilt = true
+		registerExpansionTracking(for: folder)
+		for childFolder in newFolders {
+			childFolder.updateCheckboxStateImmediately()
+		}
+		replaceSelectedFiles(with: newFiles.filter { selectedFileIDs.contains($0.id) || autoCodemapFileIDs.contains($0.id) })
+	}
+
+	/// Puts tree items in place of the file view models outside the tree that the selection and the auto codemaps
+	/// hold for the same paths. Ids stay the same, so the selection itself does not change.
+	@MainActor
+	private func replaceSelectedFiles(with treeFiles: [FileViewModel]) {
+		guard !treeFiles.isEmpty else { return }
+		let treeFilesByID = Dictionary(treeFiles.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+		selectedFiles = selectedFiles.map { treeFilesByID[$0.id] ?? $0 }
+		autoCodemapFiles = autoCodemapFiles.map { treeFilesByID[$0.id] ?? $0 }
 	}
 	
 	func getFileSystemService(for path: String) -> FileSystemService? {
@@ -8119,22 +8047,6 @@ private func findFolderRecursive(
 		}
 	}
 	
-private func removeEmptyFolders(in folder: FolderViewModel, allowSorting: Bool = true) {
-		if !showEmptyFolders {
-			let isRoot = rootFolders.contains { $0.id == folder.id }
-			let removed = folder.removeEmptyFoldersRecursively(isRoot: isRoot, allowSorting: allowSorting)
-			
-			// Cancel expansion tracking per removed folder VM *before* removing from index
-			for (fullPath, _) in removed {
-				let standardizedFull = (fullPath as NSString).standardizingPath
-				if let vm = fileHierarchyIndex.foldersByFullPath[standardizedFull] {
-					unregisterExpansionTracking(for: vm) // Avoid leaks & stale expansion cache
-				}
-				fileHierarchyIndex.removeFolder(forKey: standardizedFull, expectedRootKey: folder.rootPath)
-			}
-		}
-	}
-	
 	func normalizeUserInputPath(_ path: String) -> String {
 		let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !trimmed.isEmpty else {
@@ -9027,31 +8939,6 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 	@MainActor
 	func injectIndexedFileForTesting(_ file: FileViewModel) {
 		fileHierarchyIndex.insertFile(file, rootKey: file.standardizedRootFolderPath)
-	}
-
-	/// Drops the tree item of a file while its root folder's index keeps the path.
-	@MainActor
-	func removeTreeItemForTesting(fullPath: String) {
-		guard let file = fileHierarchyIndex.removeFile(forKey: fullPath) else { return }
-		file.parentFolder?.removeFile(file)
-	}
-
-	/// Drops the tree items of a folder and everything under it while its root folder's index keeps the paths,
-	/// as for a folder the file tree has not opened.
-	@MainActor
-	func removeTreeItemsForTesting(underFolder fullPath: String) {
-		guard let folder = fileHierarchyIndex.removeFolder(forKey: StandardizedPath.absolute(fullPath)) else { return }
-		folder.parent?.removeSubfolder(folder)
-		var pending = [folder]
-		while let current = pending.popLast() {
-			for file in current.files {
-				_ = fileHierarchyIndex.removeFile(forKey: file.standardizedFullPath)
-			}
-			for subfolder in current.subfolders {
-				_ = fileHierarchyIndex.removeFolder(forKey: subfolder.standardizedFullPath)
-				pending.append(subfolder)
-			}
-		}
 	}
 
 	/// Attach the selection callback and toggle a file into `selectedFiles`

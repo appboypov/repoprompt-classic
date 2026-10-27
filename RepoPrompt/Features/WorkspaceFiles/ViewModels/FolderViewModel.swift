@@ -58,6 +58,9 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 	/// Set on a root folder that has an index: gives the checkbox state of a folder of this root by its
 	/// standardized full path, from the selected files under it against all files under it in the index.
 	var checkboxStateFromIndex: (@MainActor (_ standardizedFullPath: String) -> CheckboxState?)?
+
+	/// Whether the tree items of the folder's direct files and folders exist.
+	var childrenAreBuilt = false
 	
 	let hierarchyLevel: Int
 	weak var parent: FolderViewModel?
@@ -550,50 +553,6 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 	@MainActor
 	func updateCheckboxStateImmediately() {
 		updateCheckboxState()
-	}
-	
-	@MainActor
-	func removeEmptyFoldersRecursively(
-		isRoot: Bool,
-		allowSorting: Bool = true
-	) -> [(fullPath: String, relativePath: String)] {
-		var removedFolders: [(fullPath: String, relativePath: String)] = []
-		
-		// 1. Recurse into subfolders to remove their empties first.
-		for subFolder in subfolders {
-			let subRemoved = subFolder.removeEmptyFoldersRecursively(isRoot: false, allowSorting: allowSorting)
-			removedFolders.append(contentsOf: subRemoved)
-		}
-		
-		// 2. Remove any subfolder that is now empty (and clear its parent pointer).
-		subfolders.removeAll { subFolder in
-			if subFolder.subfolders.isEmpty && subFolder.files.isEmpty {
-				removedFolders.append((subFolder.fullPath, subFolder.relativePath))
-				subFolder.parent = nil
-				return true
-			}
-			return false
-		}
-		
-		// 3. Rebuild (and optionally re-sort) the children array.
-		let effective = effectiveSortMethod(requested: currentSortMethod)
-		if allowSorting {
-			if sortDirty || storageSortedBy != effective {
-				applySort(requested: currentSortMethod)
-			} else {
-				rebuildChildrenFromStorage()
-			}
-		} else {
-			if sortDirty || storageSortedBy != effective {
-				sortDirty = true
-			}
-			rebuildChildrenFromStorage()
-		}
-		
-		// 4. Update the folder’s checkbox state.
-		rebuildCheckboxMetricsFromChildren()
-		
-		return removedFolders
 	}
 	
 	// MARK: - Private: Rebuild & Sort
