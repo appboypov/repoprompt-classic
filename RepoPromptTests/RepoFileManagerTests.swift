@@ -1002,6 +1002,67 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertEqual(index.selectedFilePaths, [])
 	}
 
+	/// A loaded code root whose index has not read `src/deep` yet, with a tab selection of `Top.swift`
+	/// and `src/deep/Deep.swift` restored.
+	@MainActor
+	private func restoreSelectionWhileDeepFolderIsUnread() async throws -> (RepoFileManagerViewModel, URL, RootFolderIndex, String) {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		index.remove("src/deep")
+		index.addFolder("src/deep", isRead: false)
+		fileManagerVM.setCurrentWorkspaceID(UUID())
+		let topPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "Top.swift")
+		let deepPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Deep.swift")
+		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Tab", selection: StoredSelection(
+			selectedPaths: [topPath, deepPath],
+			autoCodemapPaths: [],
+			slices: [:],
+			codemapAutoEnabled: false
+		)))
+		return (fileManagerVM, rootURL, index, deepPath)
+	}
+
+	private func deepFolderChunk() -> FSPreparedChunk {
+		FSPreparedChunk(
+			folders: [],
+			files: [
+				FSItemDTO(relativePath: "src/deep/Deep.swift", isDirectory: false, hierarchy: 2),
+				FSItemDTO(relativePath: "src/deep/notes.md", isDirectory: false, hierarchy: 2)
+			],
+			readFolders: ["src/deep"]
+		)
+	}
+
+	@MainActor
+	func testARestoredSelectedFileIsSelectedOnceReadingFindsIt() async throws {
+		let (fileManagerVM, rootURL, index, deepPath) = try await restoreSelectionWhileDeepFolderIsUnread()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		XCTAssertFalse(fileManagerVM.snapshotSelection().selectedPaths.contains(deepPath))
+
+		fileManagerVM.applyReadingChunkForTesting(deepFolderChunk(), rootKey: index.rootPath)
+
+		XCTAssertTrue(fileManagerVM.snapshotSelection().selectedPaths.contains(deepPath))
+		XCTAssertTrue(fileManagerVM.getAllFilesForPrompt().contains { $0.file.standardizedFullPath == deepPath })
+		XCTAssertTrue(index.selectedFilePaths.contains("src/deep/Deep.swift"))
+	}
+
+	@MainActor
+	func testClearingTheSelectionBeforeReadingFindsARestoredFileLeavesItUnselected() async throws {
+		let (fileManagerVM, rootURL, index, deepPath) = try await restoreSelectionWhileDeepFolderIsUnread()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+
+		await fileManagerVM.clearSelection()
+		fileManagerVM.applyReadingChunkForTesting(deepFolderChunk(), rootKey: index.rootPath)
+
+		XCTAssertFalse(fileManagerVM.snapshotSelection().selectedPaths.contains(deepPath))
+		XCTAssertEqual(index.selectedFilePaths, [])
+	}
+
 	@MainActor
 	private func waitUntil(_ condition: () -> Bool) async throws {
 		let deadline = Date().addingTimeInterval(10)

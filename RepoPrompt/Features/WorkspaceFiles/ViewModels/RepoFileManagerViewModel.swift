@@ -2330,8 +2330,27 @@ func loadFolder(
 
 	private func applyReadingChunk(_ chunk: FSPreparedChunk, rootKey: String) {
 		guard let index = rootFolderIndexes[rootKey] else { return }
-		index.add(chunk)
+		addToIndex(chunk, rootKey: rootKey)
 		readingFileCounts.value[rootKey] = index.filePaths.count
+	}
+
+	#if DEBUG
+	func applyReadingChunkForTesting(_ chunk: FSPreparedChunk, rootKey: String) {
+		applyReadingChunk(chunk, rootKey: rootKey)
+	}
+	#endif
+
+	/// Adds a chunk to a root folder's index and selects the files of a restored selection it adds.
+	private func addToIndex(_ chunk: FSPreparedChunk, rootKey: String) {
+		guard let index = rootFolderIndexes[rootKey] else { return }
+		let restored = index.add(chunk)
+		guard !restored.isEmpty else { return }
+		let files = restored.compactMap {
+			promptFile(forStandardizedPath: StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: $0))
+		}
+		performSelectionBatch {
+			files.forEach { $0.setIsChecked(true) }
+		}
 	}
 
 	private func finishReading(rootKey: String) {
@@ -2387,7 +2406,7 @@ func loadFolder(
 				return
 			}
 			guard rootFolderIndexes[rootKey] === index else { return }
-			index.add(chunk)
+			addToIndex(chunk, rootKey: rootKey)
 		}
 		guard !folder.childrenAreBuilt,
 			fileHierarchyIndex.foldersByFullPath[folder.standardizedFullPath] === folder,
@@ -11840,6 +11859,12 @@ extension RepoFileManagerViewModel {
 	/// Ensures both collections stay in sync with one assignment point.
 	@MainActor
 	private func commitSelectionState(_ newFiles: [FileViewModel], _ newIDs: Set<UUID>) {
+		// Clearing the selection also drops the files reading has not found yet.
+		if newIDs.isEmpty {
+			for index in rootFolderIndexes.values {
+				index.setPendingSelection([])
+			}
+		}
 		// Fast-exit if nothing changes (preserves @Published churn)
 		let idsUnchanged = (newIDs == selectedFileIDs)
 		let filesUnchanged: Bool = {
@@ -12551,6 +12576,9 @@ extension RepoFileManagerViewModel {
 	private func applySelectionSnapshot(paths: [String], allowEmpty: Bool) async {
 		if paths.isEmpty && !allowEmpty { return }
 		let foundFiles = await findFiles(atPaths: paths)
+		let missingPaths = paths.filter { foundFiles[$0] == nil }
+		// After the selection deltas, so clearing the old selection does not drop the new pending files.
+		defer { setPendingSelections(forMissingPaths: missingPaths) }
 		let targetFiles = Array(foundFiles.values)
 		let targetIDs = Set(targetFiles.map(\.id))
 		let currentIDs = selectedFileIDs
@@ -12589,6 +12617,24 @@ extension RepoFileManagerViewModel {
 			}
 			index = end
 			await Task.yield()
+		}
+	}
+
+	/// Hands each root folder's index the requested files reading has not found yet, so reading selects them.
+	@MainActor
+	private func setPendingSelections(forMissingPaths paths: [String]) {
+		var pendingByRoot: [String: Set<String>] = [:]
+		for path in paths where path.hasPrefix("/") {
+			let standardizedPath = StandardizedPath.absolute(path)
+			guard let root = rootFolders
+				.filter({ standardizedPath.hasPrefix($0.standardizedFullPath + "/") })
+				.max(by: { $0.standardizedFullPath.count < $1.standardizedFullPath.count })
+			else { continue }
+			let relativePath = String(standardizedPath.dropFirst(root.standardizedFullPath.count + 1))
+			pendingByRoot[root.standardizedFullPath, default: []].insert(relativePath)
+		}
+		for (rootKey, index) in rootFolderIndexes {
+			index.setPendingSelection(pendingByRoot[rootKey] ?? [])
 		}
 	}
 	

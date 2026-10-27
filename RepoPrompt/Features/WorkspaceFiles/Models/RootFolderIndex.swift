@@ -36,6 +36,8 @@ final class RootFolderIndex {
 	private(set) var filePaths: Set<String> = []
 	/// The files of the selection.
 	private(set) var selectedFilePaths: Set<String> = []
+	/// Selected files reading has not found yet. Each is selected once reading adds it.
+	private var pendingSelectedFilePaths: Set<String> = []
 	private(set) var folders: [String: Folder]
 	private var unreadFolderPaths: Set<String> = [""]
 	private let root: Folder
@@ -62,16 +64,24 @@ final class RootFolderIndex {
 	}
 
 	/// Adds the entries of one reading chunk and marks the folders it finished listing as read.
-	func add(_ chunk: FSPreparedChunk) {
+	/// Returns the files it added that were waiting to be selected, now selected.
+	@discardableResult
+	func add(_ chunk: FSPreparedChunk) -> [String] {
 		for folder in chunk.folders {
 			addFolder(folder.relativePath, isRead: false)
 		}
+		var selectedFromPending: [String] = []
 		for file in chunk.files {
 			addFile(file.relativePath)
+			if pendingSelectedFilePaths.remove(file.relativePath) != nil {
+				select(file.relativePath)
+				selectedFromPending.append(file.relativePath)
+			}
 		}
 		for path in chunk.readFolders {
 			markFolderRead(path)
 		}
+		return selectedFromPending
 	}
 
 	/// Adds a folder. Missing folders above it are added as read.
@@ -130,18 +140,33 @@ final class RootFolderIndex {
 			folder.unreadFolderCount = 0
 		}
 		unreadFolderPaths.removeAll()
+		pendingSelectedFilePaths.removeAll()
 	}
 
-	/// Adds a file of the index to the selection.
+	/// Adds a file of the index to the selection. While reading runs, a file reading has not found yet
+	/// waits and is selected once reading adds it.
 	func select(_ path: String) {
-		guard filePaths.contains(path), selectedFilePaths.insert(path).inserted else { return }
+		guard filePaths.contains(path) else {
+			if !isReadingComplete {
+				pendingSelectedFilePaths.insert(path)
+			}
+			return
+		}
+		guard selectedFilePaths.insert(path).inserted else { return }
 		addToSelectedFileCounts(1, from: Self.parentPath(of: path))
 	}
 
 	/// Removes a file from the selection.
 	func deselect(_ path: String) {
+		pendingSelectedFilePaths.remove(path)
 		guard selectedFilePaths.remove(path) != nil else { return }
 		addToSelectedFileCounts(-1, from: Self.parentPath(of: path))
+	}
+
+	/// Replaces the selected files reading has not found yet. Does nothing once reading is complete.
+	func setPendingSelection(_ paths: Set<String>) {
+		guard !isReadingComplete else { return }
+		pendingSelectedFilePaths = paths
 	}
 
 	/// The checkbox state of a folder: ticked when every file under it is selected, mixed when some are,
