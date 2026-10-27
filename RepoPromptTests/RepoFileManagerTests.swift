@@ -709,7 +709,7 @@ final class RepoFileManagerTests: XCTestCase {
 		func result(_ relativePath: String, typeName: String) -> CodeScanActor.ScanResult {
 			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
 			let request = CodeScanActor.ScanRequest(
-				fileID: RepoFileManagerViewModel.fileID(forFileWithoutTreeItem: fullPath),
+				fileID: RepoFileManagerViewModel.fileID(forStandardizedPath: fullPath),
 				modificationDate: Date(),
 				content: "",
 				fileExtension: "swift",
@@ -823,7 +823,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let deepAPI = FileAPI(filePath: deepPath, imports: [], classes: [ClassInfo(name: "Deep", methods: [], properties: [])], functions: [], enums: [], globalVars: [], macros: [], referencedTypes: [])
 		fileManagerVM.applyBatchCodeMapResultsForTesting([
 			result("Top.swift", fileID: topFile.id, api: topAPI),
-			result("src/deep/Deep.swift", fileID: RepoFileManagerViewModel.fileID(forFileWithoutTreeItem: deepPath), api: deepAPI)
+			result("src/deep/Deep.swift", fileID: RepoFileManagerViewModel.fileID(forStandardizedPath: deepPath), api: deepAPI)
 		])
 
 		fileManagerVM.codemapAutoEnabled = true
