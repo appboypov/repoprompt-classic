@@ -3551,6 +3551,8 @@ func loadFolder(
 					}
 					#endif
 				}
+				// The index follows the deltas in order, so a path added again later in the batch stays.
+				rootFolderIndexes[rootKey]?.remove(rel)
 				processedDigests.append(.fileRemoved(rel))
 
 			case .folderRemoved:
@@ -3584,6 +3586,7 @@ func loadFolder(
 					}
 					#endif
 				}
+				rootFolderIndexes[rootKey]?.remove(rel)
 				processedDigests.append(.folderRemoved(rel))
 
 			case .fileModified(_, let maybeDate):
@@ -3642,17 +3645,6 @@ func loadFolder(
 		#if DEBUG
 		deltaLoopDurationMS = debugPerfElapsedMS(since: deltaLoopStartMS)
 		#endif
-		if let rootFolderIndex = rootFolderIndexes[rootKey] {
-			for digest in processedDigests {
-				switch digest {
-				case .fileRemoved(let path), .folderRemoved(let path):
-					rootFolderIndex.remove(path)
-				case .fileAdded, .folderAdded, .fileModified, .folderModified:
-					break
-				}
-			}
-		}
-
 		flushRemovedSubtreesForCleanup()
 
 		if shouldFlushPendingInserts {
