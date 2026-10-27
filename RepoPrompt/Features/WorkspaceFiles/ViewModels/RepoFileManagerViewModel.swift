@@ -12384,13 +12384,10 @@ extension RepoFileManagerViewModel {
 		CodeMapExtractor.makeFileTreeSnapshot(
 			using: context,
 			indexes: rootFolderIndexes,
-			showEmptyFolders: showEmptyFolders
-		) { path in
-			if let file = fileHierarchyIndex.filesByFullPath[path] {
-				return file.hasAcceptedCodeMap
-			}
-			return codemapCapableAPIsByFullPath[path] != nil
-		}
+			showEmptyFolders: showEmptyFolders,
+			codemapPaths: codemapCapableAPIsByFullPath,
+			treeItemCodeMaps: fileHierarchyIndex.filesByFullPath.mapValues { $0.hasAcceptedCodeMap }
+		)
 	}
 
 	/// The folders of the file tree of `rootFolders`, built from their indexes.

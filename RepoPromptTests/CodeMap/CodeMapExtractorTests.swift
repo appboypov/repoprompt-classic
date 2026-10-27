@@ -484,6 +484,87 @@ final class CodeMapExtractorTests: XCTestCase {
 		XCTAssertEqual(rendered, live)
 	}
 
+	func testPromptFileTreeListsTheFilesOfFoldersThatAreNotOpened() async throws {
+		let (fileManagerVM, parentURL, _) = try await makeUnopenedProjectRoot()
+		defer { try? FileManager.default.removeItem(at: parentURL) }
+		let expected = """
+		project
+		├── src
+		│   ├── sub
+		│   │   └── B.swift
+		│   └── A.swift
+		└── README.md
+
+		"""
+
+		XCTAssertEqual(promptFileTree(fileManagerVM, option: .files, selected: []), expected)
+		XCTAssertEqual(promptFileTree(fileManagerVM, option: .auto, selected: []), expected)
+	}
+
+	func testPromptFileTreeMarksASelectedFileWithACodemapInAFolderThatIsNotOpened() async throws {
+		let (fileManagerVM, parentURL, rootPath) = try await makeUnopenedProjectRoot()
+		defer { try? FileManager.default.removeItem(at: parentURL) }
+		let bPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: "src/sub/B.swift")
+		let request = CodeScanActor.ScanRequest(
+			fileID: RepoFileManagerViewModel.fileID(forStandardizedPath: bPath),
+			modificationDate: Date(),
+			content: "",
+			fileExtension: "swift",
+			relativePath: "src/sub/B.swift",
+			fullPath: bPath,
+			rootFolderPath: rootPath
+		)
+		fileManagerVM.applyBatchCodeMapResultsForTesting([
+			CodeScanActor.ScanResult(request: request, fileAPI: makeAPI(filePath: bPath, definedTypeName: "B"))
+		])
+
+		XCTAssertEqual(promptFileTree(fileManagerVM, option: .selected, selected: [bPath]), """
+		project
+		└── src
+		    └── sub
+		        └── B.swift * +
+
+		""")
+		XCTAssertEqual(promptFileTree(fileManagerVM, option: .auto, selected: [bPath]), """
+		project
+		├── src
+		│   ├── sub
+		│   │   └── B.swift * +
+		│   └── A.swift
+		└── README.md
+
+		""")
+	}
+
+	/// A loaded root folder `project` holding `README.md`, `src/A.swift` and `src/sub/B.swift`, with no folder opened.
+	/// Returns the file manager, the temporary folder to remove and the root's standardized path.
+	private func makeUnopenedProjectRoot() async throws -> (RepoFileManagerViewModel, URL, String) {
+		let parentURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		let rootURL = parentURL.appendingPathComponent("project", isDirectory: true)
+		try FileManager.default.createDirectory(at: rootURL.appendingPathComponent("src/sub", isDirectory: true), withIntermediateDirectories: true)
+		for path in ["README.md", "src/A.swift", "src/sub/B.swift"] {
+			try "content".write(to: rootURL.appendingPathComponent(path), atomically: true, encoding: .utf8)
+		}
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
+		let rootPath = try XCTUnwrap(fileManagerVM.visibleRootFolders.first?.standardizedFullPath)
+		return (fileManagerVM, parentURL, rootPath)
+	}
+
+	/// The prompt's file tree of every root folder of a file manager, without legend.
+	private func promptFileTree(_ fileManagerVM: RepoFileManagerViewModel, option: FileTreeOption, selected: Set<String>) -> String {
+		CodeMapExtractor.generateFileTree(using: fileManagerVM.fileTreeSnapshot(using: FileTreeSelectionContext(
+			rootFolders: fileManagerVM.visibleRootFolders,
+			selectedFilePaths: selected,
+			option: option,
+			filePathDisplay: .relative,
+			onlyIncludeRootsWithSelectedFiles: !selected.isEmpty,
+			includeLegend: false
+		)))
+	}
+
 	/// The tree of a context, rendered from indexes that hold exactly the folders and files of its root view models.
 	private func treeFromIndexes(_ context: FileTreeSelectionContext, showEmptyFolders: Bool = false) -> String {
 		CodeMapExtractor.generateFileTree(using: snapshotFromIndexes(context, showEmptyFolders: showEmptyFolders))
@@ -525,7 +606,9 @@ final class CodeMapExtractorTests: XCTestCase {
 		return CodeMapExtractor.makeFileTreeSnapshot(
 			using: context,
 			indexes: indexes,
-			showEmptyFolders: showEmptyFolders
-		) { filesByPath[$0]?.hasAcceptedCodeMap ?? false }
+			showEmptyFolders: showEmptyFolders,
+			codemapPaths: [:],
+			treeItemCodeMaps: filesByPath.mapValues { $0.hasAcceptedCodeMap }
+		)
 	}
 }

@@ -1,21 +1,28 @@
 import Foundation
 
 extension CodeMapExtractor {
-	/// The file tree of the root folders of a context, built from the index of each root folder.
-	/// `hasCodeMap` tells whether the file at a standardized full path has a codemap.
+	/// The file tree of the root folders of a context, read from the index of each root folder.
+	/// It takes the same time for any number of files: each folder lists its children when a reader visits it.
+	/// A file shows a codemap from `treeItemCodeMaps` when it has a tree item, else when `codemapPaths` holds it.
 	@MainActor
 	static func makeFileTreeSnapshot(
 		using context: FileTreeSelectionContext,
 		indexes: [String: RootFolderIndex],
 		showEmptyFolders: Bool,
-		hasCodeMap: (String) -> Bool
+		codemapPaths: [String: FileAPI],
+		treeItemCodeMaps: [String: Bool]
 	) -> FileTreeSelectionSnapshot {
 		let roots = context.rootFolders.map { root in
 			snapshot(
 				ofRoot: root,
-				index: indexes[root.standardizedFullPath],
-				showEmptyFolders: showEmptyFolders,
-				hasCodeMap: hasCodeMap
+				indexTree: indexes[root.standardizedFullPath].map { index in
+					IndexFileTree(
+						contents: index.contents,
+						showEmptyFolders: showEmptyFolders,
+						codemapPaths: codemapPaths,
+						treeItemCodeMaps: treeItemCodeMaps
+					)
+				}
 			)
 		}
 
@@ -45,7 +52,7 @@ extension CodeMapExtractor {
 		if Task.isCancelled { return "" }
 
 		let effectiveRoots = snapshot.onlyIncludeRootsWithSelectedFiles
-			? snapshot.roots.filter { snapshotFolderContainsSelectedFile($0, selectedFileIDs: snapshot.selectedFilePaths) }
+			? snapshot.roots.filter { !$0.folderIDsHoldingFiles(snapshot.selectedFilePaths).isEmpty }
 			: snapshot.roots
 		guard !effectiveRoots.isEmpty else { return "" }
 
@@ -57,7 +64,7 @@ extension CodeMapExtractor {
 				return []
 			}
 			let computed = effectiveRoots.reduce(into: Set<String>()) { acc, root in
-				acc.formUnion(snapshotFolderIDsContainingSelectedFiles(rootFolder: root, selectedFileIDs: snapshot.selectedFilePaths))
+				acc.formUnion(root.folderIDsHoldingFiles(snapshot.selectedFilePaths))
 			}
 			cachedSelectedFolderIDs = computed
 			return computed
@@ -193,51 +200,21 @@ extension CodeMapExtractor {
 			.joined(separator: "\n")
 	}
 
-	/// Builds the tree of each root folder from the root folder's index, so a folder shows the same
-	/// whether or not the file tree has opened it. A root folder without an index shows no entries.
+	/// The root folder of the tree, read from the index of the root folder. A root folder without an index shows no entries.
 	@MainActor
-	private static func snapshot(
-		ofRoot root: FolderViewModel,
-		index: RootFolderIndex?,
-		showEmptyFolders: Bool,
-		hasCodeMap: (String) -> Bool
-	) -> FileTreeFolderSnapshot {
+	private static func snapshot(ofRoot root: FolderViewModel, indexTree: IndexFileTree?) -> FileTreeFolderSnapshot {
 		let rootPath = root.standardizedFullPath
-
-		func children(of folder: RootFolderIndex.Folder?) -> [FileTreeNodeSnapshot] {
-			guard let folder, let index else { return [] }
-			var nodes: [FileTreeNodeSnapshot] = []
-			nodes.reserveCapacity(folder.childFolderPaths.count + folder.childFilePaths.count)
-			for relativePath in folder.childFolderPaths {
-				guard let subfolder = index.folders[relativePath] else { continue }
-				if !showEmptyFolders, subfolder.isKnownEmpty { continue }
-				let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
-				let name = (relativePath as NSString).lastPathComponent
-				nodes.append(.folder(FileTreeFolderSnapshot(
-					id: fullPath,
-					name: name,
-					nameSortKey: name.lowercased(),
-					fullPath: fullPath,
-					standardizedFullPath: fullPath,
-					standardizedRootPath: rootPath,
-					children: children(of: subfolder)
-				)))
-			}
-			for relativePath in folder.childFilePaths {
-				let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
-				let name = (relativePath as NSString).lastPathComponent
-				let fileExtension = (name as NSString).pathExtension
-				nodes.append(.file(FileTreeFileSnapshot(
-					id: fullPath,
-					name: name,
-					nameSortKey: name.lowercased(),
-					fileExtension: fileExtension.isEmpty ? nil : fileExtension,
-					hasCodeMap: hasCodeMap(fullPath)
-				)))
-			}
-			return nodes
+		guard let indexTree else {
+			return FileTreeFolderSnapshot(
+				id: rootPath,
+				name: root.name,
+				nameSortKey: root.nameSortKey,
+				fullPath: root.fullPath,
+				standardizedFullPath: rootPath,
+				standardizedRootPath: rootPath,
+				children: []
+			)
 		}
-
 		return FileTreeFolderSnapshot(
 			id: rootPath,
 			name: root.name,
@@ -245,7 +222,8 @@ extension CodeMapExtractor {
 			fullPath: root.fullPath,
 			standardizedFullPath: rootPath,
 			standardizedRootPath: rootPath,
-			children: children(of: index?.folders[""])
+			indexTree: indexTree,
+			relativePath: ""
 		)
 	}
 }
@@ -412,69 +390,6 @@ private func prioritizeAndCap(
 	return Array(prioritized.prefix(allowed))
 }
 
-private func snapshotFolderIDsContainingSelectedFiles(
-	rootFolder: FileTreeFolderSnapshot,
-	selectedFileIDs: Set<String>
-) -> Set<String> {
-	var result = Set<String>()
-	var visited = Set<String>()
-
-	@discardableResult
-	func dfs(_ folder: FileTreeFolderSnapshot) -> Bool {
-		if Task.isCancelled { return false }
-		guard visited.insert(folder.id).inserted else { return false }
-
-		var contains = false
-		for child in folder.children {
-			if Task.isCancelled { return false }
-			switch child {
-			case .file(let file):
-				if selectedFileIDs.contains(file.id) {
-					contains = true
-				}
-			case .folder(let subfolder):
-				if dfs(subfolder) {
-					contains = true
-				}
-			}
-		}
-
-		if contains {
-			result.insert(folder.id)
-		}
-		return contains
-	}
-
-	_ = dfs(rootFolder)
-	return result
-}
-
-private func snapshotFolderContainsSelectedFile(
-	_ folder: FileTreeFolderSnapshot,
-	selectedFileIDs: Set<String>
-) -> Bool {
-	var visited = Set<String>()
-	var stack = [folder]
-
-	while let current = stack.popLast() {
-		if Task.isCancelled { return false }
-		guard visited.insert(current.id).inserted else { continue }
-
-		for child in current.children {
-			switch child {
-			case .file(let file):
-				if selectedFileIDs.contains(file.id) {
-					return true
-				}
-			case .folder(let subfolder):
-				stack.append(subfolder)
-			}
-		}
-	}
-
-	return false
-}
-
 private func generateFileTreeSnapshotWithDepth(
 	rootFolder: FileTreeFolderSnapshot,
 	mode: String,
@@ -487,7 +402,6 @@ private func generateFileTreeSnapshotWithDepth(
 	showCodeMapMarkers: Bool
 ) -> (String, Bool, Bool) {
 	var usedSelectedMarker = false
-	let codeMapIDs = showCodeMapMarkers ? collectCodeMapIDs(from: [rootFolder]) : []
 	let normalizedMode = mode.lowercased()
 
 	func emitSelectedOnly(
@@ -504,7 +418,7 @@ private func generateFileTreeSnapshotWithDepth(
 		case .file(let file):
 			let marked = selectedFileIDs.contains(file.id)
 			if marked { usedSelectedMarker = true }
-			let hasCodeMap = showCodeMapMarkers && codeMapIDs.contains(file.id)
+			let hasCodeMap = showCodeMapMarkers && file.hasCodeMap
 			builder.appendLine("\(basePrefix)\(isLast ? "└── " : "├── ")\(file.name)\(marked ? snapshotSelectedMark : "")\(hasCodeMap ? snapshotCodeMapMark : "")")
 			return false
 		case .folder(let folder):
@@ -620,7 +534,7 @@ private func generateFileTreeSnapshotWithDepth(
 				if let tokenBudget, builder.estimatedTokens >= tokenBudget { return true }
 				let marked = selectedFileIDs.contains(file.id)
 				if marked { usedSelectedMarker = true }
-				let hasCodeMap = showCodeMapMarkers && codeMapIDs.contains(file.id)
+				let hasCodeMap = showCodeMapMarkers && file.hasCodeMap
 				builder.appendLine("\(childPrefixBase)\(childIsLast ? "└── " : "├── ")\(file.name)\(marked ? snapshotSelectedMark : "")\(hasCodeMap ? snapshotCodeMapMark : "")")
 			}
 		}
@@ -640,31 +554,6 @@ private func generateFileTreeSnapshotWithDepth(
 	)
 
 	return (builder.result, usedSelectedMarker, truncated)
-}
-
-private func collectCodeMapIDs(from roots: [FileTreeFolderSnapshot]) -> Set<String> {
-	var ids = Set<String>()
-	var visited = Set<String>()
-	var stack = roots
-
-	while let folder = stack.popLast() {
-		if Task.isCancelled { break }
-		guard visited.insert(folder.id).inserted else { continue }
-
-		for child in folder.children {
-			if Task.isCancelled { break }
-			switch child {
-			case .file(let file):
-				if file.hasCodeMap {
-					ids.insert(file.id)
-				}
-			case .folder(let subfolder):
-				stack.append(subfolder)
-			}
-		}
-	}
-
-	return ids
 }
 
 private func contextualRootLabel(
