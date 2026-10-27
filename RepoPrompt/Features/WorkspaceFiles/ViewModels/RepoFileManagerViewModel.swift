@@ -441,7 +441,7 @@ class RepoFileManagerViewModel: ObservableObject {
 		readingTasks.removeValue(forKey: rootKey)?.cancel()
 		rootFolderIndexes.removeValue(forKey: rootKey)
 		readingFileCounts.value.removeValue(forKey: rootKey)
-		publishWaitingFolderSelections()
+		syncWaitingFolders()
 		// The codemaps kept by path of the root folder's files go too, except those of a root folder inside it.
 		let nestedRootPrefixes = rootFolderIndexes.keys.filter { $0.hasPrefix(rootKey + "/") }.map { $0 + "/" }
 		for path in codemapCapableAPIsByFullPath.keys
@@ -2432,11 +2432,11 @@ func loadFolder(
 		let hadWaitingFolders = !index.waitingFolderPaths.isEmpty
 		selectIndexedFiles(index.add(chunk), rootKey: rootKey)
 		if hadWaitingFolders {
-			publishWaitingFolderSelections()
+			syncWaitingFolders()
 		}
 	}
 
-	/// Selects files the index of a root folder already selected, so the selection and its rows follow.
+	/// Selects files the index of a root folder already selected, so the selection and the folder rows follow.
 	private func selectIndexedFiles(_ relativePaths: [String], rootKey: String) {
 		guard !relativePaths.isEmpty else { return }
 		let files = relativePaths.compactMap {
@@ -2445,25 +2445,31 @@ func loadFolder(
 		performSelectionBatch {
 			files.forEach { $0.setIsChecked(true) }
 		}
+		refreshRootFolderState()
 	}
 
-	/// Matches `waitingFolderSelections` to the folders the indexes of the root folders let wait.
-	private func publishWaitingFolderSelections() {
+	/// Matches `waitingFolderSelections` to the folders the indexes of the root folders let wait,
+	/// and makes reading of each root folder read the subtrees of its waiting folders first.
+	private func syncWaitingFolders() {
 		var paths = Set<String>()
 		for (rootKey, index) in rootFolderIndexes {
 			for relativePath in index.waitingFolderPaths {
 				paths.insert(StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: relativePath))
 			}
 		}
-		if paths != waitingFolderSelections.value {
-			waitingFolderSelections.value = paths
+		guard paths != waitingFolderSelections.value else { return }
+		waitingFolderSelections.value = paths
+		for (rootKey, index) in rootFolderIndexes {
+			guard let service = getFileSystemService(for: rootKey) else { continue }
+			let readFirst = index.waitingFolderPaths
+			Task { await service.setReadFirst(readFirst) }
 		}
 	}
 
 	private func finishReading(rootKey: String) {
 		guard let index = rootFolderIndexes[rootKey] else { return }
 		selectIndexedFiles(index.finishReading(), rootKey: rootKey)
-		publishWaitingFolderSelections()
+		syncWaitingFolders()
 		readingFileCounts.value.removeValue(forKey: rootKey)
 		readingTasks[rootKey] = nil
 		if !showEmptyFolders {
@@ -6495,7 +6501,7 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 			} else {
 				index.waitToSelect(folder: folder.relativePath)
 			}
-			publishWaitingFolderSelections()
+			syncWaitingFolders()
 			return
 		}
 		setFolderSelected(atStandardizedPath: path, index.checkboxState(ofFolder: folder.relativePath) == .unchecked)
@@ -11822,7 +11828,7 @@ extension RepoFileManagerViewModel {
 			for index in rootFolderIndexes.values {
 				index.setPendingSelection([])
 			}
-			publishWaitingFolderSelections()
+			syncWaitingFolders()
 		}
 		// Fast-exit if nothing changes (preserves @Published churn)
 		let idsUnchanged = (newIDs == selectedFileIDs)
@@ -12599,7 +12605,7 @@ extension RepoFileManagerViewModel {
 		for (rootKey, index) in rootFolderIndexes {
 			index.setPendingSelection(pendingByRoot[rootKey] ?? [])
 		}
-		publishWaitingFolderSelections()
+		syncWaitingFolders()
 	}
 	
 	@MainActor
