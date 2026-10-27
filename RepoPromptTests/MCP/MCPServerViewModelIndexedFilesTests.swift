@@ -24,7 +24,8 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 		}
 	}
 
-	private func makeFixture() async throws -> Fixture {
+	/// A window with the root folder `CodeRoot` loaded. `scansCodemaps` lets the load build codemaps.
+	private func makeFixture(scansCodemaps: Bool = false) async throws -> Fixture {
 		let tempParent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
 		let rootURL = tempParent.appendingPathComponent("CodeRoot", isDirectory: true)
 		try FileManager.default.createDirectory(at: rootURL.appendingPathComponent("src/deep", isDirectory: true), withIntermediateDirectories: true)
@@ -52,7 +53,9 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 		windowState.promptManager.loadComposeTabsFromWorkspace(workspace)
 
 		let fileManager = windowState.fileManager
-		fileManager.beginDeferringInitialRootLoadScans()
+		if !scansCodemaps {
+			fileManager.beginDeferringInitialRootLoadScans()
+		}
 		try await fileManager.loadFolder(at: rootURL, for: workspace, freshStart: true)
 		let root = try XCTUnwrap(fileManager.rootFolders.first)
 		let index = try XCTUnwrap(fileManager.rootFolderIndexes[root.standardizedFullPath])
@@ -66,6 +69,31 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 			"regex": .bool(false),
 			"max_results": .int(20)
 		]
+	}
+
+	/// A tab context of the fixture's window that selects `selectedPaths`.
+	private func tabContext(_ fixture: Fixture, selecting selectedPaths: [String]) -> MCPServerViewModel.TabScopedContext {
+		MCPServerViewModel.TabScopedContext(
+			tabID: UUID(),
+			windowID: fixture.windowState.windowID,
+			workspaceID: nil,
+			promptText: "",
+			selection: StoredSelection(selectedPaths: selectedPaths, autoCodemapPaths: [], slices: [:], codemapAutoEnabled: false),
+			selectedMetaPromptIDs: [],
+			tabName: "Test Tab",
+			runID: nil,
+			explicitlyBound: false
+		)
+	}
+
+	/// Marks the root folder as being read, adds a file to its index and to disk while the request runs, then ends reading.
+	private func addFileWhileReading(_ relativePath: String, in fixture: Fixture, during request: () -> Void) async throws {
+		try "struct Later {}\n".write(to: fixture.rootURL.appendingPathComponent(relativePath), atomically: true, encoding: .utf8)
+		fixture.fileManager.readingFileCounts.value[fixture.index.rootPath] = fixture.index.filePaths.count
+		request()
+		try await Task.sleep(nanoseconds: 200_000_000)
+		fixture.index.addFile(relativePath)
+		fixture.fileManager.readingFileCounts.value.removeValue(forKey: fixture.index.rootPath)
 	}
 
 	func testAFileTreeRequestedDuringReadingAnswersAfterReadingWithTheCompleteTree() async throws {
@@ -112,7 +140,8 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 		let result = await trees()
 		XCTAssertEqual(result, treesWithEveryFolderOpened)
-		XCTAssertTrue(result[1].contains("Deep.swift *"), result[1])
+		let selectedOnly = await fixture.mcpServer.buildFileTreeResult(mode: "selected", maxDepth: nil, includeHidden: false, startPath: "src/deep", selectedPaths: [fixture.fullPath("src/deep/Deep.swift")])
+		XCTAssertTrue(selectedOnly.usedSelectedMarker, selectedOnly.tree)
 		XCTAssertTrue(result[7].contains("notes.md"), result[7])
 	}
 
@@ -163,22 +192,7 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 	func testWorkspaceContextIsTheSameWhenASelectedFileIsInAFolderThatIsNotOpened() async throws {
 		let fixture = try await makeFixture()
-		let context = MCPServerViewModel.TabScopedContext(
-			tabID: UUID(),
-			windowID: fixture.windowState.windowID,
-			workspaceID: nil,
-			promptText: "",
-			selection: StoredSelection(
-				selectedPaths: [fixture.fullPath("Top.swift"), fixture.fullPath("src/deep/Deep.swift")],
-				autoCodemapPaths: [],
-				slices: [:],
-				codemapAutoEnabled: false
-			),
-			selectedMetaPromptIDs: [],
-			tabName: "Test Tab",
-			runID: nil,
-			explicitlyBound: false
-		)
+		let context = tabContext(fixture, selecting: [fixture.fullPath("Top.swift"), fixture.fullPath("src/deep/Deep.swift")])
 		let encoder = JSONEncoder()
 		encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
 		func workspaceContext() async throws -> String {
@@ -209,5 +223,73 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 			reply.pathMatchLines,
 			[fixture.fileManager.mcpDisplayPath(forAbsolutePath: fixture.fullPath("src/deep/Created.swift"))]
 		)
+	}
+
+	func testWorkspaceContextDuringReadingAnswersFromTheCompleteIndex() async throws {
+		let fixture = try await makeFixture()
+		fixture.closeDeepFolder()
+		let laterPath = fixture.fullPath("src/deep/Later.swift")
+		let context = tabContext(fixture, selecting: [laterPath])
+
+		var request: Task<ToolResultDTOs.PromptContextDTO, Never>?
+		try await addFileWhileReading("src/deep/Later.swift", in: fixture) {
+			request = Task { await fixture.mcpServer.buildTabWorkspaceContext(context: context, include: ["selection"], display: .full) }
+		}
+
+		let dto = try await XCTUnwrap(request).value
+		XCTAssertEqual(dto.selection?.files.map(\.path), [laterPath])
+	}
+
+	func testSelectingAFolderDuringReadingSelectsEveryFileOfTheCompleteIndex() async throws {
+		let fixture = try await makeFixture()
+		fixture.closeDeepFolder()
+
+		var request: Task<MCPServerViewModel.AddStoredSelectionResult, Never>?
+		try await addFileWhileReading("src/deep/Later.swift", in: fixture) {
+			request = Task { await fixture.mcpServer.addStoredSelectionPaths(existing: StoredSelection(), paths: ["src/deep"], rawPaths: ["src/deep"], mode: "full") }
+		}
+
+		let result = try await XCTUnwrap(request).value
+		XCTAssertEqual(
+			Set(result.selection.selectedPaths),
+			Set(["src/deep/Deep.swift", "src/deep/notes.md", "src/deep/Later.swift"].map(fixture.fullPath))
+		)
+	}
+
+	func testCompleteCodemapSelectionIsTheSameWhenACodemapFileIsInAFolderThatIsNotOpened() async throws {
+		let fixture = try await makeFixture(scansCodemaps: true)
+		let deepPath = fixture.fullPath("src/deep/Deep.swift")
+		let deadline = Date().addingTimeInterval(60)
+		while [fixture.fullPath("Top.swift"), fixture.fullPath("src/Middle.swift"), deepPath].contains(where: { fixture.fileManager.cachedCodeMapAPIForTesting(fullPath: $0) == nil }) {
+			guard Date() < deadline else { return XCTFail("Codemaps were not built in time") }
+			try await Task.sleep(nanoseconds: 50_000_000)
+		}
+		func reply() async -> ToolResultDTOs.SelectionReply {
+			await fixture.mcpServer.buildTabSelectionReply(
+				from: StoredSelection(selectedPaths: [fixture.fullPath("Top.swift")], autoCodemapPaths: [], slices: [:], codemapAutoEnabled: false),
+				includeBlocks: false,
+				display: .full,
+				codeMapUsageOverride: .complete
+			)
+		}
+		let withEveryFolderOpened = await reply()
+
+		fixture.closeDeepFolder()
+
+		let result = await reply()
+		XCTAssertEqual(result, withEveryFolderOpened)
+		XCTAssertEqual(result.files?.first(where: { $0.path == deepPath })?.renderMode, "codemap")
+	}
+
+	func testAFolderInANestedRootFolderBelongsToTheNestedRoot() async throws {
+		let fixture = try await makeFixture()
+		let innerURL = fixture.rootURL.appendingPathComponent("src")
+		try await fixture.fileManager.loadFolder(at: innerURL, for: try XCTUnwrap(fixture.windowState.workspaceManager.activeWorkspace), freshStart: false)
+
+		let folder = try XCTUnwrap(fixture.fileManager.indexedFolder(atStandardizedPath: fixture.fullPath("src/deep")))
+
+		XCTAssertEqual(folder.root.standardizedFullPath, fixture.fullPath("src"))
+		XCTAssertEqual(folder.relativePath, "deep")
+		XCTAssertNil(fixture.fileManager.indexedFolder(atStandardizedPath: fixture.fullPath("src/missing")))
 	}
 }
