@@ -968,6 +968,83 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testSwitchingBackToATabRestoresItsSelectedFilesInAFolderThatIsNotOpened() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let topPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "Top.swift")
+		let deepPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Deep.swift")
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		let tab = ComposeTabState(name: "Tab", selection: StoredSelection(selectedPaths: [topPath, deepPath]))
+		let otherTab = ComposeTabState(name: "Other")
+
+		await fileManagerVM.onActiveTabChanged(tab)
+		await fileManagerVM.onActiveTabChanged(otherTab)
+
+		XCTAssertEqual(fileManagerVM.selectedFiles, [])
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(src.checkboxState, .unchecked)
+
+		await fileManagerVM.onActiveTabChanged(tab)
+
+		XCTAssertEqual(Set(fileManagerVM.selectedFiles.map(\.standardizedFullPath)), [topPath, deepPath])
+		XCTAssertEqual(Set(fileManagerVM.snapshotSelection().selectedPaths), [topPath, deepPath])
+		XCTAssertEqual(index.selectedFilePaths, ["Top.swift", "src/deep/Deep.swift"])
+		XCTAssertEqual(src.checkboxState, .mixed)
+		XCTAssertNil(fileManagerVM.findFileByFullPath(deepPath), "Restoring a selection builds no tree items")
+	}
+
+	@MainActor
+	func testSwitchingBackToATabRestoresTheSelectionSlicesOfAFileInAFolderThatIsNotOpened() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		fileManagerVM.setCurrentWorkspaceID(UUID())
+		let deepPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Deep.swift")
+		let ranges = [LineRange(start: 1, end: 2)]
+		let tab = ComposeTabState(name: "Tab", selection: StoredSelection(
+			selectedPaths: [deepPath],
+			autoCodemapPaths: [],
+			slices: [deepPath: ranges],
+			codemapAutoEnabled: false
+		))
+
+		await fileManagerVM.onActiveTabChanged(tab)
+		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Other"))
+		await fileManagerVM.onActiveTabChanged(tab)
+
+		let file = try XCTUnwrap(fileManagerVM.selectedFiles.first)
+		XCTAssertEqual(fileManagerVM.selectionSlices(for: file), ranges)
+		XCTAssertEqual(fileManagerVM.snapshotSelection().slices, [deepPath: ranges])
+		XCTAssertEqual(fileManagerVM.getAllFilesForPrompt().map(\.ranges), [ranges])
+	}
+
+	@MainActor
+	func testFilesThatNoLongerExistAreLeftOutOfTheRestoredSelection() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		fileManagerVM.setCurrentWorkspaceID(UUID())
+		let deepPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Deep.swift")
+		let gonePath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Gone.swift")
+		let ranges = [LineRange(start: 1, end: 2)]
+
+		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Tab", selection: StoredSelection(
+			selectedPaths: [deepPath, gonePath],
+			autoCodemapPaths: [],
+			slices: [gonePath: ranges],
+			codemapAutoEnabled: false
+		)))
+
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [deepPath])
+		XCTAssertEqual(fileManagerVM.snapshotSelection().slices, [:])
+		XCTAssertEqual(index.selectedFilePaths, ["src/deep/Deep.swift"])
+	}
+
+	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory
 			.appendingPathComponent(UUID().uuidString, isDirectory: true)
