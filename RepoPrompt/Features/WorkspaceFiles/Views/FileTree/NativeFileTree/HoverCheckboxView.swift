@@ -29,6 +29,16 @@ class HoverCheckboxView: NSView {
 		}
 	}
 	
+	/// Shows a spinner in place of the box while a ticked folder waits until reading has listed its subtree.
+	/// A click still runs the action.
+	var isWaiting = false {
+		didSet {
+			guard isWaiting != oldValue else { return }
+			showWaiting()
+		}
+	}
+	private var waitingSpinner: NSProgressIndicator?
+	
 	// Static image cache to avoid repeated symbol loading
 	private static var imageCache: [String: NSImage] = [:]
 	
@@ -78,6 +88,11 @@ class HoverCheckboxView: NSView {
 		
 		// Initial appearance (no animation)
 		updateAppearance(animated: false)
+	}
+	
+	/// Clicks on the box or the spinner reach the checkbox itself.
+	override func hitTest(_ point: NSPoint) -> NSView? {
+		super.hitTest(point) == nil ? nil : self
 	}
 	
 	override func mouseDown(with event: NSEvent) {
@@ -143,6 +158,35 @@ class HoverCheckboxView: NSView {
 	/// Clears the static image cache. Useful for memory management or configuration changes.
 	static func clearImageCache() {
 		imageCache.removeAll()
+	}
+	
+	// MARK: - Waiting
+	private func showWaiting() {
+		imageView.isHidden = isWaiting
+		setAccessibilityValue(isWaiting ? "Waiting for reading" : nil)
+		if isWaiting {
+			let spinner = waitingSpinner ?? makeWaitingSpinner()
+			spinner.isHidden = false
+			spinner.startAnimation(nil)
+		} else if let waitingSpinner {
+			waitingSpinner.stopAnimation(nil)
+			waitingSpinner.isHidden = true
+		}
+	}
+	
+	private func makeWaitingSpinner() -> NSProgressIndicator {
+		let spinner = NSProgressIndicator(frame: .zero)
+		spinner.translatesAutoresizingMaskIntoConstraints = false
+		spinner.style = .spinning
+		spinner.controlSize = .small
+		spinner.isIndeterminate = true
+		addSubview(spinner)
+		NSLayoutConstraint.activate([
+			spinner.centerXAnchor.constraint(equalTo: centerXAnchor),
+			spinner.centerYAnchor.constraint(equalTo: centerYAnchor)
+		])
+		waitingSpinner = spinner
+		return spinner
 	}
 	
 	// MARK: - Appearance

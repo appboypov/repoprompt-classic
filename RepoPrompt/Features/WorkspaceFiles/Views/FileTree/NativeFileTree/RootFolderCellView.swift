@@ -36,6 +36,7 @@ class RootFolderCellView: NSTableCellView {
 	private var hoverRegion: NSView!
 	private var stateCancellable: AnyCancellable?
 	private var readingCancellable: AnyCancellable?
+	private var waitingCancellable: AnyCancellable?
 	
 	weak var treeViewController: FileTreeViewController?
 	
@@ -59,6 +60,7 @@ class RootFolderCellView: NSTableCellView {
 		didSet {
 			stateCancellable?.cancel()
 			readingCancellable?.cancel()
+			waitingCancellable?.cancel()
 			
 			if let folder = folder {
 				setupAccessibility(with: folder.name)
@@ -84,8 +86,20 @@ class RootFolderCellView: NSTableCellView {
 					.sink { [weak self] fileCount in
 						self?.showReading(fileCount: fileCount)
 					}
+				
+				// Show a spinner on the checkbox while the root folder waits until reading has listed it
+				let waitingFolderSelections = treeViewController?.fileManager?.waitingFolderSelections
+				hoverCheckbox.isWaiting = waitingFolderSelections?.value.contains(rootKey) ?? false
+				waitingCancellable = waitingFolderSelections?
+					.map { $0.contains(rootKey) }
+					.removeDuplicates()
+					.receive(on: DispatchQueue.main)
+					.sink { [weak self] isWaiting in
+						self?.hoverCheckbox.isWaiting = isWaiting
+					}
 			} else {
 				showReading(fileCount: nil)
+				hoverCheckbox.isWaiting = false
 			}
 		}
 	}
@@ -321,5 +335,6 @@ class RootFolderCellView: NSTableCellView {
 	deinit {
 		stateCancellable?.cancel()
 		readingCancellable?.cancel()
+		waitingCancellable?.cancel()
 	}
 }
