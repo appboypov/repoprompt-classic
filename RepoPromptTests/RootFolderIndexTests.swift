@@ -186,4 +186,29 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertEqual(index.selectedFilePaths, [])
 		XCTAssertEqual(index.checkboxState(ofFolder: ""), .unchecked)
 	}
+
+	func testGenerationChangesWithTheFilesAndFoldersButNotWithTheSelection() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		let other = RootFolderIndex(rootPath: "/other")
+		var generations = [index.generation]
+		func expectNewGeneration(_ change: () -> Void) {
+			change()
+			XCTAssertFalse(generations.contains(index.generation))
+			generations.append(index.generation)
+		}
+
+		expectNewGeneration { index.addFolder("a", isRead: false) }
+		expectNewGeneration { index.addFile("a/b.swift") }
+		expectNewGeneration { index.markFolderRead("a") }
+		other.addFile("x.swift")
+		XCTAssertFalse(generations.contains(other.generation))
+		expectNewGeneration { index.remove("a/b.swift") }
+		expectNewGeneration { index.finishReading() }
+
+		index.addFile("a/c.swift")
+		let beforeSelection = index.generation
+		index.select("a/c.swift")
+		index.deselect("a/c.swift")
+		XCTAssertEqual(index.generation, beforeSelection)
+	}
 }

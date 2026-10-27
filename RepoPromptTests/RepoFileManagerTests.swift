@@ -836,6 +836,137 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertEqual(entries.map(\.isCodemap), [false, true])
 	}
 
+	/// A loaded code root whose `src/deep` folder has no tree items, as when that folder was never opened.
+	@MainActor
+	private func makeCodeRootWithUnopenedDeepFolder() async throws -> (RepoFileManagerViewModel, URL, RootFolderIndex) {
+		let rootURL = try makeCodeRoot()
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
+		return (fileManagerVM, rootURL, index)
+	}
+
+	@MainActor
+	private func waitUntil(_ condition: () -> Bool) async throws {
+		let deadline = Date().addingTimeInterval(10)
+		while !condition() {
+			guard Date() < deadline else { return }
+			try await Task.sleep(nanoseconds: 50_000_000)
+		}
+	}
+
+	private func fileRelativePaths(in folders: [SearchFolderViewModel]) -> Set<String> {
+		var paths = Set<String>()
+		for folder in folders {
+			for child in folder.children {
+				switch child {
+				case .file(let file):
+					paths.insert(file.relativePath)
+				case .folder(let subfolder):
+					paths.formUnion(fileRelativePaths(in: [subfolder]))
+				}
+			}
+		}
+		return paths
+	}
+
+	@MainActor
+	func testTreeSearchFindsAFileInAFolderThatIsNotOpened() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+
+		searchVM.searchText = "Deep"
+		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
+
+		XCTAssertTrue(fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift"))
+	}
+
+	@MainActor
+	func testTreeSearchGainsTheFilesThatReadingAddsWhileItRuns() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "Deep"
+		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
+		XCTAssertFalse(fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/DeepLater.swift"))
+
+		index.addFile("src/deep/DeepLater.swift")
+		fileManagerVM.readingFileCounts.value[index.rootPath] = index.filePaths.count
+		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/DeepLater.swift") }
+
+		XCTAssertTrue(
+			fileRelativePaths(in: searchVM.rootFolders).isSuperset(of: ["src/deep/Deep.swift", "src/deep/DeepLater.swift"])
+		)
+	}
+
+	@MainActor
+	func testFileTagSuggestionsOfferFilesInAFolderThatIsNotOpenedAndGainNewlyReadFiles() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let service = AgentFileTagSuggestionService(fileManager: fileManagerVM, maxResults: 5)
+
+		let suggestions = await service.suggestions(for: "Deep")
+		XCTAssertTrue(suggestions.map(\.relativePath).contains("src/deep/Deep.swift"), "\(suggestions.map(\.relativePath))")
+
+		index.addFile("src/deep/DeepLater.swift")
+		let laterSuggestions = await service.suggestions(for: "DeepLater")
+		XCTAssertEqual(laterSuggestions.first?.relativePath, "src/deep/DeepLater.swift")
+	}
+
+	@MainActor
+	func testMentionSuggestionsOfferAndListAFolderThatIsNotOpened() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let service = MentionSuggestionService(fileManager: fileManagerVM, maxResults: 5)
+
+		let matches = service.suggestions(for: "deep")
+		XCTAssertEqual(matches.map(\.relativePath), ["src/deep", "src/deep/Deep.swift"])
+		XCTAssertEqual(matches.map(\.kind), [.folder, .file])
+
+		let children = service.suggestions(
+			for: "",
+			under: MentionSuggestion(displayName: "deep", relativePath: "src/deep", kind: .folder)
+		)
+		XCTAssertEqual(children.map(\.relativePath), ["src/deep/Deep.swift", "src/deep/notes.md"])
+	}
+
+	@MainActor
+	func testAPastedPathOfAnItemInAFolderThatIsNotOpenedResolves() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let rootName = rootURL.lastPathComponent
+
+		XCTAssertEqual(
+			fileManagerVM.indexedItem(atPath: "src/deep/Deep.swift"),
+			RepoFileManagerViewModel.IndexedItem(relativePath: "src/deep/Deep.swift", isFolder: false)
+		)
+		XCTAssertEqual(
+			fileManagerVM.indexedItem(atPath: rootURL.appendingPathComponent("src/deep/notes.md").path),
+			RepoFileManagerViewModel.IndexedItem(relativePath: "src/deep/notes.md", isFolder: false)
+		)
+		XCTAssertEqual(
+			fileManagerVM.indexedItem(atPath: "\(rootName)/src/deep"),
+			RepoFileManagerViewModel.IndexedItem(relativePath: "src/deep", isFolder: true)
+		)
+		XCTAssertNil(fileManagerVM.indexedItem(atPath: "src/deep/Missing.swift"))
+	}
+
+	@MainActor
+	func testContentSearchFindsTextInAFileInAFolderThatIsNotOpened() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		let results = try await fileManagerVM.search(pattern: "class Deep", mode: .content)
+
+		XCTAssertEqual(results.matches?.map { ($0.filePath as NSString).lastPathComponent }, ["Deep.swift"])
+	}
+
 	@MainActor
 	func testExactPathResolutionIssueFlagsAmbiguousRelativeFilePath() async throws {
 		let tempParent = FileManager.default.temporaryDirectory

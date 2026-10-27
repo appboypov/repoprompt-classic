@@ -60,20 +60,11 @@ final class MentionSuggestionService {
 
 			if let parent = parent, parent.kind == .folder {
 				// Inside a *real* folder  → list its direct children
-				if let folderVM = fm.findFolderByRelativePath(parent.relativePath) {
-					return directChildren(of: folderVM, limit: maxResults)
+				guard let location = indexedFolder(atRelativePath: parent.relativePath, in: fm) else {
+					// Unknown folder
+					return []
 				}
-
-				// Fallback when the folder is a *root* not present in the index
-				if parent.relativePath.isEmpty,
-					let rootByName = fm.rootFolders
-						.first(where: { $0.name == parent.displayName })
-				{
-					return directChildren(of: rootByName, limit: maxResults)
-				}
-
-				// Unknown folder
-				return []
+				return directChildren(of: location, in: fm, limit: maxResults)
 			}
 
 			// Repo root  → "Selected" row + all root folders
@@ -106,20 +97,23 @@ final class MentionSuggestionService {
 		//     (but prepend Selected-file matches when at repo root)
 		// ------------------------------------------------------------------
 		let searchQuery = trimmed
-		var searchBases: [FolderViewModel]
+		var searchBases: [IndexedFolder]
 
 		if let parent = parent,
 			parent.kind == .folder,
-			let folder = fm.findFolderByRelativePath(parent.relativePath) {
+			let folder = indexedFolder(atRelativePath: parent.relativePath, in: fm) {
 			searchBases = [folder]
         } else {
-			searchBases = fm.rootFolders
+			searchBases = fm.rootFolders.compactMap { root in
+				fm.rootFolderIndexes[root.standardizedFullPath].map { IndexedFolder(index: $0, relativePath: "") }
+			}
         }
 
-		// Gather matches from the tree
+		// Gather matches from the index, which holds the folders that are not opened too
         var collected: [MentionSuggestion] = []
 		for folder in searchBases {
 			collectMatches(in: folder,
+							showEmptyFolders: fm.showEmptyFolders,
 							matching: searchQuery,
 							into: &collected)
             if collected.count >= maxResults { break }
@@ -180,26 +174,69 @@ final class MentionSuggestionService {
 		}
 	}
 
+	// MARK: – Helper: folders of the root folder indexes
+	/// A folder of a root folder's index.
+	@MainActor
+	private struct IndexedFolder {
+		let index: RootFolderIndex
+		let relativePath: String
+
+		var folder: RootFolderIndex.Folder? { index.folders[relativePath] }
+
+		/// The subfolders by name, without the folders known to be empty when those are hidden.
+		func subfolders(showEmptyFolders: Bool) -> [IndexedFolder] {
+			(folder?.childFolderPaths ?? [])
+				.filter { path in showEmptyFolders || !(index.folders[path]?.isKnownEmpty ?? true) }
+				.sorted(by: Self.isOrderedByName)
+				.map { IndexedFolder(index: index, relativePath: $0) }
+		}
+
+		/// The relative paths of the files by name.
+		var filePaths: [String] {
+			(folder?.childFilePaths ?? []).sorted(by: Self.isOrderedByName)
+		}
+
+		static func name(of relativePath: String) -> String {
+			(relativePath as NSString).lastPathComponent
+		}
+
+		private static func isOrderedByName(_ lhs: String, _ rhs: String) -> Bool {
+			name(of: lhs).lowercased() < name(of: rhs).lowercased()
+		}
+	}
+
+	/// The folder at a relative path in the first root folder whose index holds it.
+	private func indexedFolder(atRelativePath relativePath: String, in fm: RepoFileManagerViewModel) -> IndexedFolder? {
+		let path = StandardizedPath.relative(relativePath)
+		for root in fm.rootFolders {
+			if let index = fm.rootFolderIndexes[root.standardizedFullPath], index.folders[path] != nil {
+				return IndexedFolder(index: index, relativePath: path)
+			}
+		}
+		return nil
+	}
+
 	// MARK: – Helper: direct children rows of a folder
-	private func directChildren(of folder: FolderViewModel,
+	private func directChildren(of folder: IndexedFolder,
+								in fm: RepoFileManagerViewModel,
 								limit: Int) -> [MentionSuggestion] {
 		var rows: [MentionSuggestion] = []
 
-		for sub in folder.subfolders {
+		for sub in folder.subfolders(showEmptyFolders: fm.showEmptyFolders) {
 			rows.append(
 				MentionSuggestion(
-					displayName: sub.name,
+					displayName: IndexedFolder.name(of: sub.relativePath),
 					relativePath: sub.relativePath,
 					kind: .folder
 				)
 			)
 			if rows.count >= limit { return rows }
 		}
-		for file in folder.files where rows.count < limit {
+		for path in folder.filePaths where rows.count < limit {
 			rows.append(
 				MentionSuggestion(
-					displayName: file.name,
-					relativePath: file.relativePath,
+					displayName: IndexedFolder.name(of: path),
+					relativePath: path,
 					kind: .file
 				)
 			)
@@ -212,18 +249,20 @@ final class MentionSuggestionService {
 	/// Depth-first search that collects folders & files whose *name* contains
 	/// `query` (case-insensitive), stopping when `results` has ≥ `maxResults`.
     private func collectMatches(
-        in folder: FolderViewModel,
+        in folder: IndexedFolder,
+		showEmptyFolders: Bool,
 		matching query: String,
 		into results: inout [MentionSuggestion]
 	) {
 		guard results.count < maxResults else { return }
 
 		// (1) Folder itself  (skip repo root which has empty relativePath)
+		let folderName = IndexedFolder.name(of: folder.relativePath)
         if !folder.relativePath.isEmpty,
-			folder.name.range(of: query, options: .caseInsensitive) != nil {
+			folderName.range(of: query, options: .caseInsensitive) != nil {
             results.append(
                 MentionSuggestion(
-                    displayName: folder.name,
+                    displayName: folderName,
                     relativePath: folder.relativePath,
                     kind: .folder
                 )
@@ -232,12 +271,13 @@ final class MentionSuggestionService {
         }
 
 		// (2) Files
-		for file in folder.files where results.count < maxResults {
-			if file.name.range(of: query, options: .caseInsensitive) != nil {
+		for path in folder.filePaths where results.count < maxResults {
+			let fileName = IndexedFolder.name(of: path)
+			if fileName.range(of: query, options: .caseInsensitive) != nil {
                 results.append(
                     MentionSuggestion(
-                        displayName: file.name,
-                        relativePath: file.relativePath,
+                        displayName: fileName,
+                        relativePath: path,
                         kind: .file
                     )
                 )
@@ -246,8 +286,8 @@ final class MentionSuggestionService {
         }
 
 		// (3) Recurse into sub-folders
-		for sub in folder.subfolders where results.count < maxResults {
-			collectMatches(in: sub, matching: query, into: &results)
+		for sub in folder.subfolders(showEmptyFolders: showEmptyFolders) where results.count < maxResults {
+			collectMatches(in: sub, showEmptyFolders: showEmptyFolders, matching: query, into: &results)
         }
     }
 }

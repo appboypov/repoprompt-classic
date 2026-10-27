@@ -37,7 +37,9 @@ class SearchFileTreeViewModel: ObservableObject {
 	private struct RootSnapshotCacheEntry {
 		let rootID: UUID
 		let rootPath: String       // standardized full path
-		var generation: UInt64     // per-root generation value
+		let index: RootFolderIndex
+		var generation: UInt64     // the index generation the snapshot was built from
+		let showEmptyFolders: Bool
 		var snapshot: SnapshotFolder
 	}
 	
@@ -200,6 +202,19 @@ class SearchFileTreeViewModel: ObservableObject {
 					if let self = self, !self.searchText.isEmpty {
 						self.performSearch(cancelExisting: false)
 					}
+				}
+			}
+			.store(in: &cancellables)
+
+		// While reading runs, re-run an active search so its results grow with what is read
+		fileManager.readingFileCounts
+			.dropFirst()
+			.throttle(for: .milliseconds(500), scheduler: DispatchQueue.main, latest: true)
+			.sink { [weak self] _ in
+				Task { @MainActor in
+					guard let self, !self.searchText.isEmpty else { return }
+					self.invalidateSnapshotCache()
+					self.performSearch(cancelExisting: false)
 				}
 			}
 			.store(in: &cancellables)
@@ -429,58 +444,68 @@ class SearchFileTreeViewModel: ObservableObject {
 		}
 	}
 	
-	private func createSnapshotOfFileTree(_ folders: [FolderViewModel]) -> [SnapshotFolder] {
-		folders.map { makeSnapshotFolder($0) }
-	}
-	
-	private func makeSnapshotFolder(_ folder: FolderViewModel) -> SnapshotFolder {
-		let childSnapshots = folder.children.map { child -> SnapshotItem in
-			switch child {
-			case .folder(let subFolder):
-				return .folder(makeSnapshotFolder(subFolder))
-			case .file(let file):
-				return .file(SnapshotFile(
-					id: file.id,
-					name: file.name,
-					relativePath: file.relativePath
-				))
-			}
+	/// The snapshot of a root folder, built from its index so it holds the folders that are not opened too.
+	@MainActor
+	private func makeSnapshotFolder(root: FolderViewModel, index: RootFolderIndex, showEmptyFolders: Bool) -> SnapshotFolder {
+		let rootPath = index.rootPath
+		func id(of relativePath: String) -> UUID {
+			RepoFileManagerViewModel.fileID(
+				forFileWithoutTreeItem: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
+			)
+		}
+		func name(of relativePath: String) -> String {
+			(relativePath as NSString).lastPathComponent
+		}
+		func children(of folder: RootFolderIndex.Folder) -> [SnapshotItem] {
+			let folders = folder.childFolderPaths
+				.compactMap { path in index.folders[path].map { (path, $0) } }
+				.filter { showEmptyFolders || !$0.1.isKnownEmpty }
+				.sorted { name(of: $0.0).lowercased() < name(of: $1.0).lowercased() }
+				.map { path, subfolder in
+					SnapshotItem.folder(SnapshotFolder(id: id(of: path), name: name(of: path), relativePath: path, children: children(of: subfolder)))
+				}
+			let files = folder.childFilePaths
+				.sorted { name(of: $0).lowercased() < name(of: $1).lowercased() }
+				.map { SnapshotItem.file(SnapshotFile(id: id(of: $0), name: name(of: $0), relativePath: $0)) }
+			return folders + files
 		}
 		return SnapshotFolder(
-			id: folder.id,
-			name: folder.name,
-			relativePath: folder.relativePath,
-			children: childSnapshots
+			id: root.id,
+			name: root.name,
+			relativePath: root.relativePath,
+			children: index.folders[""].map(children(of:)) ?? []
 		)
 	}
 	
-	/// Builds a snapshot using per-root caching. Only roots whose generation
+	/// Builds a snapshot using per-root caching. Only roots whose index
 	/// changed (or are new) get their snapshot rebuilt.
 	@MainActor
 	private func buildSnapshotFromFileManager(_ fm: RepoFileManagerViewModel) -> [SnapshotFolder] {
-		let perRootGen = fm.hierarchyGenerationByRoot  // [standardPath: UInt64]
-		
 		var newCache: [UUID: RootSnapshotCacheEntry] = [:]
 		var snapshots: [SnapshotFolder] = []
 		
 		for root in fm.visibleRootFolders {
 			let rootID   = root.id
 			let rootPath = root.standardizedFullPath
-			let generation = perRootGen[rootPath] ?? 0
+			guard let index = fm.rootFolderIndexes[rootPath] else { continue }
 			
 			if let cached = rootSnapshotCache[rootID],
 			cached.rootPath == rootPath,
-			cached.generation == generation {
+			cached.index === index,
+			cached.generation == index.generation,
+			cached.showEmptyFolders == fm.showEmptyFolders {
 				// Still valid – reuse snapshot
 				newCache[rootID] = cached
 				snapshots.append(cached.snapshot)
 			} else {
-				// Root is new, moved to a different path, or its generation bumped
-				let snap = makeSnapshotFolder(root)
+				// Root is new, moved to a different path, or its index changed
+				let snap = makeSnapshotFolder(root: root, index: index, showEmptyFolders: fm.showEmptyFolders)
 				let entry = RootSnapshotCacheEntry(
 					rootID: rootID,
 					rootPath: rootPath,
-					generation: generation,
+					index: index,
+					generation: index.generation,
+					showEmptyFolders: fm.showEmptyFolders,
 					snapshot: snap
 				)
 				newCache[rootID] = entry
@@ -872,30 +897,23 @@ class SearchFileTreeViewModel: ObservableObject {
 				
 			case .file(let file):
 				if let (score, pathChain) = keptFiles[file.id] {
+					// Exact lookup under the root (the first ancestor), so a file without a tree item links to nothing
+					let realFileVM = pathChain.first
+						.flatMap { rootSnapshotCache[$0.id]?.rootPath }
+						.flatMap { rootPath in
+							fileManager?.findFileByFullPath(
+								StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file.relativePath)
+							)
+						}
+					
+					// A file with a tree item keeps its id, so selection changes find the result.
 					let searchFile = SearchFileViewModel(
-						id: file.id,
+						id: realFileVM?.id ?? file.id,
 						name: file.name,
 						relativePath: file.relativePath,
-						matchScore: score
+						matchScore: score,
+						originalFile: realFileVM
 					)
-					
-					// Root-aware linking: use the first ancestor (root) id to disambiguate
-					let rootID = pathChain.first?.id
-					var realFileVM: FileViewModel? = nil
-					
-					if let rid = rootID {
-						realFileVM = await fileManager?.findFile(atPath: file.relativePath, rootIdentifier: rid)
-					}
-					
-					// Fallback to legacy behavior if root-aware lookup fails (should be rare)
-					if realFileVM == nil {
-						realFileVM = fileManager?.findFileByRelativePath(file.relativePath)
-					}
-					
-					if let real = realFileVM {
-						searchFile.originalFile = real
-						searchFile.isChecked = real.isChecked
-					}
 					
 					maxChildScore = max(maxChildScore, score)
 					matchedChildren.append(.file(searchFile))
@@ -926,7 +944,7 @@ class SearchFileTreeViewModel: ObservableObject {
 		}
 		
 		let folder = SearchFolderViewModel(
-			id: snapshot.id,
+			id: resolvedOriginalFolder?.id ?? snapshot.id,
 			name: snapshot.name,
 			relativePath: snapshot.relativePath,
 			isExpanded: true,

@@ -22,7 +22,7 @@ final class AgentFileTagSuggestionService {
 	private let maxResults: Int
 
 	private var cachedCandidates: [FileCandidate] = []
-	private var cachedGenerationSignature: UInt64?
+	private var cachedGenerationSignature: [String: UInt64]?
 	private var cachedHasMultipleRoots: Bool = false
 	private var pathSearchIndex: PathSearchIndex?
 
@@ -68,13 +68,19 @@ final class AgentFileTagSuggestionService {
 	}
 
 	private func refreshCandidatesIfNeeded(fileManager: RepoFileManagerViewModel) async {
-		let generationSignature = fileManager.currentHierarchyGenerationSignature()
+		let generationSignature = fileManager.rootFolderIndexes.mapValues(\.generation)
 		if cachedGenerationSignature == generationSignature, !cachedCandidates.isEmpty {
 			return
 		}
 
-		let files = fileManager.allFilesSnapshot(sorted: false)
-		cachedHasMultipleRoots = Set(files.map(\.rootFolderPath)).count > 1
+		let files = fileManager.rootFolders.flatMap { root -> [(name: String, relativePath: String, rootFolderName: String)] in
+			guard let index = fileManager.rootFolderIndexes[root.standardizedFullPath] else { return [] }
+			let rootFolderName = (index.rootPath as NSString).lastPathComponent
+			return index.filePaths.map { (($0 as NSString).lastPathComponent, $0, rootFolderName) }
+		}
+		cachedHasMultipleRoots = fileManager.rootFolders
+			.filter { !(fileManager.rootFolderIndexes[$0.standardizedFullPath]?.filePaths.isEmpty ?? true) }
+			.count > 1
 
 		let candidateFiles = files.filter {
 			!Self.shouldExcludeFromSuggestions(relativePath: $0.relativePath)
@@ -92,7 +98,7 @@ final class AgentFileTagSuggestionService {
 		}
 
 		cachedCandidates = candidateFiles.map { file in
-			let tokenRelativePath = cachedHasMultipleRoots ? file.uniqueRelativePath : file.relativePath
+			let tokenRelativePath = cachedHasMultipleRoots ? "\(file.rootFolderName)/\(file.relativePath)" : file.relativePath
 			let scoreRelativePath = file.relativePath
 			let fileNameKey = file.name.lowercased()
 			let isDuplicateName = (countByFileName[fileNameKey] ?? 0) > 1

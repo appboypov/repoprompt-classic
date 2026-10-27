@@ -24,6 +24,9 @@ final class RootFolderIndex {
 		/// Whether reading has listed this folder and every folder under it.
 		var isSubtreeRead: Bool { unreadFolderCount == 0 }
 
+		/// Whether reading has listed this folder and every folder under it and found no file.
+		var isKnownEmpty: Bool { isSubtreeRead && fileCount == 0 }
+
 		fileprivate init(parent: Folder?) {
 			self.parent = parent
 		}
@@ -36,6 +39,11 @@ final class RootFolderIndex {
 	private(set) var folders: [String: Folder]
 	private var unreadFolderPaths: Set<String> = [""]
 	private let root: Folder
+	/// The last generation any index took.
+	private static var latestGeneration: UInt64 = 0
+
+	/// Changes whenever the files or folders of the index or their read state change, to a value no index had before.
+	private(set) var generation: UInt64 = 0
 
 	/// Whether reading has listed every folder of the root folder.
 	var isReadingComplete: Bool { unreadFolderPaths.isEmpty }
@@ -64,6 +72,7 @@ final class RootFolderIndex {
 	/// Adds a folder. Missing folders above it are added as read.
 	func addFolder(_ path: String, isRead: Bool) {
 		guard !path.isEmpty, folders[path] == nil else { return }
+		advanceGeneration()
 		if filePaths.contains(path) {
 			remove(path)
 		}
@@ -84,6 +93,7 @@ final class RootFolderIndex {
 	/// Adds a file. Missing folders above it are added as read.
 	func addFile(_ path: String) {
 		guard !path.isEmpty, !filePaths.contains(path) else { return }
+		advanceGeneration()
 		if folders[path] != nil {
 			remove(path)
 		}
@@ -100,6 +110,7 @@ final class RootFolderIndex {
 	/// Marks that reading has listed the direct entries of a folder.
 	func markFolderRead(_ path: String) {
 		guard unreadFolderPaths.remove(path) != nil, let folder = folders[path] else { return }
+		advanceGeneration()
 		var current: Folder? = folder
 		while let node = current {
 			node.unreadFolderCount -= 1
@@ -109,6 +120,7 @@ final class RootFolderIndex {
 
 	/// Marks every folder as read once reading of the root folder has finished.
 	func finishReading() {
+		advanceGeneration()
 		for folder in folders.values {
 			folder.unreadFolderCount = 0
 		}
@@ -138,6 +150,7 @@ final class RootFolderIndex {
 	func remove(_ path: String) {
 		guard !path.isEmpty else { return }
 		if filePaths.remove(path) != nil {
+			advanceGeneration()
 			guard let parent = folders[Self.parentPath(of: path)] else { return }
 			parent.childFilePaths.remove(path)
 			let selectedCount = selectedFilePaths.remove(path) == nil ? 0 : 1
@@ -150,6 +163,7 @@ final class RootFolderIndex {
 			return
 		}
 		guard let folder = folders[path], let parent = folder.parent else { return }
+		advanceGeneration()
 		parent.childFolderPaths.remove(path)
 		var current: Folder? = parent
 		while let node = current {
@@ -182,6 +196,11 @@ final class RootFolderIndex {
 		}
 		addFolder(path, isRead: true)
 		return folders[path] ?? root
+	}
+
+	private func advanceGeneration() {
+		Self.latestGeneration &+= 1
+		generation = Self.latestGeneration
 	}
 
 	private static func parentPath(of path: String) -> String {
