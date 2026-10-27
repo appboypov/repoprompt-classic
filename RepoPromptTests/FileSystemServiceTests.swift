@@ -1347,4 +1347,37 @@ final class FileSystemServiceTests: XCTestCase {
 		XCTAssertEqual(readFolders.count, folders.count)
 		XCTAssertEqual(Set(readFolders), folders)
 	}
+
+	func testReadingSendsTheRootFolderEntriesBeforeAFullChunk() async throws {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("FileSystemServiceRootFirst-\(UUID().uuidString)", isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let bigURL = rootURL.appendingPathComponent("big", isDirectory: true)
+		try FileManager.default.createDirectory(at: bigURL, withIntermediateDirectories: true)
+		XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent("Top.swift").path, contents: Data()))
+		for file in 0..<50 {
+			XCTAssertTrue(FileManager.default.createFile(atPath: bigURL.appendingPathComponent("file\(file).swift").path, contents: Data()))
+		}
+		let service = try await FileSystemService(
+			path: rootURL.path,
+			respectGitignore: true,
+			respectRepoIgnore: false,
+			respectCursorignore: false,
+			skipSymlinks: true,
+			isTestMode: true
+		)
+
+		var firstChunk: FSPreparedChunk?
+		let stream = await service.loadContentsInChunks(of: rootURL, chunkSize: 200)
+		for try await event in stream {
+			guard case .preparedItems(let chunk) = event else { continue }
+			firstChunk = chunk
+			break
+		}
+
+		let chunk = try XCTUnwrap(firstChunk)
+		XCTAssertTrue(chunk.readFolders.contains(""))
+		XCTAssertEqual(chunk.folders.map(\.relativePath), ["big"])
+		XCTAssertEqual(chunk.files.map(\.relativePath), ["Top.swift"])
+	}
 }

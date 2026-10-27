@@ -2332,6 +2332,8 @@ func loadFolder(
 		fileSystemService: FileSystemService
 	) async throws {
 		let rootKey = rootFolder.standardizedFullPath
+		// Reading the root folder again stops the earlier reading, so it never adds into the new index.
+		readingTasks.removeValue(forKey: rootKey)?.cancel()
 		let rootFolderIndex = RootFolderIndex(rootPath: rootKey)
 		rootFolderIndexes[rootKey] = rootFolderIndex
 		rootFolder.checkboxStateFromIndex = { [weak rootFolderIndex] standardizedFullPath in
@@ -2345,8 +2347,11 @@ func loadFolder(
 		var events = await fileSystemService.loadContentsInChunks(of: url, chunkSize: 200).makeAsyncIterator()
 		while !rootFolderIndex.isListed("") {
 			try Task.checkCancellation()
-			guard let event = try await events.next() else {
-				try Task.checkCancellation()
+			let event = try await events.next()
+			try Task.checkCancellation()
+			// A newer reading of the root folder owns its index now.
+			guard rootFolderIndexes[rootKey] === rootFolderIndex else { return }
+			guard let event else {
 				finishReading(rootKey: rootKey)
 				return
 			}
@@ -2357,14 +2362,16 @@ func loadFolder(
 			var events = events
 			do {
 				while let event = try await events.next() {
-					guard let self, !Task.isCancelled else { return }
+					guard let self, !Task.isCancelled, self.rootFolderIndexes[rootKey] === rootFolderIndex else { return }
 					self.applyReadingEvent(event, rootKey: rootKey)
 					await Task.yield()
 				}
-				guard !Task.isCancelled else { return }
-				self?.finishReading(rootKey: rootKey)
+				guard let self, !Task.isCancelled, self.rootFolderIndexes[rootKey] === rootFolderIndex else { return }
+				self.finishReading(rootKey: rootKey)
 			} catch {
-				guard let self, !Task.isCancelled, !(error is CancellationError) else { return }
+				guard let self, !Task.isCancelled, !(error is CancellationError),
+					self.rootFolderIndexes[rootKey] === rootFolderIndex
+				else { return }
 				print("Reading failed for \(url.path): \(error)")
 				self.error = .failedToLoadFolder(error)
 				self.finishReading(rootKey: rootKey)
@@ -3581,16 +3588,7 @@ func loadFolder(
 
 			case .fileModified(_, let maybeDate):
 				if let fileVM = findFileByFullPath(fullPath) {
-					if let date = maybeDate {
-						await fileVM.setModificationDate(date, forceInvalidation: true)
-					} else {
-						do {
-							let diskDate = try await fsService.getFileModificationDate(atRelativePath: rel)
-							await fileVM.setModificationDate(diskDate, forceInvalidation: true)
-						} catch {
-							await fileVM.setModificationDate(Date(), forceInvalidation: true)
-						}
-					}
+					await invalidateModifiedFile(fileVM, modificationDate: maybeDate, relativePath: rel, fsService: fsService)
 					codemapCapableAPIsByFullPath.removeValue(forKey: fileVM.standardizedFullPath)
 					batchedCodeScanFiles[fileVM.id] = fileVM
 					batchedSliceRebases[fileVM.standardizedFullPath] = ReplaySliceRebaseRequest(
@@ -3603,7 +3601,7 @@ func loadFolder(
 					codemapCapableAPIsByFullPath.removeValue(forKey: fullPath)
 					batchedCodeScanFiles[file.id] = file
 					if selectedFileIDs.contains(file.id), let selected = selectedFiles.first(where: { $0.id == file.id }) {
-						selected.setCodeMap(nil)
+						await invalidateModifiedFile(selected, modificationDate: maybeDate, relativePath: rel, fsService: fsService)
 						batchedSliceRebases[fullPath] = ReplaySliceRebaseRequest(
 							file: selected,
 							relativePath: rel,
@@ -3759,6 +3757,24 @@ func loadFolder(
 		#endif
 	}
 
+	/// Drops the cached content, token count and codemap of a file that changed on disk,
+	/// so the next read takes the file's new text.
+	@MainActor
+	private func invalidateModifiedFile(
+		_ file: FileViewModel,
+		modificationDate: Date?,
+		relativePath: String,
+		fsService: FileSystemService
+	) async {
+		if let modificationDate {
+			await file.setModificationDate(modificationDate, forceInvalidation: true)
+		} else if let diskDate = try? await fsService.getFileModificationDate(atRelativePath: relativePath) {
+			await file.setModificationDate(diskDate, forceInvalidation: true)
+		} else {
+			await file.setModificationDate(Date(), forceInvalidation: true)
+		}
+	}
+
 	@MainActor
 	private func finalizeReplayRootPass(
 		_ accumulator: ReplayRootPassAccumulator,
@@ -3903,8 +3919,6 @@ func loadFolder(
 		let folderVM = FolderViewModel(folder: folder,
 										rootPath: root.fullPath,
 										sortMethodOverride: sortOverride)
-		// Changes on disk bring the new folder's entries one by one, as tree items.
-		folderVM.childrenAreBuilt = true
 		
 		fileHierarchyIndex.insertFolder(folderVM, rootKey: root.standardizedFullPath)
 		rootFolderIndexes[root.standardizedFullPath]?.addFolder(StandardizedPath.relative(relativePath), isRead: true)
@@ -6425,6 +6439,10 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 		for rootPath in rootPaths {
 			_ = advanceRootReplayIngressGeneration(forRootKey: rootKey(forPath: rootPath))
 		}
+
+		// Stop reading the root folders, so no reader adds into the indexes of a later load.
+		readingTasks.values.forEach { $0.cancel() }
+		readingTasks.removeAll()
 
 		// Stop any replay/coalescing work before tearing down roots.
 		deltaReplayTask?.cancel()
@@ -9680,15 +9698,26 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		let normalizedSlices = standardizedStoredSelectionSlices(tabSelection.slices)
 		let sliceMetadata: [SliceHydrationMetadata] = normalizedSlices.compactMap { entry in
 			let standardizedFull = entry.key
-			guard let vm = promptFile(forStandardizedPath: standardizedFull) else { return nil }
-			let rootKey = vm.standardizedRootFolderPath
-			let relKey = vm.standardizedRelativePath
 			let normalized = SliceRangeMath.normalize(entry.value)
+			if let vm = promptFile(forStandardizedPath: standardizedFull) {
+				return SliceHydrationMetadata(
+					rootKey: vm.standardizedRootFolderPath,
+					relativeKey: vm.standardizedRelativePath,
+					ranges: normalized,
+					modificationTime: vm.modificationDate.timeIntervalSince1970
+				)
+			}
+			// A file whose root folder is still being read keeps its slices until reading lists it.
+			guard let root = rootFolders
+				.filter({ standardizedFull.hasPrefix($0.standardizedFullPath + "/") })
+				.max(by: { $0.standardizedFullPath.count < $1.standardizedFullPath.count }),
+				rootFolderIndexes[root.standardizedFullPath]?.isReadingComplete == false
+			else { return nil }
 			return SliceHydrationMetadata(
-				rootKey: rootKey,
-				relativeKey: relKey,
+				rootKey: root.standardizedFullPath,
+				relativeKey: String(standardizedFull.dropFirst(root.standardizedFullPath.count + 1)),
 				ranges: normalized,
-				modificationTime: vm.modificationDate.timeIntervalSince1970
+				modificationTime: Date.distantPast.timeIntervalSince1970
 			)
 		}
 		#if DEBUG
