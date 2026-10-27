@@ -143,6 +143,49 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertTrue(index.isListed("a"))
 	}
 
+	private func fileChunk(_ path: String) -> FSPreparedChunk {
+		FSPreparedChunk(
+			folders: [],
+			files: [FSItemDTO(relativePath: path, isDirectory: false, hierarchy: path.split(separator: "/").count - 1)],
+			readFolders: []
+		)
+	}
+
+	func testAFileSelectedBeforeReadingFindsItIsSelectedOnceReadingAddsIt() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.setPendingSelection(["a/b.swift"])
+		XCTAssertEqual(index.selectedFilePaths, [])
+
+		let selected = index.add(fileChunk("a/b.swift"))
+
+		XCTAssertEqual(selected, ["a/b.swift"])
+		XCTAssertEqual(index.selectedFilePaths, ["a/b.swift"])
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .checked)
+	}
+
+	func testAFileDeselectedBeforeReadingFindsItStaysUnselected() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.select("a/b.swift")
+		index.deselect("a/b.swift")
+
+		let selected = index.add(fileChunk("a/b.swift"))
+
+		XCTAssertEqual(selected, [])
+		XCTAssertEqual(index.selectedFilePaths, [])
+	}
+
+	func testFilesWaitingForReadingAreDroppedWhenReadingFinishes() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.setPendingSelection(["a/b.swift"])
+		index.finishReading()
+
+		index.setPendingSelection(["a/c.swift"])
+		index.add(fileChunk("a/b.swift"))
+		index.add(fileChunk("a/c.swift"))
+
+		XCTAssertEqual(index.selectedFilePaths, [])
+	}
+
 	func testFolderStateComesFromSelectedFilesAgainstFilesUnderIt() {
 		let index = RootFolderIndex(rootPath: "/repo")
 		index.addFile("a/b/c.swift")
