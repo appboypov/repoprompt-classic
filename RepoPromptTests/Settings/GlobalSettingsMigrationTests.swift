@@ -502,7 +502,7 @@ final class GlobalSettingsMigrationTests: XCTestCase {
 		XCTAssertEqual(store.globalIgnoreDefaults(), IgnoreSettingsDefaults.canonicalGlobalIgnoreDefaults)
 		XCTAssertTrue(store.enableHierarchicalIgnores())
 		XCTAssertTrue(store.skipSymlinks())
-		XCTAssertFalse(store.showEmptyFolders())
+		XCTAssertTrue(store.showEmptyFolders())
 		XCTAssertFalse(store.proEditAgentMode())
 		XCTAssertNil(store.proEditAgentKindRaw())
 		XCTAssertNil(store.proEditAgentModelRaw())

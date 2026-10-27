@@ -909,7 +909,7 @@ class GlobalSettingsStore: ObservableObject {
 
 	func showEmptyFolders() -> Bool {
 		reconcileScalarPreferencesFromLegacyIfNeeded()
-		return scalarPreferences.fileSystem?.showEmptyFolders ?? false
+		return scalarPreferences.fileSystem?.showEmptyFolders ?? true
 	}
 
 	func fileSystemSettingsSnapshot() -> FileSystemSettingsSnapshot {
@@ -922,7 +922,7 @@ class GlobalSettingsStore: ObservableObject {
 			globalIgnoreDefaults: settings?.globalIgnoreDefaults ?? IgnoreSettingsDefaults.canonicalGlobalIgnoreDefaults,
 			enableHierarchicalIgnores: settings?.enableHierarchicalIgnores ?? true,
 			skipSymlinks: settings?.skipSymlinks ?? true,
-			showEmptyFolders: settings?.showEmptyFolders ?? false
+			showEmptyFolders: settings?.showEmptyFolders ?? true
 		)
 	}
 

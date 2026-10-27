@@ -1063,6 +1063,43 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertEqual(index.selectedFilePaths, [])
 	}
 
+	/// A root folder read to the end, holding `Top.swift`, `src/a.swift`, the empty folder `empty` and
+	/// the folder `hollow` that holds only the empty folder `hollow/inner`.
+	@MainActor
+	private func loadRootWithEmptyFolders(showEmptyFolders: Bool) async throws -> (RepoFileManagerViewModel, URL, FolderViewModel) {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		for folder in ["src", "empty", "hollow/inner"] {
+			try FileManager.default.createDirectory(at: rootURL.appendingPathComponent(folder, isDirectory: true), withIntermediateDirectories: true)
+		}
+		for file in ["Top.swift", "src/a.swift"] {
+			XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent(file).path, contents: Data()))
+		}
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.showEmptyFolders = showEmptyFolders
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		return (fileManagerVM, rootURL, root)
+	}
+
+	@MainActor
+	func testEmptyFoldersLeaveTheTreeOnceReadingFindsThemEmptyWhenHidden() async throws {
+		let (fileManagerVM, rootURL, root) = try await loadRootWithEmptyFolders(showEmptyFolders: false)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		XCTAssertEqual(Set(childNames(of: root)), ["src", "Top.swift"])
+		XCTAssertNil(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("empty").path))
+	}
+
+	@MainActor
+	func testEmptyFoldersStayInTheTreeWhenShown() async throws {
+		let (_, rootURL, root) = try await loadRootWithEmptyFolders(showEmptyFolders: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		XCTAssertEqual(Set(childNames(of: root)), ["empty", "hollow", "src", "Top.swift"])
+	}
+
 	@MainActor
 	private func waitUntil(_ condition: () -> Bool) async throws {
 		let deadline = Date().addingTimeInterval(10)
