@@ -34,6 +34,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		return (fileManagerVM, rootURL, workspace)
 	}
 
@@ -89,6 +90,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		try await fileManagerVM.loadSupplementalRoot(at: gitDataURL, for: workspace)
 		return (fileManagerVM, tempParent, gitDataURL, workspace)
 	}
@@ -331,6 +333,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
 		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let result = await fileManagerVM.resolveFilesForFolderInput("Sources")
 		XCTAssertFalse(result.handled)
@@ -365,6 +368,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let exists = await fileManagerVM.fileExistsStrictly(atPath: "BombSquad/_mcp_test/shared/test_file.txt")
 		XCTAssertTrue(exists)
@@ -392,6 +396,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let rootName = rootURL.lastPathComponent
 		let keptExists = await fileManagerVM.fileExistsStrictly(atPath: "\(rootName)/\(keptPath)")
@@ -428,6 +433,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let loaded = Set(
 			fileManagerVM.allFilesSnapshot(sorted: false)
@@ -452,6 +458,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let rootFolder = try XCTUnwrap(fileManagerVM.rootFolders.first)
 		return (fileManagerVM, rootURL, rootFolder)
 	}
@@ -546,9 +553,11 @@ final class RepoFileManagerTests: XCTestCase {
 		defer { cancellable.cancel() }
 
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let snapshotsOfA = snapshots
 		snapshots.removeAll()
 		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let countsOfA = snapshotsOfA.compactMap { $0[keyA] }
 		XCTAssertEqual(countsOfA.first, 0)
@@ -670,6 +679,7 @@ final class RepoFileManagerTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let codePaths = ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift"].map { rootURL.appendingPathComponent($0).path }
 
 		try await waitForCodemaps(of: codePaths, in: fileManagerVM)
@@ -689,6 +699,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
 
 		fileManagerVM.flushDeferredInitialRootLoadScans()
@@ -704,6 +715,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let rootPath = StandardizedPath.absolute(rootURL.path)
 		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
 		let ghostPath = rootURL.appendingPathComponent("src/deep/Ghost.swift").path
@@ -734,6 +746,7 @@ final class RepoFileManagerTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let codePaths = ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift"].map { rootURL.appendingPathComponent($0).path }
 		try await waitForCodemaps(of: codePaths, in: fileManagerVM)
 		let selectedFilePaths = Set(["Top.swift", "src/deep/Deep.swift"].map {
@@ -774,6 +787,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let selection = StoredSelection(
 			selectedPaths: ["Top.swift", "src/deep/Deep.swift", "src/deep/notes.md"].map { rootURL.appendingPathComponent($0).path },
 			autoCodemapPaths: [],
@@ -804,6 +818,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let rootPath = StandardizedPath.absolute(rootURL.path)
 		let topFile = try XCTUnwrap(fileManagerVM.findFileByRelativePath("Top.swift"))
 		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
@@ -843,6 +858,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
 		return (fileManagerVM, rootURL, index)
@@ -917,6 +933,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
 		index.remove("src/deep")
@@ -928,6 +945,61 @@ final class RepoFileManagerTests: XCTestCase {
 
 		XCTAssertEqual(childNames(of: deep), ["Deep.swift", "notes.md"])
 		XCTAssertTrue(index.filePaths.isSuperset(of: ["src/deep/Deep.swift", "src/deep/notes.md"]))
+	}
+
+	@MainActor
+	func testReadingGoesOnAfterLoadingUntilTheIndexHoldsEveryFile() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		XCTAssertEqual(childNames(of: root), ["src", "Top.swift"])
+		await fileManagerVM.waitUntilReadingIsComplete()
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
+		XCTAssertTrue(index.isReadingComplete)
+		XCTAssertEqual(index.filePaths, ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift", "src/deep/notes.md"])
+	}
+
+	@MainActor
+	func testRemovingARootFolderDuringReadingStopsReading() async throws {
+		let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		for folder in 0..<40 {
+			let folderURL = rootURL.appendingPathComponent("folder\(folder)", isDirectory: true)
+			try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+			for file in 0..<25 {
+				XCTAssertTrue(FileManager.default.createFile(atPath: folderURL.appendingPathComponent("file\(file).txt").path, contents: Data()))
+			}
+		}
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+
+		fileManagerVM.removeRootFolder(root)
+		await fileManagerVM.waitUntilReadingIsComplete()
+		try await Task.sleep(nanoseconds: 200_000_000)
+
+		XCTAssertNil(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
+		XCTAssertEqual(fileManagerVM.readingFileCounts.value, [:])
+	}
+
+	@MainActor
+	func testTickingAFolderWhoseSubtreeIsBeingReadSelectsNothing() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		await fileManagerVM.openFolders(["src"])
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		index.addFolder("src/later", isRead: false)
+
+		fileManagerVM.toggleFolder(src)
+
+		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedFullPath), [])
+		XCTAssertEqual(index.selectedFilePaths, [])
 	}
 
 	@MainActor
@@ -1140,6 +1212,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
 		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		guard case .ambiguousRootMatch(let input, let roots)? = fileManagerVM.exactPathResolutionIssue(for: "README.md", kind: .file) else {
 			return XCTFail("Expected ambiguousRootMatch")
@@ -1164,6 +1237,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
 		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let iterationsPerMeasurement = 1_000
 		var mismatchCount = 0
 
@@ -1206,6 +1280,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootA.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		let requestedPath = "RootA/abc\u{0}def"
 
 		let issue = fileManagerVM.exactPathResolutionIssue(for: requestedPath, kind: .file)
@@ -1234,6 +1309,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
 		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let location = await fileManagerVM.getFileSystemServiceForRelativePath("README.md", profile: .mcpRead)
 		XCTAssertNil(location)
@@ -1670,6 +1746,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		do {
 			try await fileManagerVM.trashFileFromTool(atPath: "RepoPrompt/Sources/A.swift")
@@ -1694,6 +1771,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		do {
 			try await fileManagerVM.trashFileFromTool(atPath: "/RepoPrompt/Sources/A.swift")
@@ -1787,6 +1865,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootA, for: workspace, freshStart: true)
 		try await fileManagerVM.loadFolder(at: rootB, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		XCTAssertEqual(
 			fileManagerVM.resolveWorkspaceFileForTaggedPath("RootA/Sources/A.swift")?.standardizedFullPath,
@@ -1815,6 +1894,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		XCTAssertEqual(
 			fileManagerVM.resolveWorkspaceFileForTaggedPath("BombSquad/_mcp_test/shared/test_file.txt")?.standardizedFullPath,
@@ -1839,6 +1919,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let hits = await fileManagerVM.findFiles(
 			atPaths: ["BombSquad/_mcp_test/shared/test_file.txt"],
@@ -1867,6 +1948,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let resolved = fileManagerVM.resolveFolderForUserInput("BombSquad/_mcp_test")
 		XCTAssertEqual(resolved?.standardizedFullPath, rootFolder.path)
@@ -1884,6 +1966,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let userPath = "RepoPrompt/Views/AgentMode/ToolCards/ToolCallChipsFlow.swift"
 		try await fileManagerVM.writeFileFromTool(
@@ -1913,6 +1996,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let userPath = "RepoPrompt/DirectChild.swift"
 		try await fileManagerVM.writeFileFromTool(
@@ -1942,6 +2026,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let userPath = "RepoPrompt/Views/AgentMode/ToolCards/SpecificLiteral.swift"
 		try await fileManagerVM.writeFileFromTool(
@@ -1971,6 +2056,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let userPath = "RepoPrompt/Models/Agent/ModelSelection/AgentACPModelRegistry.swift"
 		try await fileManagerVM.writeFileFromTool(
@@ -1998,6 +2084,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let userPath = "RepoPrompt/Views/AgentMode/ToolCards/RootRelative.swift"
 		try await fileManagerVM.writeFileFromTool(
@@ -2427,6 +2514,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		defer { try? FileManager.default.removeItem(at: tempParent) }
 		
 		let resolution = fileManagerVM.resolveVisibleAliasPrefixedAbsolutePathResolution("RepoPrompt/Views", requireRemainder: true)
@@ -2530,6 +2618,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let file = await fileManagerVM.resolveFileForUserInput("RepoPrompt/ViewModels/SelectedFilesPanelViewModel.swift")
 		XCTAssertEqual(file?.standardizedFullPath, literalFileURL.path)
@@ -2553,6 +2642,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let resolution = await fileManagerVM.resolveFilesForFolderInput("RepoPrompt/ViewModels")
 		XCTAssertTrue(resolution.handled)
@@ -2575,6 +2665,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let results = try await fileManagerVM.search(
 			pattern: "(",
@@ -2605,6 +2696,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let results = try await fileManagerVM.search(
 			pattern: "SelectedFilesPanelViewModel",
@@ -2636,6 +2728,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let service = ApplyEditsService(engine: .default, host: makeWorkspaceFileEditHost(fileManagerVM: fileManagerVM))
 		let request = ApplyEditsRequest(
@@ -2668,6 +2761,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let service = ApplyEditsService(engine: .default, host: makeWorkspaceFileEditHost(fileManagerVM: fileManagerVM))
 		let request = ApplyEditsRequest(
@@ -2696,6 +2790,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let service = ApplyEditsService(engine: .default, host: makeWorkspaceFileEditHost(fileManagerVM: fileManagerVM))
 		let request = ApplyEditsRequest(
@@ -2729,6 +2824,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let service = ApplyEditsService(engine: .default, host: makeWorkspaceFileEditHost(fileManagerVM: fileManagerVM))
 		let request = ApplyEditsRequest(
@@ -2761,6 +2857,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let results = try await fileManagerVM.search(
 			pattern: "SelectedFilesPanelViewModel",
@@ -2799,6 +2896,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let resolution = await fileManagerVM.resolveFilesForFolderInput("/RepoPrompt/Views")
 		XCTAssertTrue(resolution.handled)
@@ -2832,6 +2930,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let results = try await fileManagerVM.search(
 			pattern: "struct",
@@ -2870,6 +2969,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let results = try await fileManagerVM.search(
 			pattern: "struct",
@@ -2901,6 +3001,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let resolution = await fileManagerVM.resolveFilesForFolderInput("/tmp/Views")
 		XCTAssertTrue(resolution.handled)
@@ -2927,6 +3028,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let resolution = await fileManagerVM.resolveFilesForFolderInput("/tmp/Views")
 		XCTAssertFalse(resolution.handled)
@@ -2959,6 +3061,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(nestedViewsURL.path))
 		let normalized = await fileManagerVM.normalizeFilterPaths([nestedViewsURL.path])
@@ -2994,6 +3097,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let missingViewsPath = rootURL.appendingPathComponent("Views", isDirectory: true).path
 		XCTAssertNil(fileManagerVM.findFolderByFullPath(missingViewsPath))
@@ -3044,6 +3148,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
 		try await fileManagerVM.loadFolder(at: aliasRootURL, for: workspace, freshStart: false)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let missingViewsPath = rootURL.appendingPathComponent("Views", isDirectory: true).path
 		let resolution = await fileManagerVM.resolveFilesForFolderInput(missingViewsPath)

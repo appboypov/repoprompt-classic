@@ -431,8 +431,11 @@ class RepoFileManagerViewModel: ObservableObject {
 	let readingFileCounts = CurrentValueSubject<[String: Int], Never>([:])
 	/// The running builds of folders' tree items, by the folder's standardized full path.
 	private var childBuildTasks: [String: Task<Void, Never>] = [:]
+	/// The background reading of each root folder whose direct entries are listed, by the root folder's standardized full path.
+	private var readingTasks: [String: Task<Void, Never>] = [:]
 
 	private func dropRootFolderIndex(forKey rootKey: String) {
+		readingTasks.removeValue(forKey: rootKey)?.cancel()
 		rootFolderIndexes.removeValue(forKey: rootKey)
 		readingFileCounts.value.removeValue(forKey: rootKey)
 	}
@@ -1991,18 +1994,18 @@ func loadFolder(
 				
 				await Task.yield()
 				
-				// Actually load children from disk
+				// List the root folder's direct entries; reading goes on in the background
 				#if DEBUG
 				let loadContentsStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 				#endif
-				try await loadContentsRecursively(
-					for: newFileSystemService,
+				try await startReading(
 					rootFolder: rootFolderVM,
-					url: url
+					url: url,
+					fileSystemService: newFileSystemService
 				)
 				#if DEBUG
 				WorkspaceRestorePerfLog.event(
-					"folderLoad.loadContentsRecursively",
+					"folderLoad.startReading",
 					fields: [
 						"workspaceID": WorkspaceRestorePerfLog.shortID(workspace.id),
 						"rootKind": restorePerfRootKind,
@@ -2012,10 +2015,9 @@ func loadFolder(
 				)
 				#endif
 				
-				// Check for cancellation immediately after loading contents
+				// Check for cancellation immediately after listing the root folder
 				try Task.checkCancellation()
 				
-				// After loading completes (no cancellation or errors)
 				#if DEBUG
 				let postProcessStartMS = WorkspaceRestorePerfLog.timestampMSIfEnabled()
 				#endif
@@ -2033,7 +2035,7 @@ func loadFolder(
 				}
 				loadedRootPaths.insert(url.path)
 				
-				// Ensure path-matching snapshot reflects the fully populated index before any lookups
+				// Ensure path-matching snapshot includes the new root folder before any lookups
 				invalidateStaticSnapshot(forRootFullPath: rootFolderVM.standardizedFullPath)
 				#if DEBUG
 				WorkspaceRestorePerfLog.event(
@@ -2106,10 +2108,11 @@ func loadFolder(
 				#endif
 				
 				// ─────────────────────────────────────────────────────────────────
-				// Kick off or defer the initial CodeMap scan for this newly loaded root.
+				// Kick off or defer the initial CodeMap scan for this newly loaded root
+				// when reading already completed; otherwise the end of reading does it.
 				// Workspace switches defer this until after the switch-end metric is logged.
 				// ─────────────────────────────────────────────────────────────────
-				if self.codeScanEnabled, rootKind == .user {
+				if self.codeScanEnabled, rootKind == .user, readingFileCounts.value[rootKey] == nil {
 					self.enqueueOrDeferInitialRootLoadScan(for: rootFolderVM)
 				}
 				
@@ -2247,13 +2250,13 @@ func loadFolder(
 	}
 	
 
-	// MARK: - New full‑path‑only implementation
-	private func loadContentsRecursively(
-		for fileSystemService: FileSystemService,
+	/// Starts reading a root folder into its index and returns once the root folder's direct entries are listed.
+	/// Reading goes on in the background.
+	private func startReading(
 		rootFolder: FolderViewModel,
-		url: URL
+		url: URL,
+		fileSystemService: FileSystemService
 	) async throws {
-		let chunkedStream = await fileSystemService.loadContentsInChunks(of: url, chunkSize: 200)
 		let rootKey = rootFolder.standardizedFullPath
 		let rootFolderIndex = RootFolderIndex(rootPath: rootKey)
 		rootFolderIndexes[rootKey] = rootFolderIndex
@@ -2265,58 +2268,84 @@ func loadFolder(
 		}
 		readingFileCounts.value[rootKey] = 0
 
-		func indexChunk(_ chunk: FSPreparedChunk) {
-			rootFolderIndex.add(chunk)
-			readingFileCounts.value[rootKey] = rootFolderIndex.filePaths.count
+		var events = await fileSystemService.loadContentsInChunks(of: url, chunkSize: 200).makeAsyncIterator()
+		while !rootFolderIndex.isListed("") {
+			try Task.checkCancellation()
+			guard let event = try await events.next() else {
+				try Task.checkCancellation()
+				finishReading(rootKey: rootKey)
+				return
+			}
+			applyReadingEvent(event, rootKey: rootKey)
 		}
 
-		for try await event in chunkedStream {
-			if Task.isCancelled { return }
-
-			switch event {
-			case .totalFileCount:
-				break
-			case .preparedItems(let chunk):
-				indexChunk(chunk)
-				await Task.yield()
-			case .items(let legacy):
-				// Convert legacy to a single FSPreparedChunk then index once
-				var folders: [FSItemDTO] = []
-				var files: [FSItemDTO] = []
-				folders.reserveCapacity(legacy.count)
-				files.reserveCapacity(legacy.count)
-
-				for (item, pathComponents) in legacy {
-					guard !pathComponents.isEmpty else { continue }
-					let relPath = pathComponents.joined(separator: "/")
-					let hierarchy = pathComponents.count - 1
-					if item is Folder {
-						folders.append(
-							FSItemDTO(
-								relativePath: relPath,
-								isDirectory: true,
-								hierarchy: hierarchy
-							)
-						)
-					} else if item is File {
-						files.append(
-							FSItemDTO(
-								relativePath: relPath,
-								isDirectory: false,
-								hierarchy: hierarchy
-							)
-						)
-					}
-				}
-
-				if !folders.isEmpty || !files.isEmpty {
-					indexChunk(FSPreparedChunk(folders: folders, files: files, readFolders: []))
+		readingTasks[rootKey] = Task { @MainActor [weak self, events] in
+			var events = events
+			do {
+				while let event = try await events.next() {
+					guard let self, !Task.isCancelled else { return }
+					self.applyReadingEvent(event, rootKey: rootKey)
 					await Task.yield()
 				}
+				guard !Task.isCancelled else { return }
+				self?.finishReading(rootKey: rootKey)
+			} catch {
+				guard let self, !Task.isCancelled, !(error is CancellationError) else { return }
+				print("Reading failed for \(url.path): \(error)")
+				self.error = .failedToLoadFolder(error)
+				self.finishReading(rootKey: rootKey)
 			}
 		}
-		rootFolderIndex.finishReading()
+	}
+
+	private func applyReadingEvent(_ event: LoadContentsEvent, rootKey: String) {
+		switch event {
+		case .totalFileCount:
+			break
+		case .preparedItems(let chunk):
+			applyReadingChunk(chunk, rootKey: rootKey)
+		case .items(let legacy):
+			// Convert legacy to a single FSPreparedChunk then index once
+			var folders: [FSItemDTO] = []
+			var files: [FSItemDTO] = []
+			folders.reserveCapacity(legacy.count)
+			files.reserveCapacity(legacy.count)
+
+			for (item, pathComponents) in legacy {
+				guard !pathComponents.isEmpty else { continue }
+				let relPath = pathComponents.joined(separator: "/")
+				let hierarchy = pathComponents.count - 1
+				if item is Folder {
+					folders.append(FSItemDTO(relativePath: relPath, isDirectory: true, hierarchy: hierarchy))
+				} else if item is File {
+					files.append(FSItemDTO(relativePath: relPath, isDirectory: false, hierarchy: hierarchy))
+				}
+			}
+
+			if !folders.isEmpty || !files.isEmpty {
+				applyReadingChunk(FSPreparedChunk(folders: folders, files: files, readFolders: []), rootKey: rootKey)
+			}
+		}
+	}
+
+	private func applyReadingChunk(_ chunk: FSPreparedChunk, rootKey: String) {
+		guard let index = rootFolderIndexes[rootKey] else { return }
+		index.add(chunk)
+		readingFileCounts.value[rootKey] = index.filePaths.count
+	}
+
+	private func finishReading(rootKey: String) {
+		guard let index = rootFolderIndexes[rootKey] else { return }
+		index.finishReading()
 		readingFileCounts.value.removeValue(forKey: rootKey)
+		readingTasks[rootKey] = nil
+		invalidateStaticSnapshot(forRootFullPath: rootKey)
+		// A root folder still being added gets its scan at the end of `loadFolder`.
+		if codeScanEnabled,
+			folderBeingAdded?.standardizedFullPath != rootKey,
+			let root = rootFolders.first(where: { $0.standardizedFullPath == rootKey }) {
+			enqueueOrDeferInitialRootLoadScan(for: root)
+		}
 	}
 
 	/// Builds the tree items of a folder's direct files and folders from its root folder's index, once.
@@ -6313,6 +6342,13 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 	@MainActor
 func toggleFolder(_ folder: FolderViewModel, fromSearch: Bool = false) {
 	guard !isLoading, folder.isValid else { return }
+	// A folder whose subtree reading has not finished listing cannot be ticked yet.
+	let rootKey = StandardizedPath.absolute(folder.rootPath)
+	let relativePath = RelativePath.fromStandardized(
+		standardizedAbsolutePath: folder.standardizedFullPath,
+		standardizedRootPath: rootKey
+	)
+	guard rootFolderIndexes[rootKey]?.folders[relativePath]?.isSubtreeRead != false else { return }
 
 	// Flip the entire subtree in a single main-actor pass; no yielding.
 	performSelectionBatch {

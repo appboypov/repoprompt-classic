@@ -52,6 +52,7 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 			fileManager.beginDeferringInitialRootLoadScans()
 		}
 		try await fileManager.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManager.waitUntilReadingIsComplete()
 		let root = try XCTUnwrap(fileManager.rootFolders.first)
 		let index = try XCTUnwrap(fileManager.rootFolderIndexes[root.standardizedFullPath])
 		return Fixture(windowState: windowState, rootURL: rootURL, index: index)
@@ -278,6 +279,7 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 		let fixture = try await makeFixture()
 		let innerURL = fixture.rootURL.appendingPathComponent("src")
 		try await fixture.fileManager.loadFolder(at: innerURL, for: try XCTUnwrap(fixture.windowState.workspaceManager.activeWorkspace), freshStart: false)
+		await fixture.fileManager.waitUntilReadingIsComplete()
 
 		let folder = try XCTUnwrap(fixture.fileManager.indexedFolder(atStandardizedPath: fixture.fullPath("src/deep")))
 

@@ -165,6 +165,7 @@ final class MCPServerViewModelContextBuilderTabPlanTests: XCTestCase {
 		let loadedWorkspace = WorkspaceModel(name: "Loaded", repoPaths: [loadedRoot.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: loadedRoot, for: loadedWorkspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let exportWorkspace = WorkspaceModel(name: "Primary", repoPaths: [primaryRoot.path])
 		let destination = try MCPServerViewModel.makeOracleExportDestination(
@@ -268,6 +269,7 @@ final class MCPServerViewModelContextBuilderTabPlanTests: XCTestCase {
 		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
 		let fileManagerVM = RepoFileManagerViewModel()
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
 		return (fileManagerVM, rootURL, workspace)
 	}
 
