@@ -393,4 +393,46 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertFalse(RootFolderIndex(rootPath: "/repo").filePaths.contains("top.swift"))
 		XCTAssertTrue(RootFolderIndex(rootPath: "/repo").filePaths.isEmpty)
 	}
+
+	func testContentsListTheFilesAndFoldersOfEachFolder() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("src/a.swift")
+		index.markFolderRead("")
+		index.markFolderRead("src")
+
+		let contents = index.contents
+
+		XCTAssertEqual(contents.rootPath, "/repo")
+		XCTAssertEqual(contents.folders["src"]?.childFilePaths, ["src/a.swift"])
+		XCTAssertEqual(contents.folders[""]?.childFolderPaths, ["src"])
+		XCTAssertEqual(contents.folders[""]?.childFilePaths, [])
+	}
+
+	func testContentsTakenBeforeAChangeKeepTheirFilesAndTheNewContentsShowTheChange() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("src/a.swift")
+		index.finishReading()
+		let before = index.contents
+
+		index.addFile("src/b.swift")
+		let after = index.contents
+
+		XCTAssertEqual(before.folders["src"]?.childFilePaths, ["src/a.swift"])
+		XCTAssertEqual(after.folders["src"]?.childFilePaths, ["src/a.swift", "src/b.swift"])
+		XCTAssertNotEqual(before.generation, after.generation)
+	}
+
+	func testContentsMarkAReadFolderWithoutFilesAsKnownEmpty() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("src/a.swift")
+		index.addFolder("empty", isRead: true)
+		index.addFolder("unread", isRead: false)
+		index.markFolderRead("")
+
+		let contents = index.contents
+
+		XCTAssertEqual(contents.folders["empty"]?.isKnownEmpty, true)
+		XCTAssertEqual(contents.folders["src"]?.isKnownEmpty, false)
+		XCTAssertEqual(contents.folders["unread"]?.isKnownEmpty, false)
+	}
 }

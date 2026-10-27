@@ -67,6 +67,19 @@ final class RootFolderIndex {
 		}
 	}
 
+	/// The files and folders of an index at one generation, as values that can be read off the main actor.
+	struct Contents: Sendable {
+		struct Folder: Sendable {
+			let childFolderPaths: Set<String>
+			let childFilePaths: Set<String>
+			let isKnownEmpty: Bool
+		}
+
+		let rootPath: String
+		let generation: UInt64
+		let folders: [String: Folder]
+	}
+
 	let rootPath: String
 	var filePaths: FilePaths { FilePaths(folders: folders, count: root.fileCount) }
 	/// The files of the selection.
@@ -83,6 +96,27 @@ final class RootFolderIndex {
 
 	/// Changes whenever the files or folders of the index or their read state change, to a value no index had before.
 	private(set) var generation: UInt64 = 0
+	private var cachedContents: Contents?
+
+	/// The files and folders of the index now. Built once per generation; the sets are shared, not copied.
+	var contents: Contents {
+		if let cachedContents { return cachedContents }
+		var nativeRootPath = rootPath
+		nativeRootPath.makeContiguousUTF8()
+		let contents = Contents(
+			rootPath: nativeRootPath,
+			generation: generation,
+			folders: folders.mapValues { folder in
+				Contents.Folder(
+					childFolderPaths: folder.childFolderPaths,
+					childFilePaths: folder.childFilePaths,
+					isKnownEmpty: folder.isKnownEmpty
+				)
+			}
+		)
+		cachedContents = contents
+		return contents
+	}
 
 	/// Whether reading has listed every folder of the root folder.
 	var isReadingComplete: Bool { unreadFolderPaths.isEmpty }
@@ -302,6 +336,7 @@ final class RootFolderIndex {
 	private func advanceGeneration() {
 		Self.latestGeneration &+= 1
 		generation = Self.latestGeneration
+		cachedContents = nil
 	}
 
 	private nonisolated static func parentPath(of path: String) -> String {
