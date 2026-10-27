@@ -4270,9 +4270,9 @@ actor FileSystemService {
 
 	/// Folder reading lists folders from disk and matches their entries against the ignore rules on these threads,
 	/// so reading a huge root folder never holds the threads that every other task of the app runs on.
+	/// Each block runs at the priority of the task that sends it.
 	private static let folderReadingQueue = DispatchQueue(
 		label: "com.repoprompt.folder-reading",
-		qos: .utility,
 		attributes: .concurrent
 	)
 
