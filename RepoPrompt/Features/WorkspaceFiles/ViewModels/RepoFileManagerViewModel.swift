@@ -429,6 +429,9 @@ class RepoFileManagerViewModel: ObservableObject {
 	/// Files read so far of each root folder whose reading runs, by the root folder's standardized full path.
 	/// A root folder whose reading is complete has no entry.
 	let readingFileCounts = CurrentValueSubject<[String: Int], Never>([:])
+	/// The standardized full paths of the folders ticked before reading listed their subtree.
+	/// Each shows a spinner on its checkbox until every file under it is selected.
+	let waitingFolderSelections = CurrentValueSubject<Set<String>, Never>([])
 	/// The running builds of folders' tree items, by the folder's standardized full path.
 	private var childBuildTasks: [String: Task<Void, Never>] = [:]
 	/// The background reading of each root folder whose direct entries are listed, by the root folder's standardized full path.
@@ -438,6 +441,7 @@ class RepoFileManagerViewModel: ObservableObject {
 		readingTasks.removeValue(forKey: rootKey)?.cancel()
 		rootFolderIndexes.removeValue(forKey: rootKey)
 		readingFileCounts.value.removeValue(forKey: rootKey)
+		publishWaitingFolderSelections()
 		// The codemaps kept by path of the root folder's files go too, except those of a root folder inside it.
 		let nestedRootPrefixes = rootFolderIndexes.keys.filter { $0.hasPrefix(rootKey + "/") }.map { $0 + "/" }
 		for path in codemapCapableAPIsByFullPath.keys
@@ -2421,12 +2425,21 @@ func loadFolder(
 	}
 	#endif
 
-	/// Adds a chunk to a root folder's index and selects the files of a restored selection it adds.
+	/// Adds a chunk to a root folder's index and selects the files it adds of a restored selection
+	/// or under a folder that waited for its subtree.
 	private func addToIndex(_ chunk: FSPreparedChunk, rootKey: String) {
 		guard let index = rootFolderIndexes[rootKey] else { return }
-		let restored = index.add(chunk)
-		guard !restored.isEmpty else { return }
-		let files = restored.compactMap {
+		let hadWaitingFolders = !index.waitingFolderPaths.isEmpty
+		selectIndexedFiles(index.add(chunk), rootKey: rootKey)
+		if hadWaitingFolders {
+			publishWaitingFolderSelections()
+		}
+	}
+
+	/// Selects files the index of a root folder already selected, so the selection and its rows follow.
+	private func selectIndexedFiles(_ relativePaths: [String], rootKey: String) {
+		guard !relativePaths.isEmpty else { return }
+		let files = relativePaths.compactMap {
 			promptFile(forStandardizedPath: StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: $0))
 		}
 		performSelectionBatch {
@@ -2434,9 +2447,23 @@ func loadFolder(
 		}
 	}
 
+	/// Matches `waitingFolderSelections` to the folders the indexes of the root folders let wait.
+	private func publishWaitingFolderSelections() {
+		var paths = Set<String>()
+		for (rootKey, index) in rootFolderIndexes {
+			for relativePath in index.waitingFolderPaths {
+				paths.insert(StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: relativePath))
+			}
+		}
+		if paths != waitingFolderSelections.value {
+			waitingFolderSelections.value = paths
+		}
+	}
+
 	private func finishReading(rootKey: String) {
 		guard let index = rootFolderIndexes[rootKey] else { return }
-		index.finishReading()
+		selectIndexedFiles(index.finishReading(), rootKey: rootKey)
+		publishWaitingFolderSelections()
 		readingFileCounts.value.removeValue(forKey: rootKey)
 		readingTasks[rootKey] = nil
 		if !showEmptyFolders {
@@ -6455,13 +6482,22 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 	}
 
 	/// Selects every file under a folder of a root folder's index when none is selected, else deselects them all.
+	/// A folder whose subtree reading has not listed yet waits until it has, then selects every file under it;
+	/// toggling it again while it waits stops the wait.
 	@MainActor
 	func toggleFolder(atStandardizedPath path: String) {
 		guard !isLoading, let folder = indexedFolder(atStandardizedPath: path),
-			let index = rootFolderIndexes[folder.root.standardizedFullPath],
-			// A folder whose subtree reading has not finished listing cannot be ticked yet.
-			index.folders[folder.relativePath]?.isSubtreeRead == true
+			let index = rootFolderIndexes[folder.root.standardizedFullPath]
 		else { return }
+		guard index.folders[folder.relativePath]?.isSubtreeRead == true else {
+			if index.waitingFolderPaths.contains(folder.relativePath) {
+				index.stopWaiting(folder: folder.relativePath)
+			} else {
+				index.waitToSelect(folder: folder.relativePath)
+			}
+			publishWaitingFolderSelections()
+			return
+		}
 		setFolderSelected(atStandardizedPath: path, index.checkboxState(ofFolder: folder.relativePath) == .unchecked)
 		if let treeFolder = findFolderByFullPath(path) {
 			recomputeAncestorStates(startingAt: treeFolder)
@@ -11781,11 +11817,12 @@ extension RepoFileManagerViewModel {
 	/// Ensures both collections stay in sync with one assignment point.
 	@MainActor
 	private func commitSelectionState(_ newFiles: [FileViewModel], _ newIDs: Set<UUID>) {
-		// Clearing the selection also drops the files reading has not found yet.
+		// Clearing the selection also drops the files reading has not found yet and the folders waiting for their subtree.
 		if newIDs.isEmpty {
 			for index in rootFolderIndexes.values {
 				index.setPendingSelection([])
 			}
+			publishWaitingFolderSelections()
 		}
 		// Fast-exit if nothing changes (preserves @Published churn)
 		let idsUnchanged = (newIDs == selectedFileIDs)
@@ -12562,6 +12599,7 @@ extension RepoFileManagerViewModel {
 		for (rootKey, index) in rootFolderIndexes {
 			index.setPendingSelection(pendingByRoot[rootKey] ?? [])
 		}
+		publishWaitingFolderSelections()
 	}
 	
 	@MainActor
