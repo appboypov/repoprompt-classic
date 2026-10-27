@@ -29,14 +29,191 @@ struct FileTreeSelectionSnapshot: Sendable {
 }
 
 /// A folder of the tree. Its id is its standardized full path.
+///
+/// A folder read from an index builds its children each time they are read, so a tree costs only the folders a reader visits.
 struct FileTreeFolderSnapshot: Sendable, Hashable {
+	private enum ChildrenSource: Sendable {
+		case nodes([FileTreeNodeSnapshot])
+		case index(IndexFileTree, relativePath: String)
+	}
+
 	let id: String
 	let name: String
 	let nameSortKey: String
 	let fullPath: String
 	let standardizedFullPath: String
 	let standardizedRootPath: String
-	let children: [FileTreeNodeSnapshot]
+	private let source: ChildrenSource
+
+	var children: [FileTreeNodeSnapshot] {
+		switch source {
+		case .nodes(let nodes): nodes
+		case .index(let tree, let relativePath): tree.children(ofFolder: relativePath)
+		}
+	}
+
+	init(
+		id: String,
+		name: String,
+		nameSortKey: String,
+		fullPath: String,
+		standardizedFullPath: String,
+		standardizedRootPath: String,
+		children: [FileTreeNodeSnapshot]
+	) {
+		self.id = id
+		self.name = name
+		self.nameSortKey = nameSortKey
+		self.fullPath = fullPath
+		self.standardizedFullPath = standardizedFullPath
+		self.standardizedRootPath = standardizedRootPath
+		self.source = .nodes(children)
+	}
+
+	init(
+		id: String,
+		name: String,
+		nameSortKey: String,
+		fullPath: String,
+		standardizedFullPath: String,
+		standardizedRootPath: String,
+		indexTree: IndexFileTree,
+		relativePath: String
+	) {
+		self.id = id
+		self.name = name
+		self.nameSortKey = nameSortKey
+		self.fullPath = fullPath
+		self.standardizedFullPath = standardizedFullPath
+		self.standardizedRootPath = standardizedRootPath
+		self.source = .index(indexTree, relativePath: relativePath)
+	}
+
+	/// The ids of this folder and the folders under it that hold a selected file at any depth.
+	/// A folder read from an index finds them from the selected paths alone, without visiting its subtree.
+	func folderIDsHoldingFiles(_ fileIDs: Set<String>) -> Set<String> {
+		guard !fileIDs.isEmpty else { return [] }
+		if case .index(let tree, let relativePath) = source {
+			return tree.folderIDsHoldingFiles(fileIDs, under: relativePath)
+		}
+		var result = Set<String>()
+		var visited = Set<String>()
+
+		@discardableResult
+		func dfs(_ folder: FileTreeFolderSnapshot) -> Bool {
+			if Task.isCancelled { return false }
+			guard visited.insert(folder.id).inserted else { return false }
+
+			var contains = false
+			for child in folder.children {
+				if Task.isCancelled { return false }
+				switch child {
+				case .file(let file):
+					if fileIDs.contains(file.id) {
+						contains = true
+					}
+				case .folder(let subfolder):
+					if dfs(subfolder) {
+						contains = true
+					}
+				}
+			}
+
+			if contains {
+				result.insert(folder.id)
+			}
+			return contains
+		}
+
+		dfs(self)
+		return result
+	}
+
+	static func == (lhs: FileTreeFolderSnapshot, rhs: FileTreeFolderSnapshot) -> Bool {
+		lhs.id == rhs.id
+			&& lhs.name == rhs.name
+			&& lhs.nameSortKey == rhs.nameSortKey
+			&& lhs.fullPath == rhs.fullPath
+			&& lhs.standardizedFullPath == rhs.standardizedFullPath
+			&& lhs.standardizedRootPath == rhs.standardizedRootPath
+			&& lhs.children == rhs.children
+	}
+
+	func hash(into hasher: inout Hasher) {
+		hasher.combine(id)
+	}
+}
+
+/// The folders and files of one root folder's index, read as tree nodes one folder at a time.
+struct IndexFileTree: Sendable {
+	let contents: RootFolderIndex.Contents
+	let showEmptyFolders: Bool
+	/// The codemaps of scanned code files by standardized full path, for files with and without a tree item.
+	let codemapPaths: [String: FileAPI]
+	/// Whether the tree item of a file has a codemap the prompt accepts, by standardized full path.
+	let treeItemCodeMaps: [String: Bool]
+
+	/// The folders and then the files directly in a folder. A read folder without files is left out unless empty folders show.
+	func children(ofFolder relativePath: String) -> [FileTreeNodeSnapshot] {
+		guard let folder = contents.folders[relativePath] else { return [] }
+		let rootPath = contents.rootPath
+		var nodes: [FileTreeNodeSnapshot] = []
+		nodes.reserveCapacity(folder.childFolderPaths.count + folder.childFilePaths.count)
+		for childPath in folder.childFolderPaths {
+			guard let subfolder = contents.folders[childPath] else { continue }
+			if !showEmptyFolders, subfolder.isKnownEmpty { continue }
+			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: childPath)
+			let name = (childPath as NSString).lastPathComponent
+			nodes.append(.folder(FileTreeFolderSnapshot(
+				id: fullPath,
+				name: name,
+				nameSortKey: name.lowercased(),
+				fullPath: fullPath,
+				standardizedFullPath: fullPath,
+				standardizedRootPath: rootPath,
+				indexTree: self,
+				relativePath: childPath
+			)))
+		}
+		for childPath in folder.childFilePaths {
+			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: childPath)
+			let name = (childPath as NSString).lastPathComponent
+			let fileExtension = (name as NSString).pathExtension
+			nodes.append(.file(FileTreeFileSnapshot(
+				id: fullPath,
+				name: name,
+				nameSortKey: name.lowercased(),
+				fileExtension: fileExtension.isEmpty ? nil : fileExtension,
+				hasCodeMap: treeItemCodeMaps[fullPath] ?? (codemapPaths[fullPath] != nil)
+			)))
+		}
+		return nodes
+	}
+
+	/// The ids of a folder and the folders under it that hold one of the files at any depth,
+	/// found from the files' paths and the folders above them.
+	func folderIDsHoldingFiles(_ fileIDs: Set<String>, under relativePath: String) -> Set<String> {
+		let rootPath = contents.rootPath
+		let rootPrefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+		let folderPrefix = relativePath.isEmpty ? "" : relativePath + "/"
+		var result = Set<String>()
+		for fileID in fileIDs where fileID.hasPrefix(rootPrefix) {
+			let filePath = String(fileID.dropFirst(rootPrefix.count))
+			guard filePath.hasPrefix(folderPrefix) else { continue }
+			var folderPath = Self.parentPath(of: filePath)
+			guard contents.folders[folderPath]?.childFilePaths.contains(filePath) == true else { continue }
+			while result.insert(StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: folderPath)).inserted,
+				folderPath != relativePath {
+				folderPath = Self.parentPath(of: folderPath)
+			}
+		}
+		return result
+	}
+
+	private static func parentPath(of path: String) -> String {
+		guard let slash = path.lastIndex(of: "/") else { return "" }
+		return String(path[..<slash])
+	}
 }
 
 /// A file of the tree. Its id is its standardized full path.
