@@ -1889,6 +1889,8 @@ final class MCPServerViewModel: ObservableObject, @preconcurrency Service, Windo
 		args: [String: Value],
 		diagnosticLabel: String? = nil
 	) async throws -> ToolResultDTOs.SearchResultDTO {
+		// File search answers from the complete index of each root folder.
+		await fileManager.waitUntilReadingIsComplete()
 		let diagnosticRunID: UUID?
 		#if DEBUG
 		diagnosticRunID = MCPFileSearchPerfDiagnostics.beginRun(label: diagnosticLabel)
@@ -3594,14 +3596,14 @@ Generate ASCII directory tree of the project.
 							maxDepth = nil
 						}
 						let startPath = args["path"]?.stringValue
-						let selection = await owner.selectedVMsAndIDsForCurrentExecContext()
+						let selectedPaths = await owner.selectedFilePathsForCurrentExecContext()
 
 						let result = await owner.buildFileTreeResult(
 							mode: mode,
 							maxDepth: maxDepth,
 							includeHidden: false,   // removed from tool; ignored in generator
 							startPath: startPath,
-							selectedIDs: selection.ids
+							selectedPaths: selectedPaths
 						)
 
 							let rootCount = await MainActor.run {
@@ -3962,12 +3964,13 @@ Related: manage_selection, get_file_tree, ask_oracle
 			var fileTreeDTO: ToolResultDTOs.FileTreeDTO? = nil
 			var fileTreeTokens = 0
 			if include.contains("tree") {
-				let selection = await owner.selectedVMsAndIDsForCurrentExecContext()
+				let selectedPaths = await owner.selectedFilePathsForCurrentExecContext()
 				let result = await owner.buildFileTreeResult(
 					mode: "selected",
 					maxDepth: nil,
 					includeHidden: false,
-					selectedIDs: selection.ids
+					startPath: nil,
+					selectedPaths: selectedPaths
 				)
 				let rootCount = await MainActor.run { owner.fileManager.visibleRootFolders.count }
 				fileTreeDTO = .init(
@@ -7890,7 +7893,9 @@ This is how you deliver your response to the user. Without calling this tool, th
 		_ path: String,
 		lookupRootScope: RepoFileManagerViewModel.LookupRootScope = .visibleWorkspace
 	) async -> RepoFileManagerViewModel.FolderInputResolution {
-		await fileManager.resolveFilesForFolderInput(path, rootScope: lookupRootScope)
+		// Selecting a folder selects every file under it, so it waits for the complete index.
+		await fileManager.waitUntilReadingIsComplete()
+		return await fileManager.resolveFilesForFolderInput(path, rootScope: lookupRootScope)
 	}
 
 	@MainActor
@@ -8755,7 +8760,7 @@ nonisolated static func mcpDisplayPath(
     /// Reads a file with optional slicing. Supports 1-based indices and a negative sentinel
     /// for bottom-origin reads (start_line = -N reads the last N lines).
     /// Returns both the content slice and metadata about the shown range.
-	private func readFile(path: String,
+	func readFile(path: String,
                           startLine1Based: Int? = nil,
 						lineCount: Int? = nil,
 						lookupRootScope: RepoFileManagerViewModel.LookupRootScope = .visibleWorkspace) async throws -> (reply: ToolResultDTOs.ReadFileReply, shouldAutoSelect: Bool) {
@@ -8763,8 +8768,8 @@ nonisolated static func mcpDisplayPath(
 			throw MCPError.invalidParams(PathResolutionIssueRenderer.message(for: issue))
 		}
 
-		if let folderVM = fileManager.resolveFolderForUserInput(path, rootScope: lookupRootScope) {
-			let displayPath = fileManager.mcpDisplayPath(for: folderVM)
+		if let folder = fileManager.resolveFolderForUserInput(path, rootScope: lookupRootScope) {
+			let displayPath = fileManager.mcpDisplayPath(forAbsolutePath: folder.standardizedFullPath)
 			throw MCPError.invalidParams("'\(displayPath)' is a folder; read_file requires a file path. Use get_file_tree or file_search to find specific files.")
 		}
 		if let externalFolderPath = fileManager.resolveAlwaysReadableExternalFolderDisplayPath(path) {
@@ -9326,127 +9331,64 @@ nonisolated static func mcpDisplayPath(
 		try await fileManager.renameFileFromTool(oldPath: oldPath, newPath: newPath)
 	}
 
-	/// Returns a flat JSON-serialisable array of {[path,kind,mtime]}
-	private func flatTree() async -> [[String:Any]] {
-		func walk(_ folder: FolderViewModel,
-					into arr: inout [[String:Any]]) {
-			arr.append([
-				"path": folder.relativePath,
-				"kind": "folder",
-				"mtime": folder.modificationDate.timeIntervalSince1970
-			])
-			for child in folder.children {
-				switch child {
-				case .folder(let f): walk(f, into: &arr)
-				case .file(let fi):
-					arr.append([
-						"path": fi.relativePath,
-						"kind": "file",
-						"mtime": fi.modificationDate.timeIntervalSince1970
-					])
-				}
-			}
-		}
-		var res: [[String:Any]] = []
-		for root in fileManager.rootFolders {
-			walk(root, into: &res)
-		}
-		return res
-	}
-
-	// (request_plan implementation removed)
-
-	/// Builds an ASCII tree listing **only** those files whose `fileAPI`
-	/// has already been populated (i.e. code-map exists).
-    private func buildCodeMapFileTree() async -> String {
-		let (roots, filePathDisplay) = await MainActor.run {
-			(fileManager.rootFolders, promptVM.filePathDisplayOption)
-		}
-
-        // If no workspace/roots are loaded, return a helpful message instead of empty output
-        guard !roots.isEmpty else {
-            return await workspaceContextMessage(forOperation: ToolNames.getFileTree, path: nil)
-        }
-
-		// Run the heavy computation off MainActor
-		return await Task.detached(priority: .userInitiated) {
-			CodeMapExtractor.generateCodeMapFileTree(
-				rootFolders: roots,
-				filePathDisplay: filePathDisplay
-			)
-		}.value
-	}
-
 	// MARK: - File-tree builder for get_file_tree
-	/// Delegates to CodeMapExtractor for unified file tree generation with progressive fallbacks
-	private func buildFileTreeResult(
-        mode: String,
-        maxDepth: Int?,
-        includeHidden: Bool,
-        selectedIDs: Set<UUID>
-	) async -> FileTreeResult {
-
-        let (roots, filePathDisplay) = await MainActor.run {
-            (fileManager.visibleRootFolders, promptVM.filePathDisplayOption)
-        }
-
-        // No roots loaded – return contextual guidance
-        if roots.isEmpty {
-			let msg = await workspaceContextMessage(forOperation: ToolNames.getFileTree, path: nil)
-			return FileTreeResult(
-				tree: msg,
-				usedSelectedMarker: false,
-				usedCodeMapMarker: false,
-				wasTruncated: false,
-				note: "No workspace loaded"
-			)
-        }
-
-		// Run the heavy computation off MainActor
-		let showCodeMapMarkers = await MainActor.run { !promptVM.codeMapsGloballyDisabled }
-		return await Task.detached(priority: .userInitiated) {
-			CodeMapExtractor.generateFileTreeForRootsResult(
-                rootFolders: roots,
-                mode: mode,
-				maxDepth: maxDepth,
-				includeHidden: includeHidden,
-				filePathDisplay: filePathDisplay,
-				selectedFileIDs: selectedIDs,
-				includeLegend: false,
-				isMCPContext: true,
-				showCodeMapMarkers: showCodeMapMarkers
-			)
-		}.value
-	}
-
-	// MARK: - File-tree builder overload with starting path
-	/// Builds a file tree starting from a specific folder path, applying depth/mode/hidden settings from that point
-private func buildFileTreeResult(
+	/// Builds the file tree of the loaded roots, or of the folder at `startPath`, from the index of each root
+	/// folder once reading is complete. Delegates to CodeMapExtractor for generation with progressive fallbacks.
+	func buildFileTreeResult(
 		mode: String,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		startPath: String?,
-		selectedIDs: Set<UUID>
+		selectedPaths: Set<String>
 	) async -> FileTreeResult {
-		// If no starting path is provided, fall back to the existing full-roots builder
-		guard let rawStart = startPath, !rawStart.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-			return await buildFileTreeResult(mode: mode, maxDepth: maxDepth, includeHidden: includeHidden, selectedIDs: selectedIDs)
-		}
+		await fileManager.waitUntilReadingIsComplete()
+		let rawStart = startPath.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
 
 		// Snapshot UI-bound state on the main actor and resolve the starting folder
-        let (roots, filePathDisplay, startFullPath, resolutionIssue) = await MainActor.run { () -> ([FolderViewModel], FilePathDisplay, String?, PathResolutionIssue?) in
-            let roots = fileManager.rootFolders
-            let display = promptVM.filePathDisplayOption
-            if let issue = fileManager.exactPathResolutionIssue(for: rawStart, kind: .folder) {
-                return (roots, display, nil, issue)
-            }
-            if let startFolder = fileManager.resolveFolderForUserInput(rawStart) {
-                return (roots, display, startFolder.fullPath, nil)
-            }
-            return (roots, display, nil, nil)
-        }
+		let (roots, filePathDisplay, showCodeMapMarkers, startFullPath, resolutionIssue) = await MainActor.run {
+			() -> ([FileTreeFolderSnapshot], FilePathDisplay, Bool, String?, PathResolutionIssue?) in
+			let display = promptVM.filePathDisplayOption
+			let showCodeMapMarkers = !promptVM.codeMapsGloballyDisabled
+			guard let rawStart else {
+				return (fileManager.fileTreeRoots(of: fileManager.visibleRootFolders), display, showCodeMapMarkers, nil, nil)
+			}
+			let roots = fileManager.fileTreeRoots(of: fileManager.rootFolders)
+			if let issue = fileManager.exactPathResolutionIssue(for: rawStart, kind: .folder) {
+				return (roots, display, showCodeMapMarkers, nil, issue)
+			}
+			let startFolder = fileManager.resolveFolderForUserInput(rawStart)
+			return (roots, display, showCodeMapMarkers, startFolder?.standardizedFullPath, nil)
+		}
 
-        guard let startFull = startFullPath else {
+		guard let rawStart else {
+			// No roots loaded – return contextual guidance
+			if roots.isEmpty {
+				let msg = await workspaceContextMessage(forOperation: ToolNames.getFileTree, path: nil)
+				return FileTreeResult(
+					tree: msg,
+					usedSelectedMarker: false,
+					usedCodeMapMarker: false,
+					wasTruncated: false,
+					note: "No workspace loaded"
+				)
+			}
+			// Run the heavy computation off MainActor
+			return await Task.detached(priority: .userInitiated) {
+				CodeMapExtractor.generateFileTreeForRootsResult(
+					rootFolders: roots,
+					mode: mode,
+					maxDepth: maxDepth,
+					includeHidden: includeHidden,
+					filePathDisplay: filePathDisplay,
+					selectedFileIDs: selectedPaths,
+					includeLegend: false,
+					isMCPContext: true,
+					showCodeMapMarkers: showCodeMapMarkers
+				)
+			}.value
+		}
+
+		guard let startFull = startFullPath else {
 			if let resolutionIssue {
 				return FileTreeResult(
 					tree: PathResolutionIssueRenderer.message(for: resolutionIssue),
@@ -9464,10 +9406,9 @@ private func buildFileTreeResult(
 				wasTruncated: false,
 				note: "Requested path is outside the loaded roots"
 			)
-        }
+		}
 
 		// Heavy work off the main actor
-		let showCodeMapMarkers = await MainActor.run { !promptVM.codeMapsGloballyDisabled }
 		return await Task.detached(priority: .userInitiated) {
 			CodeMapExtractor.generateFileTreeStartingAtPathResult(
 				startFolderFullPath: startFull,
@@ -9476,7 +9417,7 @@ private func buildFileTreeResult(
 				maxDepth: maxDepth,
 				includeHidden: includeHidden,
 				filePathDisplay: filePathDisplay,
-				selectedFileIDs: selectedIDs,
+				selectedFileIDs: selectedPaths,
 				includeLegend: false,
 				isMCPContext: true,
 				showCodeMapMarkers: showCodeMapMarkers

@@ -8,6 +8,8 @@ extension MCPServerViewModel {
 		display: FilePathDisplay,
 		copyPresetOverride: CopyPreset? = nil
 	) async -> ToolResultDTOs.PromptContextDTO {
+		// The selection, token counts and file tree come from the complete index of each root folder.
+		await fileManager.waitUntilReadingIsComplete()
 		let includeSelection = include.contains("selection")
 		let requireSelectionData = includeSelection
 			|| include.contains("files")

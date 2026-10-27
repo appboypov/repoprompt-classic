@@ -84,21 +84,21 @@ struct CodeMapExtractor {
 	private static let selectedLegend = "(* denotes selected files)"
 	private static let codeMapLegend  = "(+ denotes code-map available)"
 	
-	private static func hasCodeMapMarker(_ file: FileViewModel, showMarkers: Bool) -> Bool {
-		showMarkers && file.hasAcceptedCodeMap
+	private static func hasCodeMapMarker(_ file: FileTreeFileSnapshot, showMarkers: Bool) -> Bool {
+		showMarkers && file.hasCodeMap
 	}
 
-	private static func nameAscending<T: FileSystemItemViewModel>(_ lhs: T, _ rhs: T) -> Bool {
+	private static func nameAscending<T: FileTreeSortableNode>(_ lhs: T, _ rhs: T) -> Bool {
 		if lhs.nameSortKey != rhs.nameSortKey {
 			return lhs.nameSortKey < rhs.nameSortKey
 		}
 		if lhs.name != rhs.name {
 			return lhs.name < rhs.name
 		}
-		return lhs.relativePath < rhs.relativePath
+		return lhs.id < rhs.id
 	}
 
-	private static func folderFirstNameAscending(_ lhs: FileSystemItemType, _ rhs: FileSystemItemType) -> Bool {
+	private static func folderFirstNameAscending(_ lhs: FileTreeNodeSnapshot, _ rhs: FileTreeNodeSnapshot) -> Bool {
 		switch (lhs, rhs) {
 		case (.folder, .file): return true
 		case (.file, .folder): return false
@@ -129,7 +129,7 @@ struct CodeMapExtractor {
 	
 	// Cache key for "visible children" filtered + sorted lists
 	private struct VCCacheKey: Hashable {
-		let folderID: UUID
+		let folderID: String
 		let mode: UInt8        // 0=auto, 1=full, 2=folders
 	}
 	
@@ -157,20 +157,20 @@ struct CodeMapExtractor {
 	// Per-build context (mutable fields passed inout)
 	private struct BuildContext {
 		let settings: BuildSettings
-		let selectedFileIDs: Set<UUID>
-		let getSelectedFolderIDs: () -> Set<UUID> // lazy thunk
-		var childrenCache: [VCCacheKey: [FileSystemItemType]] = [:]
+		let selectedFileIDs: Set<String>
+		let getSelectedFolderIDs: () -> Set<String> // lazy thunk
+		var childrenCache: [VCCacheKey: [FileTreeNodeSnapshot]] = [:]
 		var usedSelectedMarker: Bool = false
 		let tokenBudget: Int?      // set in auto attempts; nil otherwise
 		let maxDepth: Int?         // depth cap for this build attempt
 	}
 	
 	private static func buildDepthZeroTree(
-		roots: [FolderViewModel],
+		roots: [FileTreeFolderSnapshot],
 		settings: BuildSettings,
-		selectedFileIDs: Set<UUID>,
-		fetchSelectedFolderIDs: () -> Set<UUID>,
-		childrenCache: inout [VCCacheKey: [FileSystemItemType]],
+		selectedFileIDs: Set<String>,
+		fetchSelectedFolderIDs: () -> Set<String>,
+		childrenCache: inout [VCCacheKey: [FileTreeNodeSnapshot]],
 		sb: inout StringBuilder,
 		usedSelectedMarker: inout Bool,
 		tokenBudget: Int?
@@ -181,10 +181,10 @@ struct CodeMapExtractor {
 		let selectedFolderIDsSet = fetchSelectedFolderIDs()
 		// Local helper to emit only selected descendants (used when expanding beyond depth cap)
 		func emitSelectedOnlyLocal(
-			child: FileSystemItemType,
+			child: FileTreeNodeSnapshot,
 			basePrefix: String,
 			isLast: Bool,
-			visited: inout Set<UUID>
+			visited: inout Set<String>
 		) -> Bool {
 			if Task.isCancelled { return true }
 			if let budget = tokenBudget, sb.estimatedTokens >= budget { return true }
@@ -203,7 +203,7 @@ struct CodeMapExtractor {
 				let nextPrefix = basePrefix + (isLast ? "    " : "│   ")
 				
 				// Only descend along selected paths
-				var relevant: [FileSystemItemType] = fo.children.filter { c in
+				var relevant: [FileTreeNodeSnapshot] = fo.children.filter { c in
 					switch c {
 					case .file(let f):   return selectedFileIDs.contains(f.id)
 					case .folder(let s): return selectedFolderIDsSet.contains(s.id)
@@ -236,9 +236,9 @@ struct CodeMapExtractor {
 			let childBasePrefix = base
 			
 			// Immediate visible children (mode-aware, but "selected" handled specially)
-			let immediate: [FileSystemItemType]
+			let immediate: [FileTreeNodeSnapshot]
 			if m == "selected" {
-				var subset: [FileSystemItemType] = root.children.filter {
+				var subset: [FileTreeNodeSnapshot] = root.children.filter {
 					switch $0 {
 					case .file(let f):   return selectedFileIDs.contains(f.id)
 					case .folder(let s): return selectedFolderIDsSet.contains(s.id)
@@ -259,8 +259,8 @@ struct CodeMapExtractor {
 				if let cached = childrenCache[key] {
 					immediate = cached
 				} else {
-					var folders: [FolderViewModel] = []
-					var files: [FileViewModel] = []
+					var folders: [FileTreeFolderSnapshot] = []
+					var files: [FileTreeFileSnapshot] = []
 					for child in root.children {
 						switch child {
 						case .folder(let fo):
@@ -299,7 +299,7 @@ struct CodeMapExtractor {
 					}
 					folders.sort(by: nameAscending)
 					files.sort(by: nameAscending)
-					var merged: [FileSystemItemType] = []
+					var merged: [FileTreeNodeSnapshot] = []
 					merged.reserveCapacity(folders.count + files.count)
 					merged.append(contentsOf: folders.map { .folder($0) })
 					merged.append(contentsOf: files.map { .file($0) })
@@ -309,7 +309,7 @@ struct CodeMapExtractor {
 			}
 			
 			// Selected-only expansion beyond the cap
-			let selectedOnly: [FileSystemItemType] = immediate.filter {
+			let selectedOnly: [FileTreeNodeSnapshot] = immediate.filter {
 				switch $0 {
 				case .file(let f):   return selectedFileIDs.contains(f.id)
 				case .folder(let s): return selectedFolderIDsSet.contains(s.id)
@@ -317,7 +317,7 @@ struct CodeMapExtractor {
 			}
 			let hasOther = !immediate.isEmpty && (immediate.count > selectedOnly.count)
 			
-			var visited = Set<UUID>()
+			var visited = Set<String>()
 			for (i, ch) in selectedOnly.enumerated() {
 				let isLast = !hasOther && (i == selectedOnly.count - 1)
 				switch ch {
@@ -349,12 +349,12 @@ struct CodeMapExtractor {
 	
 	// MARK: - Result variants with marker flags
 	static func generateFileTreeForRootsResult(
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		option: FileTreeOption,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID>,
+		selectedFileIDs: Set<String>,
 		onlyIncludeRootsWithSelectedFiles: Bool = false,
 		includeLegend: Bool = false,
 		showCodeMapMarkers: Bool = true
@@ -391,12 +391,12 @@ struct CodeMapExtractor {
 	}
 	
 	static func generateFileTreeForRootsResult(
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		mode: String,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID>,
+		selectedFileIDs: Set<String>,
 		onlyIncludeRootsWithSelectedFiles: Bool = false,
 		includeLegend: Bool = false,
 		isMCPContext: Bool = false,
@@ -428,12 +428,12 @@ struct CodeMapExtractor {
 	
 	static func generateFileTreeStartingAtPathResult(
 		startFolderFullPath: String,
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		mode: String,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID> = [],
+		selectedFileIDs: Set<String> = [],
 		includeLegend: Bool = false,
 		isMCPContext: Bool = false,
 		showCodeMapMarkers: Bool = true
@@ -463,12 +463,12 @@ struct CodeMapExtractor {
 	}
 	
 	static func generateFileTreeForRoots(
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		option: FileTreeOption,
 		maxDepth: Int?,
 		includeHidden: Bool,  // Note: This parameter is now ignored; visibility is handled by RepoPrompt
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID>,
+		selectedFileIDs: Set<String>,
 		onlyIncludeRootsWithSelectedFiles: Bool,
 		includeLegend: Bool = true,
 		isExplicitSubtree: Bool = false,
@@ -797,14 +797,14 @@ struct CodeMapExtractor {
 	
 	/// Returns the set of `FolderViewModel.id` that lie on the path to at least one selected file.
 	static func folderIDsContainingSelectedFiles(
-		rootFolder: FolderViewModel,
-		selectedFileIDs: Set<UUID>
-	) -> Set<UUID> {
-		var result = Set<UUID>()
-		var visited = Set<UUID>()
+		rootFolder: FileTreeFolderSnapshot,
+		selectedFileIDs: Set<String>
+	) -> Set<String> {
+		var result = Set<String>()
+		var visited = Set<String>()
 		
 		@discardableResult
-		func dfs(_ folder: FolderViewModel) -> Bool {
+		func dfs(_ folder: FileTreeFolderSnapshot) -> Bool {
 			if Task.isCancelled { return false }
 			if !visited.insert(folder.id).inserted { return false }
 			var contains = false
@@ -827,10 +827,10 @@ struct CodeMapExtractor {
 	
 	/// Returns `true` if the provided folder or any of its descendants contains a selected file.
 	private static func folderContainsSelectedFile(
-		_ folder: FolderViewModel,
-		selectedFileIDs: Set<UUID>
+		_ folder: FileTreeFolderSnapshot,
+		selectedFileIDs: Set<String>
 	) -> Bool {
-		var visited = Set<UUID>()
+		var visited = Set<String>()
 		var stack = [folder]
 		while let current = stack.popLast() {
 			if Task.isCancelled { return false }
@@ -1007,12 +1007,12 @@ struct CodeMapExtractor {
 	/// When deeper content is hidden, we append an ellipsis summarizer (e.g. `... (N items)`).
 	// REPOMARK:SCOPE: 3 - In generateFileTreeForRoots(mode:...), remove any includeHidden usage; simplify local cache function and settings init
 	static func generateFileTreeForRoots(
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		mode: String,
 		maxDepth userMaxDepth: Int?,
 		includeHidden: Bool,  // Note: This parameter is now ignored; visibility is handled by RepoPrompt
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID>,
+		selectedFileIDs: Set<String>,
 		onlyIncludeRootsWithSelectedFiles: Bool = false,
 		includeLegend: Bool = true,
 		isExplicitSubtree: Bool = false,
@@ -1023,7 +1023,7 @@ struct CodeMapExtractor {
 		if Task.isCancelled { return "" }
 		
 		// Filter roots if requested to include only those that contain selected files.
-		let effectiveRoots: [FolderViewModel] = onlyIncludeRootsWithSelectedFiles
+		let effectiveRoots: [FileTreeFolderSnapshot] = onlyIncludeRootsWithSelectedFiles
 		? rootFolders.filter { folderContainsSelectedFile($0, selectedFileIDs: selectedFileIDs) }
 		: rootFolders
 		
@@ -1040,12 +1040,12 @@ struct CodeMapExtractor {
 		let tokenBudget = shouldApplyMCPBudget ? mcpTokenBudget : nil
 		
 		// Precompute selected-folder IDs for all roots lazily (only when needed).
-		var _selectedFolderIDs: Set<UUID>? = nil
+		var _selectedFolderIDs: Set<String>? = nil
 		@inline(__always)
-		func selectedFolderIDs() -> Set<UUID> {
+		func selectedFolderIDs() -> Set<String> {
 			if let s = _selectedFolderIDs { return s }
 			guard !selectedFileIDs.isEmpty else { _selectedFolderIDs = []; return [] }
-			let computed = effectiveRoots.reduce(into: Set<UUID>()) { acc, root in
+			let computed = effectiveRoots.reduce(into: Set<String>()) { acc, root in
 				acc.formUnion(folderIDsContainingSelectedFiles(rootFolder: root, selectedFileIDs: selectedFileIDs))
 			}
 			_selectedFolderIDs = computed
@@ -1115,7 +1115,7 @@ struct CodeMapExtractor {
 		if normalizedMode != "auto" {
 			if let cap = userMaxDepth, cap == 0 {
 				// Fast path: depth == 0
-				var cache: [VCCacheKey: [FileSystemItemType]] = [:]
+				var cache: [VCCacheKey: [FileTreeNodeSnapshot]] = [:]
 				var used = false
 				var sb = StringBuilder(reserve: 8_192)
 				let outcome = buildDepthZeroTree(
@@ -1205,7 +1205,7 @@ struct CodeMapExtractor {
 				}
 			}()
 			
-			var cache: [VCCacheKey: [FileSystemItemType]] = [:]
+			var cache: [VCCacheKey: [FileTreeNodeSnapshot]] = [:]
 			var used = false
 			var sb = StringBuilder(reserve: 16_384)
 			let outcome: BuildOutcome
@@ -1237,7 +1237,7 @@ struct CodeMapExtractor {
 						if let budget = ctx.tokenBudget, sb.estimatedTokens >= budget { return .tooLarge }
 						// Use the same emitter as in generateFileTreeWithDepth by defining a minimal local version
 						// Local visible-children (no hidden-file flag; rely on RepoPrompt visibility)
-						func localVisibleChildren(of folder: FolderViewModel, mode: String, selectedFileIDs: Set<UUID>, cache: inout [VCCacheKey: [FileSystemItemType]]) -> [FileSystemItemType] {
+						func localVisibleChildren(of folder: FileTreeFolderSnapshot, mode: String, selectedFileIDs: Set<String>, cache: inout [VCCacheKey: [FileTreeNodeSnapshot]]) -> [FileTreeNodeSnapshot] {
 							let m = mode.lowercased()
 							let modeKey: UInt8
 							switch m {
@@ -1248,8 +1248,8 @@ struct CodeMapExtractor {
 							}
 							let key = VCCacheKey(folderID: folder.id, mode: modeKey)
 							if let cached = cache[key] { return cached }
-							var folders: [FolderViewModel] = []
-							var files: [FileViewModel] = []
+							var folders: [FileTreeFolderSnapshot] = []
+							var files: [FileTreeFileSnapshot] = []
 							for child in folder.children {
 								switch child {
 								case .folder(let fo):
@@ -1288,7 +1288,7 @@ struct CodeMapExtractor {
 							}
 							folders.sort(by: nameAscending)
 							files.sort(by: nameAscending)
-							var merged: [FileSystemItemType] = []
+							var merged: [FileTreeNodeSnapshot] = []
 							merged.reserveCapacity(folders.count + files.count)
 							merged.append(contentsOf: folders.map { .folder($0) })
 							merged.append(contentsOf: files.map { .file($0) })
@@ -1296,12 +1296,12 @@ struct CodeMapExtractor {
 							return merged
 						}
 						func localEmitSelectedOnly(
-							child: FileSystemItemType,
+							child: FileTreeNodeSnapshot,
 							basePrefix: String,
 							isLast: Bool,
 							ctx: inout BuildContext,
 							sb: inout StringBuilder,
-							visited: inout Set<UUID>
+							visited: inout Set<String>
 						) -> BuildOutcome {
 							if let budget = ctx.tokenBudget, sb.estimatedTokens >= budget { return .tooLarge }
 							switch child {
@@ -1316,7 +1316,7 @@ struct CodeMapExtractor {
 								sb.appendLine("\(basePrefix)\(isLast ? "└── " : "├── ")\(fo.name)")
 								let nextPrefix = basePrefix + (isLast ? "    " : "│   ")
 								let selectedFolderIDs = ctx.getSelectedFolderIDs()
-								var relevant: [FileSystemItemType] = fo.children.filter { c in
+								var relevant: [FileTreeNodeSnapshot] = fo.children.filter { c in
 									switch c {
 									case .file(let f):   return ctx.selectedFileIDs.contains(f.id)
 									case .folder(let s): return selectedFolderIDs.contains(s.id)
@@ -1334,14 +1334,14 @@ struct CodeMapExtractor {
 						}
 						let rootIdentity = FileTreeRenderedRootIdentity(root: root)
 						func localEmit(
-							_ folder: FolderViewModel,
+							_ folder: FileTreeFolderSnapshot,
 							depth: Int,
 							prefix: String,
 							isRoot: Bool,
 							isLast: Bool,
 							ctx: inout BuildContext,
 							sb: inout StringBuilder,
-							visited: inout Set<UUID>
+							visited: inout Set<String>
 						) -> BuildOutcome {
 							if let budget = ctx.tokenBudget, sb.estimatedTokens >= budget { return .tooLarge }
 							if !visited.insert(folder.id).inserted { return .ok }
@@ -1364,10 +1364,10 @@ struct CodeMapExtractor {
 							sb.appendLine(linePrefix + folderName)
 							if let cap = ctx.maxDepth, depth > cap {
 								let childBasePrefix = prefix + (isRoot ? "" : (isLast ? "    " : "│   "))
-								let wouldInclude: [FileSystemItemType]
+								let wouldInclude: [FileTreeNodeSnapshot]
 								if m == "selected" {
 									let selectedFolderIDs = ctx.getSelectedFolderIDs()
-									var subset: [FileSystemItemType] = folder.children.filter {
+									var subset: [FileTreeNodeSnapshot] = folder.children.filter {
 										switch $0 {
 										case .file(let f):   return ctx.selectedFileIDs.contains(f.id)
 										case .folder(let s): return selectedFolderIDs.contains(s.id)
@@ -1384,7 +1384,7 @@ struct CodeMapExtractor {
 									)
 								}
 								let selectedFolderIDs = ctx.getSelectedFolderIDs()
-								let selectedOnly: [FileSystemItemType] = wouldInclude.filter {
+								let selectedOnly: [FileTreeNodeSnapshot] = wouldInclude.filter {
 									switch $0 {
 									case .file(let fi):   return ctx.selectedFileIDs.contains(fi.id)
 									case .folder(let fo): return selectedFolderIDs.contains(fo.id)
@@ -1404,10 +1404,10 @@ struct CodeMapExtractor {
 								return .ok
 							}
 							let childPrefixBase = prefix + (isRoot ? "" : (isLast ? "    " : "│   "))
-							let wouldInclude: [FileSystemItemType]
+							let wouldInclude: [FileTreeNodeSnapshot]
 							if m == "selected" {
 								let selectedFolderIDs = ctx.getSelectedFolderIDs()
-								var subset: [FileSystemItemType] = folder.children.filter {
+								var subset: [FileTreeNodeSnapshot] = folder.children.filter {
 									switch $0 {
 									case .file(let f):   return ctx.selectedFileIDs.contains(f.id)
 									case .folder(let s): return selectedFolderIDs.contains(s.id)
@@ -1424,12 +1424,12 @@ struct CodeMapExtractor {
 								)
 							}
 							// Selection-first + sibling cap (AUTO-only, top-level)
-							func prioritizeAndCap(_ items: [FileSystemItemType], ctx: inout BuildContext) -> (items: [FileSystemItemType], hidden: Int) {
+							func prioritizeAndCap(_ items: [FileTreeNodeSnapshot], ctx: inout BuildContext) -> (items: [FileTreeNodeSnapshot], hidden: Int) {
 								let selFolderIDs = ctx.getSelectedFolderIDs()
-								var selFolders: [FileSystemItemType] = []
-								var otherFolders: [FileSystemItemType] = []
-								var selFiles: [FileSystemItemType] = []
-								var otherFiles: [FileSystemItemType] = []
+								var selFolders: [FileTreeNodeSnapshot] = []
+								var otherFolders: [FileTreeNodeSnapshot] = []
+								var selFiles: [FileTreeNodeSnapshot] = []
+								var otherFiles: [FileTreeNodeSnapshot] = []
 								for it in items {
 									switch it {
 									case .folder(let fo):
@@ -1467,7 +1467,7 @@ struct CodeMapExtractor {
 							}
 							return .ok
 						}
-						var visited = Set<UUID>()
+						var visited = Set<String>()
 						if case .tooLarge = localEmit(root, depth: 0, prefix: "", isRoot: true, isLast: true, ctx: &ctx, sb: &sb, visited: &visited) {
 							return .tooLarge
 						}
@@ -1527,14 +1527,14 @@ struct CodeMapExtractor {
 	/// Helper for a single root; enforces depth cap and renders ellipses where content is truncated.
 	// REPOMARK:SCOPE: 4 - In generateFileTreeWithDepth(...), remove includeHidden usage and dotfile checks; rely on RepoPrompt visibility
 	private static func generateFileTreeWithDepth(
-		rootFolder: FolderViewModel,
+		rootFolder: FileTreeFolderSnapshot,
 		mode: String,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		filePathDisplay: FilePathDisplay,
 		tokenBudget: Int?,
-		selectedFileIDs: Set<UUID>,
-		selectedFolderIDs: Set<UUID>,
+		selectedFileIDs: Set<String>,
+		selectedFolderIDs: Set<String>,
 		badExt: Set<String>,
 		badDirs: Set<String>,
 		showCodeMapMarkers: Bool
@@ -1546,11 +1546,11 @@ struct CodeMapExtractor {
 		// Local cached visible children
 		// Local cached visible children (includeHidden is ignored)
 		func visibleChildren(
-			of folder: FolderViewModel,
+			of folder: FileTreeFolderSnapshot,
 			mode: String,
-			selectedFileIDs: Set<UUID>,
-			cache: inout [VCCacheKey: [FileSystemItemType]]
-		) -> [FileSystemItemType] {
+			selectedFileIDs: Set<String>,
+			cache: inout [VCCacheKey: [FileTreeNodeSnapshot]]
+		) -> [FileTreeNodeSnapshot] {
 			if Task.isCancelled { return [] }
 			let m = mode.lowercased()
 			let modeKey: UInt8
@@ -1563,8 +1563,8 @@ struct CodeMapExtractor {
 			let key = VCCacheKey(folderID: folder.id, mode: modeKey)
 			if let cached = cache[key] { return cached }
 			
-			var folders: [FolderViewModel] = []
-			var files: [FileViewModel] = []
+			var folders: [FileTreeFolderSnapshot] = []
+			var files: [FileTreeFileSnapshot] = []
 			
 			for child in folder.children {
 				if Task.isCancelled { break }
@@ -1607,7 +1607,7 @@ struct CodeMapExtractor {
 			folders.sort(by: nameAscending)
 			files.sort(by: nameAscending)
 			
-			var merged: [FileSystemItemType] = []
+			var merged: [FileTreeNodeSnapshot] = []
 			merged.reserveCapacity(folders.count + files.count)
 			merged.append(contentsOf: folders.map { .folder($0) })
 			merged.append(contentsOf: files.map { .file($0) })
@@ -1617,12 +1617,12 @@ struct CodeMapExtractor {
 		}
 		
 		func emitSelectedOnly(
-			child: FileSystemItemType,
+			child: FileTreeNodeSnapshot,
 			basePrefix: String,
 			isLast: Bool,
 			ctx: inout BuildContext,
 			sb: inout StringBuilder,
-			visited: inout Set<UUID>
+			visited: inout Set<String>
 		) -> BuildOutcome {
 			if Task.isCancelled { return .tooLarge }
 			if let budget = ctx.tokenBudget, sb.estimatedTokens >= budget { return .tooLarge }
@@ -1641,7 +1641,7 @@ struct CodeMapExtractor {
 				let nextPrefix = basePrefix + (isLast ? "    " : "│   ")
 				
 				let selectedFolderIDs = ctx.getSelectedFolderIDs()
-				var relevant: [FileSystemItemType] = fo.children.filter { c in
+				var relevant: [FileTreeNodeSnapshot] = fo.children.filter { c in
 					switch c {
 					case .file(let f):   return ctx.selectedFileIDs.contains(f.id)
 					case .folder(let s): return selectedFolderIDs.contains(s.id)
@@ -1660,14 +1660,14 @@ struct CodeMapExtractor {
 		}
 		
 		func emit(
-			_ folder: FolderViewModel,
+			_ folder: FileTreeFolderSnapshot,
 			depth: Int,
 			prefix: String,
 			isRoot: Bool,
 			isLast: Bool,
 			ctx: inout BuildContext,
 			sb: inout StringBuilder,
-			visited: inout Set<UUID>
+			visited: inout Set<String>
 		) -> BuildOutcome {
 			if Task.isCancelled { return .tooLarge }
 			if let budget = ctx.tokenBudget, sb.estimatedTokens >= budget { return .tooLarge }
@@ -1704,10 +1704,10 @@ struct CodeMapExtractor {
 				let childBasePrefix = prefix + (isRoot ? "" : (isLast ? "    " : "│   "))
 				
 				// Would include = children visible under the current (non-selected) mode
-				let wouldInclude: [FileSystemItemType]
+				let wouldInclude: [FileTreeNodeSnapshot]
 				if m == "selected" {
 					let selectedFolderIDs = ctx.getSelectedFolderIDs()
-					var subset: [FileSystemItemType] = folder.children.filter {
+					var subset: [FileTreeNodeSnapshot] = folder.children.filter {
 						switch $0 {
 						case .file(let f):   return ctx.selectedFileIDs.contains(f.id)
 						case .folder(let s): return selectedFolderIDs.contains(s.id)
@@ -1726,7 +1726,7 @@ struct CodeMapExtractor {
 				
 				// Selected-only pass beyond cap
 				let selectedFolderIDs = ctx.getSelectedFolderIDs()
-				let selectedOnly: [FileSystemItemType] = wouldInclude.filter {
+				let selectedOnly: [FileTreeNodeSnapshot] = wouldInclude.filter {
 					switch $0 {
 					case .file(let fi):   return ctx.selectedFileIDs.contains(fi.id)
 					case .folder(let fo): return selectedFolderIDs.contains(fo.id)
@@ -1752,10 +1752,10 @@ struct CodeMapExtractor {
 			let childPrefixBase = prefix + (isRoot ? "" : (isLast ? "    " : "│   "))
 			
 			// Children selection strategy per mode
-			let wouldInclude: [FileSystemItemType]
+			let wouldInclude: [FileTreeNodeSnapshot]
 			if m == "selected" {
 				let selectedFolderIDs = ctx.getSelectedFolderIDs()
-				var subset: [FileSystemItemType] = folder.children.filter {
+				var subset: [FileTreeNodeSnapshot] = folder.children.filter {
 					switch $0 {
 					case .file(let f):   return ctx.selectedFileIDs.contains(f.id)
 					case .folder(let s): return selectedFolderIDs.contains(s.id)
@@ -1774,12 +1774,12 @@ struct CodeMapExtractor {
 			}
 			
 			// Selection-first + sibling cap (AUTO-only, top-level)
-			func prioritizeAndCap(_ items: [FileSystemItemType], ctx: inout BuildContext) -> (items: [FileSystemItemType], hidden: Int) {
+			func prioritizeAndCap(_ items: [FileTreeNodeSnapshot], ctx: inout BuildContext) -> (items: [FileTreeNodeSnapshot], hidden: Int) {
 				let selFolderIDs = ctx.getSelectedFolderIDs()
-				var selFolders: [FileSystemItemType] = []
-				var otherFolders: [FileSystemItemType] = []
-				var selFiles: [FileSystemItemType] = []
-				var otherFiles: [FileSystemItemType] = []
+				var selFolders: [FileTreeNodeSnapshot] = []
+				var otherFolders: [FileTreeNodeSnapshot] = []
+				var selFiles: [FileTreeNodeSnapshot] = []
+				var otherFiles: [FileTreeNodeSnapshot] = []
 				for it in items {
 					switch it {
 					case .folder(let fo):
@@ -1830,7 +1830,7 @@ struct CodeMapExtractor {
 			maxDepth: maxDepth
 		)
 		
-		var visited = Set<UUID>()
+		var visited = Set<String>()
 		let outcome = emit(rootFolder, depth: 0, prefix: "", isRoot: true, isLast: true, ctx: &ctx, sb: &sb, visited: &visited)
 		usedSelectedMarker = ctx.usedSelectedMarker
 		let truncated = (tokenBudget != nil && outcome == .tooLarge)
@@ -1842,10 +1842,10 @@ struct CodeMapExtractor {
 	/// Generate a file tree starting at a specific folder (absolute `fullPath`), using FileTreeOption.
 	static func generateFileTreeStartingAtPath(
 		startFolderFullPath: String,
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		option: FileTreeOption,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID> = [],
+		selectedFileIDs: Set<String> = [],
 		onlyIncludeRootsWithSelectedFiles: Bool = false,
 		includeLegend: Bool = true,
 		showCodeMapMarkers: Bool = true
@@ -1876,12 +1876,12 @@ struct CodeMapExtractor {
 	/// Lower-level variant with explicit mode/limits.
 	static func generateFileTreeStartingAtPath(
 		startFolderFullPath: String,
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		mode: String,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID> = [],
+		selectedFileIDs: Set<String> = [],
 		includeLegend: Bool = true,
 		isMCPContext: Bool = false,
 		showCodeMapMarkers: Bool = true
@@ -1914,12 +1914,12 @@ struct CodeMapExtractor {
 	
 	static func generateFileTreeStartingAtPath(
 		startFolderFullPath: String,
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		option: FileTreeOption,
 		maxDepth: Int?,
 		includeHidden: Bool,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID> = [],
+		selectedFileIDs: Set<String> = [],
 		onlyIncludeRootsWithSelectedFiles: Bool = false,
 		includeLegend: Bool = true,
 		showCodeMapMarkers: Bool = true
@@ -1949,11 +1949,11 @@ struct CodeMapExtractor {
 		return patchedTreeReplacingFirstLine(raw, with: targetRootLabel)
 	}
 	
-	/// DFS lookup of a FolderViewModel by absolute path, preserving the top-level root that contains it.
+	/// DFS lookup of a FileTreeFolderSnapshot by absolute path, preserving the top-level root that contains it.
 	private static func findFolderWithContainingRoot(
 		byFullPath fullPath: String,
-		in roots: [FolderViewModel]
-	) -> (folder: FolderViewModel, root: FolderViewModel)? {
+		in roots: [FileTreeFolderSnapshot]
+	) -> (folder: FileTreeFolderSnapshot, root: FileTreeFolderSnapshot)? {
 		let targetPath = StandardizedPath.absolute(fullPath)
 		let candidateRoots = roots
 			.filter { root in
@@ -1964,8 +1964,8 @@ struct CodeMapExtractor {
 
 		for root in candidateRoots {
 			if root.standardizedFullPath == targetPath { return (root, root) }
-			var stack = [FolderViewModel]()
-			var visited = Set<UUID>()
+			var stack = [FileTreeFolderSnapshot]()
+			var visited = Set<String>()
 			visited.insert(root.id)
 			for child in root.children {
 				if case .folder(let f) = child { stack.append(f) }
@@ -1985,10 +1985,10 @@ struct CodeMapExtractor {
 	
 	/// Converts FileTreeOption enum to string mode for unified implementation.
 	static func generateFileTreeForRoots(
-		rootFolders: [FolderViewModel],
+		rootFolders: [FileTreeFolderSnapshot],
 		option: FileTreeOption,
 		filePathDisplay: FilePathDisplay,
-		selectedFileIDs: Set<UUID>,
+		selectedFileIDs: Set<String>,
 		onlyIncludeRootsWithSelectedFiles: Bool,
 		includeLegend: Bool = true,
 		isExplicitSubtree: Bool = false,
@@ -2029,113 +2029,17 @@ struct CodeMapExtractor {
 		text.append("\n")
 		text.append(mcpTruncationMessage)
 	}
-	
-	// MARK: - Code-map-only file-tree
-	
-	/// Builds an ASCII tree that lists **only** those files whose `fileAPI`
-	/// has already been populated (i.e., a code-map exists for that file).
-	/// This does not rely on "selected" machinery and does not affect UI behavior.
-	static func generateCodeMapFileTree(
-		rootFolders: [FolderViewModel],
-		filePathDisplay: FilePathDisplay = .full
-	) -> String {
-		if Task.isCancelled { return "" }
-		// DEPRECATED: The standard file tree now marks code-map files inline (+).
-		// This method is retained for compatibility but should not be used by tools.
-		// Flatten all files
-		let allFiles: [FileViewModel] = rootFolders.flatMap { root in
-			var res: [FileViewModel] = []
-			var visited = Set<UUID>()
-			var stack = [root]
-			while let folder = stack.popLast() {
-				if !visited.insert(folder.id).inserted { continue }
-				for child in folder.children {
-					switch child {
-					case .file(let f): res.append(f)
-					case .folder(let s): stack.append(s)
-					}
-				}
-			}
-			return res
-		}
-		
-		let codeMapFiles = allFiles.filter { $0.fileAPI != nil }
-		guard !codeMapFiles.isEmpty else { return "" }
-		
-		let codeMapIDs = Set(codeMapFiles.map(\.id))
-		let showFullPath = (filePathDisplay == .full)
-		
-		func folderContainsCodeMap(_ folder: FolderViewModel) -> Bool {
-			var visited = Set<UUID>()
-			var stack = [folder]
-			while let current = stack.popLast() {
-				if !visited.insert(current.id).inserted { continue }
-				for child in current.children {
-					switch child {
-					case .file(let f):
-						if codeMapIDs.contains(f.id) { return true }
-					case .folder(let sub):
-						stack.append(sub)
-					}
-				}
-			}
-			return false
-		}
-		
-		func buildTree(
-			_ folder: FolderViewModel,
-			prefix: String,
-			isRoot: Bool,
-			isLast: Bool,
-			visited: inout Set<UUID>
-		) -> String {
-			if Task.isCancelled { return "" }
-			if !visited.insert(folder.id).inserted { return "" }
-			// Skip branches without any code-map files
-			if !isRoot && !folderContainsCodeMap(folder) { return "" }
-			
-			let folderName = isRoot
-			? (showFullPath ? folder.fullPath : folder.name)
-			: folder.name
-			var result = isRoot
-			? "\(folderName)\n"
-			: "\(prefix)\(isLast ? "└── " : "├── ")\(folderName)\n"
-			
-			let newPrefix = isRoot ? "" : prefix + (isLast ? "    " : "│   ")
-			
-			// Relevant children = sub-folders with code-maps OR files that have a map
-			var relevant: [FileSystemItemType] = folder.children.filter { child in
-				switch child {
-				case .file(let f):   return codeMapIDs.contains(f.id)
-				case .folder(let s): return folderContainsCodeMap(s)
-				}
-			}
-			// Folder-first ordering
-			relevant.sort(by: folderFirstNameAscending)
-			
-			for (idx, child) in relevant.enumerated() {
-				let childIsLast = idx == relevant.count - 1
-				switch child {
-				case .file(let f):
-					result += "\(newPrefix)\(childIsLast ? "└── " : "├── ")\(f.name)\n"
-				case .folder(let sub):
-					result += buildTree(sub, prefix: newPrefix, isRoot: false, isLast: childIsLast, visited: &visited)
-				}
-			}
-			return result
-		}
-		
-		var trees: [String] = []
-		for (idx, root) in rootFolders.enumerated() {
-			if folderContainsCodeMap(root) {
-				var visited = Set<UUID>()
-				let tree = buildTree(root, prefix: "", isRoot: true, isLast: idx == rootFolders.count - 1, visited: &visited)
-				trees.append(tree)
-			}
-		}
-		return trees.joined(separator: "\n")
-	}
 }
+
+/// A file or folder of a file tree snapshot that sorts by name.
+protocol FileTreeSortableNode {
+	var id: String { get }
+	var name: String { get }
+	var nameSortKey: String { get }
+}
+
+extension FileTreeFolderSnapshot: FileTreeSortableNode {}
+extension FileTreeFileSnapshot: FileTreeSortableNode {}
 
 /// Canonical identity for the top-level root whose tree is currently being rendered.
 /// Root labels must use this rendered/containing root rather than each node's `rootPath`,
@@ -2144,7 +2048,7 @@ fileprivate struct FileTreeRenderedRootIdentity {
 	let standardizedFullPath: String
 	let displayName: String
 
-	init(root: FolderViewModel) {
+	init(root: FileTreeFolderSnapshot) {
 		self.standardizedFullPath = root.standardizedFullPath
 		let lastPathComponent = (root.standardizedFullPath as NSString).lastPathComponent
 		self.displayName = lastPathComponent.isEmpty ? root.name : lastPathComponent
@@ -2156,7 +2060,7 @@ fileprivate struct FileTreeRenderedRootIdentity {
 /// - If .relative, returns "RootName/relative" using the actual rendered/containing root identity.
 /// - Falls back to "RootName/folder.name" if the folder is not under the containing root.
 fileprivate func contextualRootLabel(
-	for folder: FolderViewModel,
+	for folder: FileTreeFolderSnapshot,
 	within rootIdentity: FileTreeRenderedRootIdentity,
 	filePathDisplay: FilePathDisplay
 ) -> String {
