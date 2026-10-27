@@ -1006,18 +1006,81 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedFullPath), [])
 	}
 
+	/// A loaded code root whose `src` subtree is being read again: reading has not listed `src/later` yet.
+	/// Returns the `src` folder's full path and the chunk in which reading lists `src/later`.
 	@MainActor
-	func testTickingAFolderWhoseSubtreeIsBeingReadSelectsNothing() async throws {
+	private func makeCodeRootWhileSrcIsBeingRead() async throws -> (RepoFileManagerViewModel, URL, RootFolderIndex, String, FSPreparedChunk) {
 		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
-		defer { try? FileManager.default.removeItem(at: rootURL) }
-		await fileManagerVM.openFolders(["src"])
-		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		try FileManager.default.createDirectory(at: rootURL.appendingPathComponent("src/later", isDirectory: true), withIntermediateDirectories: true)
+		try "struct Later {}\n".write(to: rootURL.appendingPathComponent("src/later/Later.swift"), atomically: true, encoding: .utf8)
 		index.addFolder("src/later", isRead: false)
+		let srcPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src")
+		let laterChunk = FSPreparedChunk(
+			folders: [],
+			files: [FSItemDTO(relativePath: "src/later/Later.swift", isDirectory: false, hierarchy: 2)],
+			readFolders: ["src/later"]
+		)
+		return (fileManagerVM, rootURL, index, srcPath, laterChunk)
+	}
 
-		fileManagerVM.toggleFolder(src)
+	@MainActor
+	func testTickingAFolderWhoseSubtreeIsBeingReadSelectsEveryFileUnderItOnceItIsRead() async throws {
+		let (fileManagerVM, rootURL, index, srcPath, laterChunk) = try await makeCodeRootWhileSrcIsBeingRead()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
 
-		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedFullPath), [])
+		fileManagerVM.toggleFolder(atStandardizedPath: srcPath)
+
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [])
+		XCTAssertEqual(fileManagerVM.waitingFolderSelections.value, [srcPath])
+
+		fileManagerVM.applyReadingChunkForTesting(laterChunk, rootKey: index.rootPath)
+
+		let expected = ["src/Middle.swift", "src/deep/Deep.swift", "src/deep/notes.md", "src/later/Later.swift"]
+		XCTAssertEqual(index.selectedFilePaths, Set(expected))
+		XCTAssertEqual(
+			Set(fileManagerVM.snapshotSelection().selectedPaths),
+			Set(expected.map { StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: $0) })
+		)
+		XCTAssertEqual(index.checkboxState(ofFolder: "src"), .checked)
+		XCTAssertEqual(fileManagerVM.waitingFolderSelections.value, [])
+	}
+
+	@MainActor
+	func testTickingAWaitingFolderAgainStopsTheWait() async throws {
+		let (fileManagerVM, rootURL, index, srcPath, laterChunk) = try await makeCodeRootWhileSrcIsBeingRead()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		fileManagerVM.toggleFolder(atStandardizedPath: srcPath)
+		fileManagerVM.toggleFolder(atStandardizedPath: srcPath)
+		fileManagerVM.applyReadingChunkForTesting(laterChunk, rootKey: index.rootPath)
+
+		XCTAssertEqual(fileManagerVM.waitingFolderSelections.value, [])
 		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [])
+	}
+
+	@MainActor
+	func testSwitchingTabsForgetsAWaitingFolder() async throws {
+		let (fileManagerVM, rootURL, index, srcPath, laterChunk) = try await makeCodeRootWhileSrcIsBeingRead()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		fileManagerVM.setCurrentWorkspaceID(UUID())
+		fileManagerVM.toggleFolder(atStandardizedPath: srcPath)
+
+		let topPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "Top.swift")
+		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Tab", selection: StoredSelection(
+			selectedPaths: [topPath],
+			autoCodemapPaths: [],
+			slices: [:],
+			codemapAutoEnabled: false
+		)))
+		fileManagerVM.applyReadingChunkForTesting(laterChunk, rootKey: index.rootPath)
+
+		XCTAssertEqual(fileManagerVM.waitingFolderSelections.value, [])
+		XCTAssertEqual(index.selectedFilePaths, ["Top.swift"])
+		XCTAssertEqual(fileManagerVM.snapshotSelection().selectedPaths, [topPath])
 	}
 
 	/// A loaded code root whose index has not read `src/deep` yet, with a tab selection of `Top.swift`
