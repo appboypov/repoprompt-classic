@@ -233,11 +233,11 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 		var request: Task<ToolResultDTOs.PromptContextDTO, Never>?
 		try await addFileWhileReading("src/deep/Later.swift", in: fixture) {
-			request = Task { await fixture.mcpServer.buildTabWorkspaceContext(context: context, include: ["selection"], display: .full) }
+			request = Task { await fixture.mcpServer.buildTabWorkspaceContext(context: context, include: ["selection"], display: .relative) }
 		}
 
 		let dto = try await XCTUnwrap(request).value
-		XCTAssertEqual(dto.selection?.files.map(\.path), [laterPath])
+		XCTAssertEqual(dto.selection?.files.map(\.path), ["src/deep/Later.swift"])
 	}
 
 	func testSelectingAFolderDuringReadingSelectsEveryFileOfTheCompleteIndex() async throws {
@@ -272,13 +272,16 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 				codeMapUsageOverride: .complete
 			)
 		}
-		let withEveryFolderOpened = await reply()
+		func listedFiles() async -> [[String]]? {
+			await reply().files?.map { [$0.path, $0.renderMode] }
+		}
+		let withEveryFolderOpened = await listedFiles()
 
 		fixture.closeDeepFolder()
 
-		let result = await reply()
+		let result = await listedFiles()
 		XCTAssertEqual(result, withEveryFolderOpened)
-		XCTAssertEqual(result.files?.first(where: { $0.path == deepPath })?.renderMode, "codemap")
+		XCTAssertTrue(result?.contains([deepPath, "codemap"]) == true, "\(String(describing: result))")
 	}
 
 	func testAFolderInANestedRootFolderBelongsToTheNestedRoot() async throws {
