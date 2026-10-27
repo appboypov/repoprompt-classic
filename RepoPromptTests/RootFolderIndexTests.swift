@@ -15,7 +15,7 @@ final class RootFolderIndexTests: XCTestCase {
 
 		index.remove("a/b")
 
-		XCTAssertEqual(index.filePaths, ["a/d.swift", "e.swift"])
+		XCTAssertEqual(Set(index.filePaths), ["a/d.swift", "e.swift"])
 		XCTAssertNil(index.folders["a/b"])
 		XCTAssertEqual(index.folders["a"]?.fileCount, 1)
 		XCTAssertEqual(index.folders[""]?.fileCount, 2)
@@ -28,7 +28,7 @@ final class RootFolderIndexTests: XCTestCase {
 
 		index.remove("a/b/c.swift")
 
-		XCTAssertEqual(index.filePaths, ["a/b/d.swift"])
+		XCTAssertEqual(Set(index.filePaths), ["a/b/d.swift"])
 		XCTAssertEqual(index.folders["a/b"]?.fileCount, 1)
 		XCTAssertEqual(index.folders["a"]?.fileCount, 1)
 		XCTAssertEqual(index.folders[""]?.fileCount, 1)
@@ -110,7 +110,7 @@ final class RootFolderIndexTests: XCTestCase {
 			readFolders: [""]
 		))
 
-		XCTAssertEqual(index.filePaths, ["top.swift"])
+		XCTAssertEqual(Set(index.filePaths), ["top.swift"])
 		XCTAssertEqual(index.folders["a"]?.isSubtreeRead, false)
 		XCTAssertFalse(index.isReadingComplete)
 
@@ -368,5 +368,29 @@ final class RootFolderIndexTests: XCTestCase {
 		index.select("a/c.swift")
 		index.deselect("a/c.swift")
 		XCTAssertEqual(index.generation, beforeSelection)
+	}
+
+	func testFilePathsListCountAndFindEveryFileOfEveryFolderOnce() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("top.swift")
+		index.addFile("a/b/c.swift")
+		index.addFile("a/b/c.swift")
+		index.addFile("a/d.swift")
+		index.addFile("x")
+		index.addFolder("x", isRead: true)
+
+		XCTAssertEqual(index.filePaths.sorted(), ["a/b/c.swift", "a/d.swift", "top.swift"])
+		XCTAssertEqual(index.filePaths.count, 3)
+		XCTAssertTrue(index.filePaths.contains("a/b/c.swift"))
+		XCTAssertFalse(index.filePaths.contains("a/b"))
+		XCTAssertFalse(index.filePaths.contains("x"))
+
+		index.remove("a")
+
+		XCTAssertEqual(index.filePaths.sorted(), ["top.swift"])
+		XCTAssertEqual(index.filePaths.count, 1)
+		XCTAssertFalse(index.filePaths.contains("a/d.swift"))
+		XCTAssertFalse(RootFolderIndex(rootPath: "/repo").filePaths.contains("top.swift"))
+		XCTAssertTrue(RootFolderIndex(rootPath: "/repo").filePaths.isEmpty)
 	}
 }

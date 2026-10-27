@@ -32,8 +32,43 @@ final class RootFolderIndex {
 		}
 	}
 
+	/// The files of the index, read from the folders that hold them. Files are kept per folder only,
+	/// so a growing index never copies the paths of all its files at once.
+	struct FilePaths: Sequence {
+		fileprivate let folders: [String: Folder]
+		/// The number of files.
+		let count: Int
+
+		var isEmpty: Bool { count == 0 }
+
+		func contains(_ path: String) -> Bool {
+			folders[RootFolderIndex.parentPath(of: path)]?.childFilePaths.contains(path) == true
+		}
+
+		func makeIterator() -> Iterator {
+			Iterator(folders: folders.values.makeIterator())
+		}
+
+		struct Iterator: IteratorProtocol {
+			fileprivate var folders: Dictionary<String, Folder>.Values.Iterator
+			fileprivate var files: Set<String>.Iterator?
+
+			fileprivate init(folders: Dictionary<String, Folder>.Values.Iterator) {
+				self.folders = folders
+			}
+
+			mutating func next() -> String? {
+				while true {
+					if let file = files?.next() { return file }
+					guard let folder = folders.next() else { return nil }
+					files = folder.childFilePaths.makeIterator()
+				}
+			}
+		}
+	}
+
 	let rootPath: String
-	private(set) var filePaths: Set<String> = []
+	var filePaths: FilePaths { FilePaths(folders: folders, count: root.fileCount) }
 	/// The files of the selection.
 	private(set) var selectedFilePaths: Set<String> = []
 	/// Selected files reading has not found yet. Each is selected once reading adds it.
@@ -119,7 +154,7 @@ final class RootFolderIndex {
 	func addFolder(_ path: String, isRead: Bool) {
 		guard !path.isEmpty, folders[path] == nil else { return }
 		advanceGeneration()
-		if filePaths.contains(path) {
+		if hasFile(path) {
 			remove(path)
 		}
 		let parentPath = Self.parentPath(of: path)
@@ -138,14 +173,13 @@ final class RootFolderIndex {
 
 	/// Adds a file. Missing folders above it are added as read.
 	func addFile(_ path: String) {
-		guard !path.isEmpty, !filePaths.contains(path) else { return }
+		guard !path.isEmpty, !hasFile(path) else { return }
 		advanceGeneration()
 		if folders[path] != nil {
 			remove(path)
 		}
 		let parent = folder(at: Self.parentPath(of: path))
 		parent.childFilePaths.insert(path)
-		filePaths.insert(path)
 		var current: Folder? = parent
 		while let node = current {
 			node.fileCount += 1
@@ -180,7 +214,7 @@ final class RootFolderIndex {
 	/// Adds a file of the index to the selection. While reading runs, a file reading has not found yet
 	/// waits and is selected once reading adds it.
 	func select(_ path: String) {
-		guard filePaths.contains(path) else {
+		guard hasFile(path) else {
 			if !isReadingComplete {
 				pendingSelectedFilePaths.insert(path)
 			}
@@ -215,10 +249,8 @@ final class RootFolderIndex {
 	/// Removes a file, or a folder with everything under it.
 	func remove(_ path: String) {
 		guard !path.isEmpty else { return }
-		if filePaths.remove(path) != nil {
+		if let parent = folders[Self.parentPath(of: path)], parent.childFilePaths.remove(path) != nil {
 			advanceGeneration()
-			guard let parent = folders[Self.parentPath(of: path)] else { return }
-			parent.childFilePaths.remove(path)
 			let selectedCount = selectedFilePaths.remove(path) == nil ? 0 : 1
 			var current: Folder? = parent
 			while let node = current {
@@ -242,7 +274,6 @@ final class RootFolderIndex {
 		while let folderPath = pending.popLast() {
 			guard let removed = folders.removeValue(forKey: folderPath) else { continue }
 			unreadFolderPaths.remove(folderPath)
-			filePaths.subtract(removed.childFilePaths)
 			selectedFilePaths.subtract(removed.childFilePaths)
 			pending.append(contentsOf: removed.childFolderPaths)
 		}
@@ -254,6 +285,10 @@ final class RootFolderIndex {
 			node.selectedFileCount += delta
 			current = node.parent
 		}
+	}
+
+	private func hasFile(_ path: String) -> Bool {
+		folders[Self.parentPath(of: path)]?.childFilePaths.contains(path) == true
 	}
 
 	private func folder(at path: String) -> Folder {

@@ -436,7 +436,7 @@ final class RepoFileManagerTests: XCTestCase {
 		await fileManagerVM.waitUntilReadingIsComplete()
 
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[StandardizedPath.absolute(rootURL.path)])
-		let loaded = index.filePaths.filter { $0.hasSuffix(".swift") || $0.hasSuffix(".log") }
+		let loaded = Set(index.filePaths.filter { $0.hasSuffix(".swift") || $0.hasSuffix(".log") })
 		XCTAssertEqual(loaded, expected)
 	}
 
@@ -466,7 +466,7 @@ final class RepoFileManagerTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
-		XCTAssertEqual(index.filePaths, [".gitignore", "README.md", "docs/.gitignore", "docs/guides/intro.md", "src/a.swift", "src/b.swift", "src/deep/c.swift"])
+		XCTAssertEqual(Set(index.filePaths), [".gitignore", "README.md", "docs/.gitignore", "docs/guides/intro.md", "src/a.swift", "src/b.swift", "src/deep/c.swift"])
 		XCTAssertEqual(Set(index.folders.keys), ["", "docs", "docs/guides", "empty", "src", "src/deep"])
 		XCTAssertEqual(index.folders[""]?.fileCount, 7)
 		XCTAssertEqual(index.folders["src"]?.fileCount, 3)
@@ -499,7 +499,7 @@ final class RepoFileManagerTests: XCTestCase {
 		)
 
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
-		XCTAssertEqual(index.filePaths, [".gitignore", "README.md", "lib/a.swift", "src/b.swift", "src/deep/c.swift", "src/deep/new.swift"])
+		XCTAssertEqual(Set(index.filePaths), [".gitignore", "README.md", "lib/a.swift", "src/b.swift", "src/deep/c.swift", "src/deep/new.swift"])
 		XCTAssertEqual(Set(index.folders.keys), ["", "empty", "lib", "src", "src/deep"])
 		XCTAssertEqual(index.folders[""]?.fileCount, 6)
 		XCTAssertEqual(index.folders["src"]?.fileCount, 3)
@@ -945,7 +945,7 @@ final class RepoFileManagerTests: XCTestCase {
 		await fileManagerVM.buildChildren(of: deep)
 
 		XCTAssertEqual(childNames(of: deep), ["Deep.swift", "notes.md"])
-		XCTAssertTrue(index.filePaths.isSuperset(of: ["src/deep/Deep.swift", "src/deep/notes.md"]))
+		XCTAssertTrue(Set(index.filePaths).isSuperset(of: ["src/deep/Deep.swift", "src/deep/notes.md"]))
 	}
 
 	@MainActor
@@ -962,7 +962,7 @@ final class RepoFileManagerTests: XCTestCase {
 		await fileManagerVM.waitUntilReadingIsComplete()
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
 		XCTAssertTrue(index.isReadingComplete)
-		XCTAssertEqual(index.filePaths, ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift", "src/deep/notes.md"])
+		XCTAssertEqual(Set(index.filePaths), ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift", "src/deep/notes.md"])
 	}
 
 	@MainActor
