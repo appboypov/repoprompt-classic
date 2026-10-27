@@ -567,6 +567,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+		await fileManagerVM.openFolders(["src/deep"])
 		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
 		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
 		XCTAssertFalse(deep.isExpanded)
@@ -595,6 +596,7 @@ final class RepoFileManagerTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		XCTAssertTrue(FileManager.default.createFile(atPath: rootURL.appendingPathComponent("src/deep/d.swift").path, contents: Data()))
 		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/d.swift")], forRootFolder: rootFolder)
+		await fileManagerVM.openFolders(["src/deep"])
 		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
 		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
 		let file = try XCTUnwrap(fileManagerVM.findFileByFullPath(rootURL.appendingPathComponent("src/deep/c.swift").path))
@@ -612,6 +614,7 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, rootFolder) = try await makeIndexedRoot()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[rootFolder.standardizedFullPath])
+		await fileManagerVM.openFolders(["src/deep"])
 		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
 		fileManagerVM.toggleFolder(deep)
 		XCTAssertEqual(deep.checkboxState, .checked)
@@ -671,6 +674,7 @@ final class RepoFileManagerTests: XCTestCase {
 
 		try await waitForCodemaps(of: codePaths, in: fileManagerVM)
 
+		await fileManagerVM.openFolders(["src/deep"])
 		for path in codePaths {
 			let file = try XCTUnwrap(fileManagerVM.findFileByFullPath(path))
 			XCTAssertEqual(file.fileAPI?.definedTypeNames, [file.name.replacingOccurrences(of: ".swift", with: "")])
@@ -686,8 +690,6 @@ final class RepoFileManagerTests: XCTestCase {
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
 		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
-		fileManagerVM.removeTreeItemForTesting(fullPath: deepPath)
-		XCTAssertNil(fileManagerVM.findFileByFullPath(deepPath))
 
 		fileManagerVM.flushDeferredInitialRootLoadScans()
 		try await waitForCodemaps(of: [deepPath], in: fileManagerVM)
@@ -705,7 +707,6 @@ final class RepoFileManagerTests: XCTestCase {
 		let rootPath = StandardizedPath.absolute(rootURL.path)
 		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
 		let ghostPath = rootURL.appendingPathComponent("src/deep/Ghost.swift").path
-		fileManagerVM.removeTreeItemForTesting(fullPath: deepPath)
 		func result(_ relativePath: String, typeName: String) -> CodeScanActor.ScanResult {
 			let fullPath = StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath)
 			let request = CodeScanActor.ScanRequest(
@@ -735,31 +736,31 @@ final class RepoFileManagerTests: XCTestCase {
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
 		let codePaths = ["Top.swift", "src/Middle.swift", "src/deep/Deep.swift"].map { rootURL.appendingPathComponent($0).path }
 		try await waitForCodemaps(of: codePaths, in: fileManagerVM)
-		let selectedFiles = try ["Top.swift", "src/deep/Deep.swift"].map {
-			try XCTUnwrap(fileManagerVM.findFileByFullPath(rootURL.appendingPathComponent($0).path))
-		}
+		let selectedFilePaths = Set(["Top.swift", "src/deep/Deep.swift"].map {
+			StandardizedPath.absolute(rootURL.appendingPathComponent($0).path)
+		})
 		let options: [FileTreeOption] = [.files, .selected, .auto]
-		let treesWithEveryFolderOpened = options.map { option in
-			CodeMapExtractor.generateFileTreeForRoots(
-				rootFolders: fileManagerVM.fileTreeRoots(of: fileManagerVM.visibleRootFolders),
-				option: option,
-				filePathDisplay: .relative,
-				selectedFileIDs: Set(selectedFiles.map(\.standardizedFullPath)),
-				onlyIncludeRootsWithSelectedFiles: false
-			)
-		}
-
-		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
-
 		let trees = options.map { option in
 			CodeMapExtractor.generateFileTree(using: fileManagerVM.fileTreeSnapshot(using: FileTreeSelectionContext(
 				rootFolders: fileManagerVM.visibleRootFolders,
-				selectedFilePaths: Set(selectedFiles.map(\.standardizedFullPath)),
+				selectedFilePaths: selectedFilePaths,
 				option: option,
 				filePathDisplay: .relative,
 				onlyIncludeRootsWithSelectedFiles: false,
 				includeLegend: true
 			)))
+		}
+
+		await fileManagerVM.openFolders(["src/deep"])
+
+		let treesWithEveryFolderOpened = options.map { option in
+			CodeMapExtractor.generateFileTreeForRoots(
+				rootFolders: fileManagerVM.fileTreeRoots(of: fileManagerVM.visibleRootFolders),
+				option: option,
+				filePathDisplay: .relative,
+				selectedFileIDs: selectedFilePaths,
+				onlyIncludeRootsWithSelectedFiles: false
+			)
 		}
 		XCTAssertEqual(trees, treesWithEveryFolderOpened)
 		XCTAssertTrue(trees[0].contains("Deep.swift * +"), trees[0])
@@ -785,11 +786,11 @@ final class RepoFileManagerTests: XCTestCase {
 			let contents = await PromptPackagingService.generateFileContents(entries, filePathDisplay: .relative)
 			return (await TokenCalculationService().evaluatePromptEntries(snapshots), contents)
 		}
-		let withEveryFolderOpened = await evaluate()
-
-		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
-
 		let result = await evaluate()
+
+		await fileManagerVM.openFolders(["src/deep"])
+
+		let withEveryFolderOpened = await evaluate()
 		XCTAssertEqual(result.evaluation.fullCount, 3)
 		XCTAssertEqual(result.evaluation.totalContentTokens, withEveryFolderOpened.evaluation.totalContentTokens)
 		XCTAssertEqual(result.contents, withEveryFolderOpened.contents)
@@ -806,7 +807,6 @@ final class RepoFileManagerTests: XCTestCase {
 		let rootPath = StandardizedPath.absolute(rootURL.path)
 		let topFile = try XCTUnwrap(fileManagerVM.findFileByRelativePath("Top.swift"))
 		let deepPath = rootURL.appendingPathComponent("src/deep/Deep.swift").path
-		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
 		func result(_ relativePath: String, fileID: UUID, api: FileAPI) -> CodeScanActor.ScanResult {
 			let request = CodeScanActor.ScanRequest(
 				fileID: fileID,
@@ -843,10 +843,91 @@ final class RepoFileManagerTests: XCTestCase {
 		let fileManagerVM = RepoFileManagerViewModel()
 		fileManagerVM.beginDeferringInitialRootLoadScans()
 		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
-		fileManagerVM.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
 		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
 		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
 		return (fileManagerVM, rootURL, index)
+	}
+
+	@MainActor
+	private func childNames(of folder: FolderViewModel) -> [String] {
+		folder.children.map { child in
+			switch child {
+			case .folder(let subfolder): subfolder.name
+			case .file(let file): file.name
+			}
+		}
+	}
+
+	@MainActor
+	func testLoadingAFolderShowsOnlyTheRootFoldersDirectEntries() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+
+		XCTAssertEqual(childNames(of: root), ["src", "Top.swift"])
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		XCTAssertEqual(childNames(of: src), [])
+	}
+
+	@MainActor
+	func testOpeningAFolderShowsItsDirectEntries() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+
+		await fileManagerVM.buildChildren(of: src)
+
+		XCTAssertEqual(childNames(of: src), ["deep", "Middle.swift"])
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+		XCTAssertEqual(childNames(of: deep), [])
+	}
+
+	@MainActor
+	func testOpeningAFolderShowsItsSelectedFilesTickedAndKeepsOneSelectedFilePerPath() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		fileManagerVM.setCurrentWorkspaceID(UUID())
+		let deepPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/Deep.swift")
+		let ranges = [LineRange(start: 1, end: 2)]
+		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Tab", selection: StoredSelection(
+			selectedPaths: [deepPath],
+			autoCodemapPaths: [],
+			slices: [deepPath: ranges],
+			codemapAutoEnabled: false
+		)))
+
+		await fileManagerVM.openFolders(["src/deep"])
+
+		let row = try XCTUnwrap(fileManagerVM.findFileByFullPath(deepPath))
+		XCTAssertTrue(row.isChecked)
+		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedFullPath), [deepPath])
+		XCTAssertEqual(fileManagerVM.selectionSlices(for: row), ranges)
+		XCTAssertEqual(fileManagerVM.getAllFilesForPrompt().map(\.ranges), [ranges])
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+		XCTAssertEqual(deep.checkboxState, .mixed)
+	}
+
+	@MainActor
+	func testOpeningAFolderReadingHasNotListedShowsItsEntriesFromDisk() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
+		index.remove("src/deep")
+		index.addFolder("src/deep", isRead: false)
+		await fileManagerVM.openFolders(["src"])
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/deep").path))
+
+		await fileManagerVM.buildChildren(of: deep)
+
+		XCTAssertEqual(childNames(of: deep), ["Deep.swift", "notes.md"])
+		XCTAssertTrue(index.filePaths.isSuperset(of: ["src/deep/Deep.swift", "src/deep/notes.md"]))
 	}
 
 	@MainActor

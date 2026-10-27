@@ -17,11 +17,6 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 		func fullPath(_ relativePath: String) -> String {
 			StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: relativePath)
 		}
-
-		/// Drops the tree items of `src/deep`, as when the user never opened that folder.
-		func closeDeepFolder() {
-			fileManager.removeTreeItemsForTesting(underFolder: rootURL.appendingPathComponent("src/deep").path)
-		}
 	}
 
 	/// A window with the root folder `CodeRoot` loaded. `scansCodemaps` lets the load build codemaps.
@@ -98,7 +93,6 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 	func testAFileTreeRequestedDuringReadingAnswersAfterReadingWithTheCompleteTree() async throws {
 		let fixture = try await makeFixture()
-		fixture.closeDeepFolder()
 		fixture.fileManager.readingFileCounts.value[fixture.index.rootPath] = fixture.index.filePaths.count
 
 		let request = Task {
@@ -134,11 +128,11 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 			}
 			return result
 		}
-		let treesWithEveryFolderOpened = await trees()
-
-		fixture.closeDeepFolder()
-
 		let result = await trees()
+
+		await fixture.fileManager.openFolders(["src/deep"])
+
+		let treesWithEveryFolderOpened = await trees()
 		XCTAssertEqual(result, treesWithEveryFolderOpened)
 		let selectedOnly = await fixture.mcpServer.buildFileTreeResult(mode: "selected", maxDepth: nil, includeHidden: false, startPath: "src/deep", selectedPaths: [fixture.fullPath("src/deep/Deep.swift")])
 		XCTAssertTrue(selectedOnly.usedSelectedMarker, selectedOnly.tree)
@@ -147,8 +141,6 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 	func testFileSearchDuringReadingAnswersFromTheCompleteIndex() async throws {
 		let fixture = try await makeFixture()
-		let matchesWithEveryFolderOpened = try await fixture.mcpServer.executeFileSearchTool(args: pathSearchArgs("Deep")).pathMatchLines
-		fixture.closeDeepFolder()
 		fixture.fileManager.readingFileCounts.value[fixture.index.rootPath] = fixture.index.filePaths.count
 
 		let request = Task { try await fixture.mcpServer.executeFileSearchTool(args: self.pathSearchArgs("Deep")) }
@@ -157,16 +149,18 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 		fixture.fileManager.readingFileCounts.value.removeValue(forKey: fixture.index.rootPath)
 
 		let reply = try await request.value
-		XCTAssertEqual(
-			Set(reply.pathMatchLines),
-			Set(matchesWithEveryFolderOpened + [fixture.fileManager.mcpDisplayPath(forAbsolutePath: fixture.fullPath("src/deep/DeepLater.swift"))])
+		await fixture.fileManager.openFolders(["src/deep"])
+		let matchesWithEveryFolderOpened = try await fixture.mcpServer.executeFileSearchTool(args: pathSearchArgs("Deep")).pathMatchLines
+		XCTAssertEqual(Set(reply.pathMatchLines), Set(matchesWithEveryFolderOpened))
+		XCTAssertTrue(
+			reply.pathMatchLines.contains(fixture.fileManager.mcpDisplayPath(forAbsolutePath: fixture.fullPath("src/deep/DeepLater.swift"))),
+			"\(reply.pathMatchLines)"
 		)
 		XCTAssertTrue(reply.pathMatchLines.contains(fixture.fileManager.mcpDisplayPath(forAbsolutePath: fixture.fullPath("src/deep/Deep.swift"))), "\(reply.pathMatchLines)")
 	}
 
 	func testReadingAFileByPathWorksInAFolderThatIsNotOpened() async throws {
 		let fixture = try await makeFixture()
-		fixture.closeDeepFolder()
 
 		let reply = try await fixture.mcpServer.readFile(path: "src/deep/Deep.swift").reply
 
@@ -175,7 +169,6 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 	func testSelectingAFolderThatWasNeverOpenedSelectsEveryFileUnderIt() async throws {
 		let fixture = try await makeFixture()
-		fixture.closeDeepFolder()
 
 		let result = await fixture.mcpServer.addStoredSelectionPaths(
 			existing: StoredSelection(),
@@ -203,18 +196,17 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 			)
 			return String(decoding: try encoder.encode(dto), as: UTF8.self)
 		}
-		let withEveryFolderOpened = try await workspaceContext()
-
-		fixture.closeDeepFolder()
-
 		let result = try await workspaceContext()
+
+		await fixture.fileManager.openFolders(["src/deep"])
+
+		let withEveryFolderOpened = try await workspaceContext()
 		XCTAssertEqual(result, withEveryFolderOpened)
 		XCTAssertTrue(result.contains("Deep.swift"), result)
 	}
 
 	func testAFileAnAgentCreatesInAFolderThatIsNotOpenedIsFoundByTheNextSearch() async throws {
 		let fixture = try await makeFixture()
-		fixture.closeDeepFolder()
 
 		try await fixture.fileManager.createFile(atRelativePath: "src/deep/Created.swift", content: "struct Created {}\n", selectAfterCreate: false)
 		let reply = try await fixture.mcpServer.executeFileSearchTool(args: pathSearchArgs("Created"))
@@ -227,7 +219,6 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 	func testWorkspaceContextDuringReadingAnswersFromTheCompleteIndex() async throws {
 		let fixture = try await makeFixture()
-		fixture.closeDeepFolder()
 		let laterPath = fixture.fullPath("src/deep/Later.swift")
 		let context = tabContext(fixture, selecting: [laterPath])
 
@@ -242,7 +233,6 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 
 	func testSelectingAFolderDuringReadingSelectsEveryFileOfTheCompleteIndex() async throws {
 		let fixture = try await makeFixture()
-		fixture.closeDeepFolder()
 
 		var request: Task<MCPServerViewModel.AddStoredSelectionResult, Never>?
 		try await addFileWhileReading("src/deep/Later.swift", in: fixture) {
@@ -275,11 +265,11 @@ final class MCPServerViewModelIndexedFilesTests: XCTestCase {
 		func listedFiles() async -> [[String]]? {
 			await reply().files?.map { [$0.path, $0.renderMode] }
 		}
-		let withEveryFolderOpened = await listedFiles()
-
-		fixture.closeDeepFolder()
-
 		let result = await listedFiles()
+
+		await fixture.fileManager.openFolders(["src/deep"])
+
+		let withEveryFolderOpened = await listedFiles()
 		XCTAssertEqual(result, withEveryFolderOpened)
 		XCTAssertTrue(result?.contains([deepPath, "codemap"]) == true, "\(String(describing: result))")
 	}
