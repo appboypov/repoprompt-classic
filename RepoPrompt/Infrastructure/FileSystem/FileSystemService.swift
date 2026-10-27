@@ -4545,6 +4545,42 @@ actor FileSystemService {
 		folderURL.standardizedFileURL.path
 	}
 
+	/// Lists the direct entries of one folder that the ignore rules allow, as reading lists them.
+	func listFolder(atRelativePath relativePath: String) async throws -> FSPreparedChunk {
+		let parentRules = try await ensureRulesChain(for: parentDirectory(of: relativePath))
+		let context = DirectoryContext(
+			absPath: relativePath.isEmpty ? folderURLRootPath(rootURL) : getFullPath(forRelativePath: relativePath),
+			relPath: relativePath,
+			hierarchy: relativePath.isEmpty ? -1 : relativePath.split(separator: "/").count - 1,
+			rules: parentRules.snapshot(),
+			chain: nil
+		)
+		#if DEBUG
+		let result = try await Self.processDirectoryOffActor(
+			service: self,
+			context: context,
+			isVirtualFS: isTestMode && !(fm is FileManager),
+			skipSymlinks: skipSymlinks,
+			enableHierarchicalIgnores: enableHierarchicalIgnores,
+			respectGitignore: respectGitignore,
+			respectRepoIgnore: respectRepoIgnore,
+			respectCursorignore: respectCursorignore
+		)
+		#else
+		let result = try await Self.processDirectoryOffActor(
+			service: self,
+			context: context,
+			skipSymlinks: skipSymlinks,
+			enableHierarchicalIgnores: enableHierarchicalIgnores,
+			respectGitignore: respectGitignore,
+			respectRepoIgnore: respectRepoIgnore,
+			respectCursorignore: respectCursorignore
+		)
+		#endif
+		mergeIgnoreCache(result.ignoreCacheDelta)
+		return FSPreparedChunk(folders: result.folders, files: result.files, readFolders: result.readFolders)
+	}
+
 	/// Loads text-based content for `relativePath`, returning nil if file is recognized as binary or too large.
 /// This is a simple entry point that chooses either single-shot read for small files or chunk-based read for large ones.
 func loadContent(ofRelativePath relativePath: String) async throws -> String? {

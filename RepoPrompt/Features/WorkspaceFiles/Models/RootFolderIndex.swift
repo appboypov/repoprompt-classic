@@ -48,6 +48,11 @@ final class RootFolderIndex {
 	/// Whether reading has listed every folder of the root folder.
 	var isReadingComplete: Bool { unreadFolderPaths.isEmpty }
 
+	/// Whether reading has listed the direct entries of a folder.
+	func isListed(_ path: String) -> Bool {
+		folders[path] != nil && !unreadFolderPaths.contains(path)
+	}
+
 	init(rootPath: String) {
 		self.rootPath = rootPath
 		let root = Folder(parent: nil)

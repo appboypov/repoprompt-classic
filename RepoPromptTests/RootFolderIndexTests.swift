@@ -124,6 +124,25 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertTrue(index.isReadingComplete)
 	}
 
+	func testFolderIsListedOnceReadingListedItsEntries() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		XCTAssertFalse(index.isListed(""))
+
+		index.add(FSPreparedChunk(
+			folders: [FSItemDTO(relativePath: "a", isDirectory: true, hierarchy: 0)],
+			files: [],
+			readFolders: [""]
+		))
+
+		XCTAssertTrue(index.isListed(""))
+		XCTAssertFalse(index.isListed("a"))
+		XCTAssertFalse(index.isListed("missing"))
+
+		index.add(FSPreparedChunk(folders: [], files: [], readFolders: ["a"]))
+
+		XCTAssertTrue(index.isListed("a"))
+	}
+
 	func testFolderStateComesFromSelectedFilesAgainstFilesUnderIt() {
 		let index = RootFolderIndex(rootPath: "/repo")
 		index.addFile("a/b/c.swift")

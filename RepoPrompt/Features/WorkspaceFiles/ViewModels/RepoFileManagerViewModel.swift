@@ -1598,7 +1598,7 @@ class RepoFileManagerViewModel: ObservableObject {
 				}
 				updated += 1
 			} else if let entry = pathEntries.reversed().first(where: { candidate in
-				candidate.result.fileID == Self.fileID(forFileWithoutTreeItem: standardizedPath)
+				candidate.result.fileID == Self.fileID(forStandardizedPath: standardizedPath)
 			}), rootFolderIndexes[StandardizedPath.absolute(entry.result.rootFolderPath)]?.filePaths.contains(entry.result.relativePath) == true {
 				// A file without a tree item keeps its codemap by path.
 				let wasTracked = codemapCapableAPIsByFullPath[standardizedPath] != nil
@@ -2356,6 +2356,7 @@ func loadFolder(
 				let fileName = relPath.isEmpty ? "" : name(from: relPath)
 				if stagedFilesByFullPath[fileFullPath] == nil {
 					let file = File(
+						id: Self.fileID(forStandardizedPath: fileFullPath),
 						name: fileName,
 						path: fileFullPath,
 						modificationDate: .distantPast
@@ -4821,7 +4822,8 @@ private func handleNewFile(
 	#if DEBUG
 	let fileViewModelConstructionStartMS = fileAddPathMetricsCollector?.isDetailedWallAttributionEnabled == true ? debugPerfTimestampMS() : nil
 	#endif
-	let newFile = File(name: (relativePath as NSString).lastPathComponent,
+	let newFile = File(id: Self.fileID(forStandardizedPath: stdAbs),
+						name: (relativePath as NSString).lastPathComponent,
 						path: stdAbs,
 						modificationDate: Date())
 
@@ -10769,10 +10771,9 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		initialRootScanEnqueueTasks[rootPath] = InitialRootEnqueueTask(id: taskID, task: task)
 	}
 
-	/// The identity of a file without a tree item. The same path always gives the same identity,
-	/// so a newer scan request for the file replaces an older one in the scan queue and prompts
-	/// name the file the same way each time.
-	nonisolated static func fileID(forFileWithoutTreeItem standardizedFullPath: String) -> UUID {
+	/// The id of the file at a standardized full path, the same for its tree item and for a file view model outside the tree.
+	/// A newer scan request for the file replaces an older one in the scan queue and prompts name the file the same way each time.
+	nonisolated static func fileID(forStandardizedPath standardizedFullPath: String) -> UUID {
 		var bytes = Array(Insecure.MD5.hash(data: Data(standardizedFullPath.utf8)))
 		bytes[6] = (bytes[6] & 0x0F) | 0x30
 		bytes[8] = (bytes[8] & 0x3F) | 0x80
@@ -10800,7 +10801,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 				treeItemFiles.append(file)
 			} else {
 				pathOnlySnapshots.append(ScanSnapshot(
-					id: fileID(forFileWithoutTreeItem: fullPath),
+					id: fileID(forStandardizedPath: fullPath),
 					mod: .distantPast,
 					ext: ext,
 					rel: relativePath,
@@ -12363,7 +12364,7 @@ extension RepoFileManagerViewModel {
 		else { return nil }
 		let file = FileViewModel(
 			file: File(
-				id: Self.fileID(forFileWithoutTreeItem: path),
+				id: Self.fileID(forStandardizedPath: path),
 				name: (relativePath as NSString).lastPathComponent,
 				path: path,
 				modificationDate: .distantPast
