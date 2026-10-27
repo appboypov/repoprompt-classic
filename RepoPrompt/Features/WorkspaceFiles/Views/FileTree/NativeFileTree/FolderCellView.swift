@@ -19,13 +19,18 @@ class FolderCellView: NSTableCellView {
 	private var hoverRegion: NSView! // visual highlight region for icon+label
 	private var clickableArea: NSView! // invisible clickable area covering the entire row
 	private var stateCancellable: AnyCancellable?
+	private var waitingCancellable: AnyCancellable?
 	/// Current visual style applied to this cell
 	private var currentStyle: FolderVisualStyle = .normal
 	
 	var folder: FolderViewModel? {
 		didSet {
 			stateCancellable?.cancel()
-			guard let folder = folder else { return }
+			waitingCancellable?.cancel()
+			guard let folder = folder else {
+				hoverCheckbox.isWaiting = false
+				return
+			}
 			
 			setupAccessibility(with: folder.name)
 			hoverCheckbox.checkboxState = folder.checkboxState
@@ -36,6 +41,18 @@ class FolderCellView: NSTableCellView {
 				.receive(on: DispatchQueue.main)
 				.sink { [weak self] newState in
 					self?.hoverCheckbox.checkboxState = newState
+				}
+			
+			// Show a spinner on the checkbox while the folder waits until reading has listed its subtree
+			let path = folder.standardizedFullPath
+			let waitingFolderSelections = treeViewController?.fileManager?.waitingFolderSelections
+			hoverCheckbox.isWaiting = waitingFolderSelections?.value.contains(path) ?? false
+			waitingCancellable = waitingFolderSelections?
+				.map { $0.contains(path) }
+				.removeDuplicates()
+				.receive(on: DispatchQueue.main)
+				.sink { [weak self] isWaiting in
+					self?.hoverCheckbox.isWaiting = isWaiting
 				}
 		}
 	}
@@ -236,7 +253,10 @@ class FolderCellView: NSTableCellView {
 		CATransaction.commit()
 	}
 	
-	deinit { stateCancellable?.cancel() }
+	deinit {
+		stateCancellable?.cancel()
+		waitingCancellable?.cancel()
+	}
 
 	override func viewDidChangeEffectiveAppearance() {
 		super.viewDidChangeEffectiveAppearance()
