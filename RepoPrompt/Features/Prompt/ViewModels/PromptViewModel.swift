@@ -5505,7 +5505,7 @@ Your goal is to choose the most efficient approach for each task - using direct 
 			guard !trimmed.isEmpty else { continue }
 			let standardized = (trimmed as NSString).standardizingPath
 			guard seen.insert(standardized).inserted else { continue }
-			if let vm = fileManager.findFileByFullPath(standardized) {
+			if let vm = fileManager.promptFile(forStandardizedPath: standardized) {
 				files.append(vm)
 			}
 		}

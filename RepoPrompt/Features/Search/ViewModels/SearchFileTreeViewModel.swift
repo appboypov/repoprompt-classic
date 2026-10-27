@@ -897,16 +897,16 @@ class SearchFileTreeViewModel: ObservableObject {
 				
 			case .file(let file):
 				if let (score, pathChain) = keptFiles[file.id] {
-					// Exact lookup under the root (the first ancestor), so a file without a tree item links to nothing
+					// Exact lookup under the root (the first ancestor), as the tree item or a file view model that reads it by path
 					let realFileVM = pathChain.first
 						.flatMap { rootSnapshotCache[$0.id]?.rootPath }
 						.flatMap { rootPath in
-							fileManager?.findFileByFullPath(
-								StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file.relativePath)
+							fileManager?.promptFile(
+								forStandardizedPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: file.relativePath)
 							)
 						}
 					
-					// A file with a tree item keeps its id, so selection changes find the result.
+					// The result takes the file's id, so selection changes find it.
 					let searchFile = SearchFileViewModel(
 						id: realFileVM?.id ?? file.id,
 						name: file.name,

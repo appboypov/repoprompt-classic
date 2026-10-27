@@ -362,15 +362,13 @@ class TokenCountingViewModel: ObservableObject {
 		}
 		let duplicatePromptAtTop = includeUserPrompt ? copySnapshot.duplicateUserInstructionsAtTop : false
 		
-		let allFileViewModels = fileManager.allFilesSnapshot(sorted: false)
 		let allFileAPIs = fileManager.cachedFileAPIs()
 		
 		// Cache the file APIs for reuse
 		self.cachedFileAPIs = allFileAPIs
 		
 		// Derive and publish the set of detected languages
-		let detectedExts = allFileViewModels.map { ($0.fileExtension ?? "").lowercased() }
-		let detectedLangs = detectedExts.compactMap { SyntaxManager.shared.extensionToLanguage[$0] }
+		let detectedLangs = fileManager.indexedFileExtensions().compactMap { SyntaxManager.shared.extensionToLanguage[$0] }
 		self.scannedLanguages = Set(detectedLangs)
 		
 		let rendersFileTree = includeFileTree && copySnapshot.fileTreeMode != .none

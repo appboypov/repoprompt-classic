@@ -809,7 +809,7 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
-	func testAnAutoCodemapCanBeAFileInAFolderThatIsNotOpened() async throws {
+	func testAnAutoOrCompleteCodemapCanBeAFileInAFolderThatIsNotOpened() async throws {
 		let rootURL = try makeCodeRoot()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		let fileManagerVM = RepoFileManagerViewModel()
@@ -837,6 +837,10 @@ final class RepoFileManagerTests: XCTestCase {
 			result("Top.swift", fileID: topFile.id, api: topAPI),
 			result("src/deep/Deep.swift", fileID: RepoFileManagerViewModel.fileID(forStandardizedPath: deepPath), api: deepAPI)
 		])
+		XCTAssertEqual(
+			Set(fileManagerVM.indexedFilesWithCodemaps().map(\.standardizedFullPath)),
+			[topFile.standardizedFullPath, deepPath]
+		)
 
 		fileManagerVM.codemapAutoEnabled = true
 		fileManagerVM.toggleFile(topFile)
@@ -1308,6 +1312,39 @@ final class RepoFileManagerTests: XCTestCase {
 		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
 
 		XCTAssertTrue(fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift"))
+	}
+
+	@MainActor
+	func testTreeSearchShowsASelectedFileInAFolderThatIsNotOpenedTickedAndUntickingDeselectsIt() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		fileManagerVM.selectPath("src/deep/Deep.swift", kind: .file)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		func searchFile(in folders: [SearchFolderViewModel]) -> SearchFileViewModel? {
+			for folder in folders {
+				for child in folder.children {
+					switch child {
+					case .file(let file) where file.relativePath == "src/deep/Deep.swift":
+						return file
+					case .folder(let subfolder):
+						if let file = searchFile(in: [subfolder]) { return file }
+					default:
+						break
+					}
+				}
+			}
+			return nil
+		}
+
+		searchVM.searchText = "Deep"
+		try await waitUntil { searchFile(in: searchVM.rootFolders) != nil }
+		let file = try XCTUnwrap(searchFile(in: searchVM.rootFolders))
+		XCTAssertTrue(file.isChecked)
+
+		await searchVM.toggleFile(file)
+
+		XCTAssertEqual(index.selectedFilePaths, [])
 	}
 
 	@MainActor
@@ -3348,7 +3385,7 @@ final class RepoFileManagerTests: XCTestCase {
 		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
 		await fileManagerVM.waitUntilReadingIsComplete()
 		
-		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(nestedViewsURL.path))
+		XCTAssertEqual(fileManagerVM.indexedItem(atPath: nestedViewsURL.path)?.isFolder, true)
 		let normalized = await fileManagerVM.normalizeFilterPaths([nestedViewsURL.path])
 		XCTAssertEqual(normalized, [nestedViewsURL.path])
 		
@@ -3385,8 +3422,8 @@ final class RepoFileManagerTests: XCTestCase {
 		await fileManagerVM.waitUntilReadingIsComplete()
 		
 		let missingViewsPath = rootURL.appendingPathComponent("Views", isDirectory: true).path
-		XCTAssertNil(fileManagerVM.findFolderByFullPath(missingViewsPath))
-		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(nestedViewsURL.path))
+		XCTAssertNil(fileManagerVM.indexedItem(atPath: missingViewsPath))
+		XCTAssertEqual(fileManagerVM.indexedItem(atPath: nestedViewsURL.path)?.isFolder, true)
 		
 		let normalized = await fileManagerVM.normalizeFilterPaths([missingViewsPath])
 		XCTAssertEqual(normalized, [missingViewsPath])
@@ -4094,16 +4131,7 @@ extension RepoFileManagerTests {
 	}
 
 	@MainActor
-	func testGetAllFileViewModelsHandlesSelfCycle() async throws {
-		let (fileManagerVM, rootFolderVM, fileVM) = try await makeRootWithFile()
-		rootFolderVM.addSubfolder(rootFolderVM)
-		let allFiles = fileManagerVM.getAllFileViewModels()
-		XCTAssertEqual(allFiles.count, 1)
-		XCTAssertEqual(allFiles.first?.id, fileVM.id)
-	}
-
-	@MainActor
-	func testCollectAllFilesWithCodemapsUsesIndexedSnapshot() async throws {
+	func testFilesWithCodemapsComeFromTheIndex() async throws {
 		let (fileManagerVM, rootFolderVM, fileVM) = try await makeRootWithFile()
 		rootFolderVM.addSubfolder(rootFolderVM)
 		fileVM.setCodeMap(FileAPI(
@@ -4118,9 +4146,8 @@ extension RepoFileManagerTests {
 		))
 		fileManagerVM.registerRootFolderForTesting(rootFolderVM)
 
-		let files = fileManagerVM.collectAllFilesWithCodemaps()
-		XCTAssertEqual(files.count, 1)
-		XCTAssertEqual(files.first?.id, fileVM.id)
+		let files = fileManagerVM.indexedFilesWithCodemaps()
+		XCTAssertEqual(files.map(\.id), [fileVM.id])
 	}
 
 	@MainActor

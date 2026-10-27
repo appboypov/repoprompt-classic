@@ -268,13 +268,13 @@ final class SelectedFilesPanelViewModel: ObservableObject {
 		relativePath: String? = nil
 	) -> FileViewModel? {
 		guard let manager = fileManager else { return nil }
-		if let direct = manager.findFileByFullPath(fullPath) {
+		if let direct = manager.promptFile(forStandardizedPath: StandardizedPath.absolute(fullPath)) {
 			return direct
 		}
-		if let unique = uniqueRelativePath, let vm = manager.findFileByRelativePath(unique) {
+		if let unique = uniqueRelativePath, let vm = manager.promptFile(forRelativePath: unique, scope: .allLoaded) {
 			return vm
 		}
-		if let rel = relativePath, let vm = manager.findFileByRelativePath(rel) {
+		if let rel = relativePath, let vm = manager.promptFile(forRelativePath: rel, scope: .allLoaded) {
 			return vm
 		}
 		return nil
@@ -470,7 +470,7 @@ final class SelectedFilesPanelViewModel: ObservableObject {
 			activeCodemapFiles = autoCodemap.filter { !selectedIDs.contains($0.id) }
 		case .complete:
 			// Complete mode: ALL files with codemaps that aren't selected
-			activeCodemapFiles = fileManager.collectAllFilesWithCodemaps().filter { !selectedIDs.contains($0.id) }
+			activeCodemapFiles = fileManager.indexedFilesWithCodemaps().filter { !selectedIDs.contains($0.id) }
 		}
 		
 		// Use active codemap files for ID tracking (important for complete mode)
