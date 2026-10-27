@@ -990,6 +990,32 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testReloadingARootFolderDuringReadingReadsItWholeIntoTheNewIndex() async throws {
+		let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		for folder in 0..<40 {
+			let folderURL = rootURL.appendingPathComponent("folder\(folder)", isDirectory: true)
+			try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+			for file in 0..<25 {
+				XCTAssertTrue(FileManager.default.createFile(atPath: folderURL.appendingPathComponent("file\(file).txt").path, contents: Data()))
+			}
+		}
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		let workspace = WorkspaceModel(name: "Test", repoPaths: [rootURL.path])
+		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+
+		await fileManagerVM.unloadAllRootFolders()
+		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let index = try XCTUnwrap(fileManagerVM.rootFolderIndexes[root.standardizedFullPath])
+		await fileManagerVM.waitUntilReadingIsComplete()
+
+		XCTAssertTrue(index.isReadingComplete)
+		XCTAssertEqual(index.filePaths.count, 1000)
+	}
+
+	@MainActor
 	func testMentioningAFolderThatIsNotOpenedSelectsAndDeselectsItsFiles() async throws {
 		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
@@ -1086,7 +1112,9 @@ final class RepoFileManagerTests: XCTestCase {
 	/// A loaded code root whose index has not read `src/deep` yet, with a tab selection of `Top.swift`
 	/// and `src/deep/Deep.swift` restored.
 	@MainActor
-	private func restoreSelectionWhileDeepFolderIsUnread() async throws -> (RepoFileManagerViewModel, URL, RootFolderIndex, String) {
+	private func restoreSelectionWhileDeepFolderIsUnread(
+		deepSlices: [LineRange] = []
+	) async throws -> (RepoFileManagerViewModel, URL, RootFolderIndex, String) {
 		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
 		index.remove("src/deep")
 		index.addFolder("src/deep", isRead: false)
@@ -1096,7 +1124,7 @@ final class RepoFileManagerTests: XCTestCase {
 		await fileManagerVM.onActiveTabChanged(ComposeTabState(name: "Tab", selection: StoredSelection(
 			selectedPaths: [topPath, deepPath],
 			autoCodemapPaths: [],
-			slices: [:],
+			slices: deepSlices.isEmpty ? [:] : [deepPath: deepSlices],
 			codemapAutoEnabled: false
 		)))
 		return (fileManagerVM, rootURL, index, deepPath)
@@ -1127,6 +1155,22 @@ final class RepoFileManagerTests: XCTestCase {
 		XCTAssertTrue(fileManagerVM.snapshotSelection().selectedPaths.contains(deepPath))
 		XCTAssertTrue(fileManagerVM.getAllFilesForPrompt().contains { $0.file.standardizedFullPath == deepPath })
 		XCTAssertTrue(index.selectedFilePaths.contains("src/deep/Deep.swift"))
+	}
+
+	@MainActor
+	func testARestoredFileKeepsItsSlicesOnceReadingFindsIt() async throws {
+		let ranges = [LineRange(start: 1, end: 2)]
+		let (fileManagerVM, rootURL, index, deepPath) = try await restoreSelectionWhileDeepFolderIsUnread(deepSlices: ranges)
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+
+		fileManagerVM.applyReadingChunkForTesting(deepFolderChunk(), rootKey: index.rootPath)
+
+		let deep = try XCTUnwrap(fileManagerVM.selectedFiles.first { $0.standardizedFullPath == deepPath })
+		try await waitUntil { fileManagerVM.selectionSlices(for: deep) != nil }
+		XCTAssertEqual(fileManagerVM.selectionSlices(for: deep), ranges)
 	}
 
 	@MainActor
@@ -1218,6 +1262,31 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testAFolderCreatedOnDiskInAnOpenedFolderGetsItsRowsOnlyWhenOpened() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		await fileManagerVM.openFolders(["src"])
+		let subURL = rootURL.appendingPathComponent("src/newdir/sub", isDirectory: true)
+		try FileManager.default.createDirectory(at: subURL, withIntermediateDirectories: true)
+		XCTAssertTrue(FileManager.default.createFile(atPath: subURL.appendingPathComponent("A.swift").path, contents: Data()))
+
+		await fileManagerVM.applyFileSystemDeltasForTesting(
+			[.folderAdded("src/newdir"), .folderAdded("src/newdir/sub"), .fileAdded("src/newdir/sub/A.swift")],
+			forRootFolder: root
+		)
+
+		let newdir = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src/newdir").path))
+		XCTAssertEqual(childNames(of: newdir), [])
+		XCTAssertTrue(index.filePaths.contains("src/newdir/sub/A.swift"))
+
+		await fileManagerVM.openFolders(["src/newdir"])
+		XCTAssertEqual(childNames(of: newdir), ["sub"])
+		let sub = try XCTUnwrap(fileManagerVM.findFolderByFullPath(subURL.path))
+		XCTAssertEqual(childNames(of: sub), [])
+	}
+
+	@MainActor
 	func testAFileAnAgentCreatesInAFolderThatIsNotOpenedIsSelected() async throws {
 		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
@@ -1290,6 +1359,25 @@ final class RepoFileManagerTests: XCTestCase {
 
 		XCTAssertNil(selected.fileAPI)
 		XCTAssertFalse(fileManagerVM.cachedFileAPIs().contains { $0.filePath == deepPath })
+	}
+
+	@MainActor
+	func testModifyingASelectedFileInAFolderThatIsNotOpenedGivesItsNewText() async throws {
+		let (fileManagerVM, rootURL, index, root, deepPath) = try await selectDeepFileInUnopenedFolder()
+		defer {
+			cleanupPartitionStore(for: index.rootPath)
+			try? FileManager.default.removeItem(at: rootURL)
+		}
+		let selected = try XCTUnwrap(fileManagerVM.selectedFiles.first)
+		let oldText = await selected.latestContent
+		XCTAssertEqual(oldText?.contains("Deep"), true)
+		let newText = "final class Edited {}\n"
+		try newText.write(toFile: deepPath, atomically: true, encoding: .utf8)
+
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileModified("src/deep/Deep.swift", nil)], forRootFolder: root)
+
+		let content = await selected.latestContent
+		XCTAssertEqual(content, newText)
 	}
 
 	@MainActor

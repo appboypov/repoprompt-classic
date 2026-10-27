@@ -4440,9 +4440,9 @@ actor FileSystemService {
 						visitedPaths.insert(file.relativePath)
 						visitedItems[file.relativePath] = false
 					}
-
-					flush()
 				}
+				// The root folder's own entries go out at once, so the tree shows without waiting for a full chunk.
+				flush(force: result.readFolders.contains(""))
 
 				if !result.subdirs.isEmpty {
 					directories.append(contentsOf: result.subdirs)

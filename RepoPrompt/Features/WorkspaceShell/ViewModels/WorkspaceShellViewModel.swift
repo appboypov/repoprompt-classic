@@ -175,11 +175,16 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 
 	private func startBackgroundPreparation() {
 		preparationTask?.cancel()
-		// Hidden workspaces prepare one by one at low priority, then rest until shown.
+		// Hidden workspaces prepare one by one at low priority, then rest until shown. Each starts once the
+		// workspace before it read its root folders, so one workspace reads from disk at a time, the visible one first.
 		preparationTask = Task(priority: .utility) { [weak self] in
+			if let visibleID = self?.visibleWorkspaceID, let visible = self?.loadedWorkspaceStates[visibleID] {
+				await visible.fileManager.waitUntilReadingIsComplete()
+			}
 			while let self, !Task.isCancelled, let next = self.preparationQueue.first {
-				_ = await self.ensureRuntime(for: next)
+				let runtime = await self.ensureRuntime(for: next)
 				self.preparationQueue.removeAll { $0 == next }
+				await runtime?.fileManager.waitUntilReadingIsComplete()
 			}
 		}
 	}
