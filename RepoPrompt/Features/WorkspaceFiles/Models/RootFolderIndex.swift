@@ -38,6 +38,8 @@ final class RootFolderIndex {
 	private(set) var selectedFilePaths: Set<String> = []
 	/// Selected files reading has not found yet. Each is selected once reading adds it.
 	private var pendingSelectedFilePaths: Set<String> = []
+	/// Folders ticked before reading listed their subtree. Each gets every file under it selected once its subtree is read.
+	private(set) var waitingFolderPaths: Set<String> = []
 	private(set) var folders: [String: Folder]
 	private var unreadFolderPaths: Set<String> = [""]
 	private let root: Folder
@@ -64,7 +66,7 @@ final class RootFolderIndex {
 	}
 
 	/// Adds the entries of one reading chunk and marks the folders it finished listing as read.
-	/// Returns the files it added that were waiting to be selected, now selected.
+	/// Returns the files it selected because they or a folder above them were waiting to be selected.
 	@discardableResult
 	func add(_ chunk: FSPreparedChunk) -> [String] {
 		for folder in chunk.folders {
@@ -81,7 +83,36 @@ final class RootFolderIndex {
 		for path in chunk.readFolders {
 			markFolderRead(path)
 		}
-		return selectedFromPending
+		let readWaitingFolders = waitingFolderPaths.filter { folders[$0]?.isSubtreeRead != false }
+		return selectedFromPending + selectFiles(underWaitingFolders: readWaitingFolders)
+	}
+
+	/// Lets a folder whose subtree is not read wait, so every file under it is selected once its subtree is read.
+	func waitToSelect(folder path: String) {
+		guard folders[path]?.isSubtreeRead == false else { return }
+		waitingFolderPaths.insert(path)
+	}
+
+	/// Stops a folder from waiting, so reading its subtree selects nothing.
+	func stopWaiting(folder path: String) {
+		waitingFolderPaths.remove(path)
+	}
+
+	/// Selects every file under the waiting folders that are still in the index, stops them waiting,
+	/// and returns the files it selected.
+	private func selectFiles(underWaitingFolders paths: Set<String>) -> [String] {
+		guard !paths.isEmpty else { return [] }
+		waitingFolderPaths.subtract(paths)
+		var selected: [String] = []
+		var stack = paths.compactMap { folders[$0] }
+		while let folder = stack.popLast() {
+			for file in folder.childFilePaths where !selectedFilePaths.contains(file) {
+				select(file)
+				selected.append(file)
+			}
+			stack.append(contentsOf: folder.childFolderPaths.compactMap { folders[$0] })
+		}
+		return selected
 	}
 
 	/// Adds a folder. Missing folders above it are added as read.
@@ -134,13 +165,16 @@ final class RootFolderIndex {
 	}
 
 	/// Marks every folder as read once reading of the root folder has finished.
-	func finishReading() {
+	/// Returns the files of waiting folders it selected.
+	@discardableResult
+	func finishReading() -> [String] {
 		advanceGeneration()
 		for folder in folders.values {
 			folder.unreadFolderCount = 0
 		}
 		unreadFolderPaths.removeAll()
 		pendingSelectedFilePaths.removeAll()
+		return selectFiles(underWaitingFolders: waitingFolderPaths)
 	}
 
 	/// Adds a file of the index to the selection. While reading runs, a file reading has not found yet
@@ -163,10 +197,12 @@ final class RootFolderIndex {
 		addToSelectedFileCounts(-1, from: Self.parentPath(of: path))
 	}
 
-	/// Replaces the selected files reading has not found yet. Does nothing once reading is complete.
+	/// Replaces the selected files reading has not found yet and stops every folder from waiting.
+	/// Does nothing once reading is complete.
 	func setPendingSelection(_ paths: Set<String>) {
 		guard !isReadingComplete else { return }
 		pendingSelectedFilePaths = paths
+		waitingFolderPaths.removeAll()
 	}
 
 	/// The checkbox state of a folder: ticked when every file under it is selected, mixed when some are,

@@ -186,6 +186,102 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertEqual(index.selectedFilePaths, [])
 	}
 
+	func testAFolderTickedBeforeItsSubtreeIsReadSelectsEveryFileUnderItOnceItIs() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.add(FSPreparedChunk(
+			folders: [FSItemDTO(relativePath: "a", isDirectory: true, hierarchy: 0)],
+			files: [FSItemDTO(relativePath: "top.swift", isDirectory: false, hierarchy: 0)],
+			readFolders: [""]
+		))
+		index.waitToSelect(folder: "a")
+
+		let selectedWhileListing = index.add(FSPreparedChunk(
+			folders: [FSItemDTO(relativePath: "a/b", isDirectory: true, hierarchy: 1)],
+			files: [FSItemDTO(relativePath: "a/one.swift", isDirectory: false, hierarchy: 1)],
+			readFolders: ["a"]
+		))
+		XCTAssertEqual(selectedWhileListing, [])
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(index.waitingFolderPaths, ["a"])
+
+		let selected = index.add(FSPreparedChunk(
+			folders: [],
+			files: [FSItemDTO(relativePath: "a/b/two.swift", isDirectory: false, hierarchy: 2)],
+			readFolders: ["a/b"]
+		))
+
+		XCTAssertEqual(Set(selected), ["a/one.swift", "a/b/two.swift"])
+		XCTAssertEqual(index.selectedFilePaths, ["a/one.swift", "a/b/two.swift"])
+		XCTAssertEqual(index.checkboxState(ofFolder: "a"), .checked)
+		XCTAssertEqual(index.waitingFolderPaths, [])
+	}
+
+	func testAFolderNoLongerWaitingSelectsNothingOnceItsSubtreeIsRead() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.add(FSPreparedChunk(
+			folders: [FSItemDTO(relativePath: "a", isDirectory: true, hierarchy: 0)],
+			files: [],
+			readFolders: [""]
+		))
+		index.waitToSelect(folder: "a")
+		index.stopWaiting(folder: "a")
+
+		let selected = index.add(FSPreparedChunk(
+			folders: [],
+			files: [FSItemDTO(relativePath: "a/one.swift", isDirectory: false, hierarchy: 1)],
+			readFolders: ["a"]
+		))
+
+		XCTAssertEqual(selected, [])
+		XCTAssertEqual(index.selectedFilePaths, [])
+	}
+
+	func testFinishingReadingSelectsTheFilesOfWaitingFolders() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.add(FSPreparedChunk(
+			folders: [FSItemDTO(relativePath: "a", isDirectory: true, hierarchy: 0)],
+			files: [FSItemDTO(relativePath: "a/one.swift", isDirectory: false, hierarchy: 1)],
+			readFolders: [""]
+		))
+		index.waitToSelect(folder: "a")
+
+		let selected = index.finishReading()
+
+		XCTAssertEqual(selected, ["a/one.swift"])
+		XCTAssertEqual(index.selectedFilePaths, ["a/one.swift"])
+		XCTAssertEqual(index.waitingFolderPaths, [])
+	}
+
+	func testReplacingTheFilesWaitingForReadingDropsWaitingFolders() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.add(FSPreparedChunk(
+			folders: [FSItemDTO(relativePath: "a", isDirectory: true, hierarchy: 0)],
+			files: [],
+			readFolders: [""]
+		))
+		index.waitToSelect(folder: "a")
+
+		index.setPendingSelection([])
+		let selected = index.add(FSPreparedChunk(
+			folders: [],
+			files: [FSItemDTO(relativePath: "a/one.swift", isDirectory: false, hierarchy: 1)],
+			readFolders: ["a"]
+		))
+
+		XCTAssertEqual(selected, [])
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(index.waitingFolderPaths, [])
+	}
+
+	func testAFolderWhoseSubtreeIsReadDoesNotWait() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFolder("a", isRead: true)
+
+		index.waitToSelect(folder: "a")
+
+		XCTAssertEqual(index.waitingFolderPaths, [])
+	}
+
 	func testFolderStateComesFromSelectedFilesAgainstFilesUnderIt() {
 		let index = RootFolderIndex(rootPath: "/repo")
 		index.addFile("a/b/c.swift")
