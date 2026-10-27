@@ -34,6 +34,49 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertEqual(index.folders[""]?.fileCount, 1)
 	}
 
+	func testPathChangesListEveryAddedAndRemovedPathInOrderAfterAGeneration() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("a/x.md")
+		let generation = index.generation
+
+		index.addFile("a/b/y.md")
+		index.remove("a/x.md")
+		index.remove("a/b")
+
+		XCTAssertEqual(index.pathChanges(after: generation), [
+			.added("a/b", isFolder: true),
+			.added("a/b/y.md", isFolder: false),
+			.removed("a/x.md"),
+			.removed("a/b"),
+		])
+	}
+
+	func testReadingProgressChangesNoPath() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFolder("a", isRead: false)
+		let generation = index.generation
+
+		index.markFolderRead("a")
+		index.finishReading()
+
+		XCTAssertNotEqual(index.generation, generation)
+		XCTAssertEqual(index.pathChanges(after: generation), [])
+	}
+
+	func testPathChangesAreUnknownOnceTheLogNoLongerReachesBack() {
+		let index = RootFolderIndex(rootPath: "/repo", pathChangeLimit: 2)
+		let start = index.generation
+		for name in ["1.md", "2.md", "3.md", "4.md"] {
+			index.addFile(name)
+		}
+		let recent = index.generation
+
+		index.addFile("5.md")
+
+		XCTAssertNil(index.pathChanges(after: start))
+		XCTAssertEqual(index.pathChanges(after: recent), [.added("5.md", isFolder: false)])
+	}
+
 	func testSubtreeIsReadOnlyOnceEveryFolderUnderItIsRead() {
 		let index = RootFolderIndex(rootPath: "/repo")
 		XCTAssertFalse(index.isReadingComplete)

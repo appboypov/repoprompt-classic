@@ -342,6 +342,66 @@ final class PathSearchIndexTests: XCTestCase {
         XCTAssertEqual(results.count, 0)
     }
     
+    // MARK: - Incremental Update Tests
+    
+    func testAddedPathsAreFoundWithTheirKind() async {
+        let index = await PathSearchIndex(paths: ["src/app.tsx"], folderPaths: ["src"])
+        
+        await index.add(["src/wwfo"], areFolders: true)
+        await index.add(["src/wwfo/Plan.md", "docs/wwfo.md"], areFolders: false)
+        
+        let results = await index.search("wwfo")
+        XCTAssertEqual(results.map(\.path), ["docs/wwfo.md", "src/wwfo", "src/wwfo/Plan.md"])
+        XCTAssertEqual(results.map(\.isFolder), [false, true, false])
+        let count = await index.count
+        XCTAssertEqual(count, 5)
+    }
+    
+    func testAddingToAnEmptyIndexFindsThePaths() async {
+        let index = PathSearchIndex()
+        
+        await index.add(["notes/todo.md"], areFolders: false)
+        
+        let results = await index.search("todo")
+        XCTAssertEqual(results.map(\.path), ["notes/todo.md"])
+    }
+    
+    func testRemovingAFolderRemovesEverythingUnderItAndNothingElse() async {
+        let index = await PathSearchIndex(
+            paths: ["wwfo/Plan.md", "wwfo/inner/Doc.md", "wwfo-old/Note.md"],
+            folderPaths: ["wwfo", "wwfo/inner", "wwfo-old"]
+        )
+        
+        await index.remove(["wwfo"])
+        
+        let results = await index.search("wwfo")
+        XCTAssertEqual(results.map(\.path), ["wwfo-old", "wwfo-old/Note.md"])
+        let count = await index.count
+        XCTAssertEqual(count, 2)
+    }
+    
+    func testARemovedFileAddedAgainIsFoundOnce() async {
+        let index = await PathSearchIndex(paths: ["a/Draft.md", "a/Other.md"])
+        
+        await index.remove(["a/Draft.md"])
+        let afterRemove = await index.search("Draft")
+        await index.add(["a/Draft.md"], areFolders: false)
+        
+        XCTAssertEqual(afterRemove.map(\.path), [])
+        let results = await index.search("draft")
+        XCTAssertEqual(results.map(\.path), ["a/Draft.md"])
+    }
+    
+    func testWildcardSearchFindsAddedPathsAndSkipsRemovedOnes() async {
+        let index = await PathSearchIndex(paths: ["src/A.swift", "src/B.swift", "src/C.ts"])
+        
+        await index.add(["src/D.swift"], areFolders: false)
+        await index.remove(["src/A.swift"])
+        
+        let results = await index.search("*.swift")
+        XCTAssertEqual(results.map(\.path), ["src/B.swift", "src/D.swift"])
+    }
+    
     // MARK: - Result Properties Tests
     
     func testResultProperties() async {

@@ -4,26 +4,33 @@ import Foundation
 typealias size_t = Int
 
 /// High-performance path search index using C implementation for binary search
-/// Optimized for >1k files with O(log n + k*m) search complexity
+/// Optimized for >1k files with O(log n + k*m) search complexity.
+/// Paths can be added and removed one batch at a time, so a large index never needs a rebuild
+/// for a small change.
 actor PathSearchIndex {
     // MARK: - Types
     
     struct Candidate {
+        /// The position of the path in the paths the index was given, counted over every add since the
+        /// last rebuild. A removed path keeps its position; no other path takes it.
         let index: Int
         let path: String
         let filename: String
+        let isFolder: Bool
     }
     
     // MARK: - Private State
     
-    private var cIndex: OpaquePointer?  // path_search_index_t*
-    private var originalPaths: [String] = []
-    private var filenames: [String] = []
+    private var cIndex: OpaquePointer? // path_search_index_t*
+    /// Whether the path at each position is a folder.
+    private var folderFlags: [Bool] = []
+    private var liveCount = 0
     
     // MARK: - Initialization
     
-    init(paths: [String]) async {
-        await rebuild(paths: paths)
+    init(paths: [String], folderPaths: [String] = []) async {
+        add(paths, areFolders: false)
+        add(folderPaths, areFolders: true)
     }
     
     init() {
@@ -42,11 +49,10 @@ actor PathSearchIndex {
     /// - Parameters:
     ///   - pattern: Search pattern (supports wildcards and regex)
     ///   - limit: Maximum number of results to return
-    /// - Returns: Array of matching candidates with indices
+    /// - Returns: The matching candidates in path order
     func search(_ pattern: String, limit: Int = 300) async -> [Candidate] {
         guard let index = cIndex else { return [] }
         
-        // Call C implementation
         let result = pattern.withCString { patternCStr in
             path_search_find(index, patternCStr, limit)
         }
@@ -54,78 +60,103 @@ actor PathSearchIndex {
         guard let searchResult = result else { return [] }
         defer { search_result_destroy(searchResult) }
         
-        // Convert C results to Swift candidates
-        var candidates: [Candidate] = []
         let resultPtr = UnsafePointer<search_result_t>(searchResult)
         let count = Int(resultPtr.pointee.count)
-        candidates.reserveCapacity(count)
-        
         guard let indices = resultPtr.pointee.indices else { return [] }
         
+        var candidates: [Candidate] = []
+        candidates.reserveCapacity(count)
         for i in 0..<count {
-            let idx = Int(indices[i])
-            if idx < originalPaths.count {
-                candidates.append(Candidate(
-                    index: idx,
-                    path: originalPaths[idx],
-                    filename: filenames[idx]
-                ))
-            }
+            let slot = Int(indices[i])
+            guard let path = path(at: slot) else { continue }
+            candidates.append(Candidate(
+                index: slot,
+                path: path,
+                filename: Self.filename(of: path),
+                isFolder: folderFlags[slot]
+            ))
         }
-        
         return candidates
     }
     
     /// Rebuild the index with new paths
     func rebuild(paths: [String]) async {
-        // Clean up old index
         if let oldIndex = cIndex {
             path_search_destroy(oldIndex)
             cIndex = nil
         }
-        
-        guard !paths.isEmpty else {
-            originalPaths = []
-            filenames = []
-            return
+        folderFlags = []
+        liveCount = 0
+        add(paths, areFolders: false)
+    }
+    
+    /// Adds the paths the index does not hold yet.
+    func add(_ paths: [String], areFolders: Bool) {
+        guard !paths.isEmpty else { return }
+        var slots = [Int](repeating: -1, count: paths.count)
+        let added = Self.withCPaths(paths) { cPaths -> Bool in
+            guard let index = cIndex else {
+                cIndex = path_search_create(cPaths, paths.count)
+                guard cIndex != nil else { return false }
+                slots = Array(0..<paths.count)
+                return true
+            }
+            return slots.withUnsafeMutableBufferPointer { buffer in
+                path_search_add(index, cPaths, paths.count, buffer.baseAddress)
+            }
         }
-        
-        // Store original paths
-        originalPaths = paths
-        
-        // Extract filenames
-        filenames = paths.map { path in
-            URL(fileURLWithPath: path).lastPathComponent
+        guard added else { return }
+        // Positions are handed out in order from the end, so each new one extends the flags.
+        for slot in slots where slot >= 0 {
+            folderFlags.append(areFolders)
+            liveCount += 1
+            assert(folderFlags.count == slot + 1)
         }
-        
-        // Create C string array
-        let cPaths = paths.map { strdup($0) }
-        defer {
-            cPaths.forEach { free($0) }
+    }
+    
+    /// Removes each path and every path under it.
+    func remove(_ paths: [String]) {
+        guard let index = cIndex, !paths.isEmpty else { return }
+        let removed = Self.withCPaths(paths) { cPaths in
+            var removedSlots: UnsafeMutablePointer<size_t>?
+            let removed = path_search_remove(index, cPaths, paths.count, &removedSlots)
+            path_search_free_slots(removedSlots)
+            return removed
         }
-        
-        // Create index using C implementation
-        let cPathsPointers = cPaths.map { UnsafePointer<CChar>($0) }
-        cPathsPointers.withUnsafeBufferPointer { buffer in
-            cIndex = path_search_create(buffer.baseAddress, paths.count)
-        }
+        liveCount -= removed
     }
     
     /// Get path at specific index
     func path(at index: Int) -> String? {
-        guard index >= 0 && index < originalPaths.count else { return nil }
-        return originalPaths[index]
+        guard let cIndex, index >= 0, let path = path_search_path(cIndex, index) else { return nil }
+        return String(cString: path)
     }
     
     /// Get filename at specific index
     func filename(at index: Int) -> String? {
-        guard index >= 0 && index < filenames.count else { return nil }
-        return filenames[index]
+        path(at: index).map(Self.filename(of:))
     }
     
     /// Get total number of indexed paths
     var count: Int {
-        originalPaths.count
+        liveCount
+    }
+    
+    // MARK: - Helpers
+    
+    private static func filename(of path: String) -> String {
+        guard let slash = path.lastIndex(of: "/") else { return path }
+        return String(path[path.index(after: slash)...])
+    }
+    
+    private static func withCPaths<Result>(
+        _ paths: [String],
+        _ body: (UnsafePointer<UnsafePointer<CChar>?>?) -> Result
+    ) -> Result {
+        let cPaths = paths.map { strdup($0) }
+        defer { cPaths.forEach { free($0) } }
+        let pointers = cPaths.map { UnsafePointer<CChar>($0) }
+        return pointers.withUnsafeBufferPointer { body($0.baseAddress) }
     }
 }
 
@@ -179,6 +210,18 @@ func path_search_create(_ paths: UnsafePointer<UnsafePointer<CChar>?>?, _ count:
 
 @_silgen_name("path_search_destroy")
 func path_search_destroy(_ index: OpaquePointer?)
+
+@_silgen_name("path_search_add")
+func path_search_add(_ index: OpaquePointer?, _ paths: UnsafePointer<UnsafePointer<CChar>?>?, _ count: Int, _ slots: UnsafeMutablePointer<size_t>?) -> Bool
+
+@_silgen_name("path_search_remove")
+func path_search_remove(_ index: OpaquePointer?, _ paths: UnsafePointer<UnsafePointer<CChar>?>?, _ count: Int, _ removedSlots: UnsafeMutablePointer<UnsafeMutablePointer<size_t>?>?) -> Int
+
+@_silgen_name("path_search_free_slots")
+func path_search_free_slots(_ slots: UnsafeMutablePointer<size_t>?)
+
+@_silgen_name("path_search_path")
+func path_search_path(_ index: OpaquePointer?, _ slot: Int) -> UnsafePointer<CChar>?
 
 @_silgen_name("path_search_find")
 func path_search_find(_ index: OpaquePointer?, _ pattern: UnsafePointer<CChar>?, _ limit: Int) -> OpaquePointer?
