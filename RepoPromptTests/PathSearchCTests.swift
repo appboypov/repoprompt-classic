@@ -64,28 +64,37 @@ final class PathSearchCTests: XCTestCase {
     }
     
     func testSpaceHandling() {
-        // Test space-separated terms create AND condition
-        let spaced = pattern_decompose("search model")
-        XCTAssertNotNil(spaced)
-        defer { pattern_parts_destroy(spaced) }
-        
-        let regex = String(cString: spaced!.pointee.regex_pattern)
-        // Should have positive lookaheads for both terms
-        XCTAssertTrue(regex.contains("(?=.*search)"))
-        XCTAssertTrue(regex.contains("(?=.*model)"))
+        // Space-separated terms find only the paths that hold every term, in any case
+        let found = matchingPaths(
+            ["src/Search/SearchModel.swift", "src/Search/SearchView.swift", "docs/Model.md"],
+            pattern: "search MODEL"
+        )
+        XCTAssertEqual(found, ["src/Search/SearchModel.swift"])
     }
     
     func testMultipleSpaces() {
-        // Test multiple space-separated terms
-        let multi = pattern_decompose("file view controller")
-        XCTAssertNotNil(multi)
-        defer { pattern_parts_destroy(multi) }
-        
-        let regex = String(cString: multi!.pointee.regex_pattern)
-        // Should have positive lookaheads for all terms
-        XCTAssertTrue(regex.contains("(?=.*file)"))
-        XCTAssertTrue(regex.contains("(?=.*view)"))
-        XCTAssertTrue(regex.contains("(?=.*controller)"))
+        // Every term must be in the path, wherever it is
+        let found = matchingPaths(
+            ["src/FileViewController.swift", "src/FileView.swift", "src/ViewController.swift", "docs/controller/file/view.md"],
+            pattern: "file view controller"
+        )
+        XCTAssertEqual(found, ["src/FileViewController.swift", "docs/controller/file/view.md"])
+    }
+    
+    /// The paths of `paths` that `pattern` finds in a C path index.
+    private func matchingPaths(_ paths: [String], pattern: String) -> Set<String> {
+        let cPaths = paths.map { strdup($0) }
+        defer { cPaths.forEach { free($0) } }
+        return cPaths.withUnsafeBufferPointer { buffer in
+            let constBuffer = buffer.baseAddress!.withMemoryRebound(to: UnsafePointer<CChar>?.self, capacity: buffer.count) { $0 }
+            let index = path_search_create(constBuffer, paths.count)
+            defer { path_search_destroy(index) }
+            guard let results = path_search_find(index, pattern, paths.count) else { return [] }
+            defer { search_result_destroy(results) }
+            let result = UnsafePointer<search_result_t>(results).pointee
+            guard let indices = result.indices else { return [] }
+            return Set((0..<Int(result.count)).map { paths[Int(indices[$0])] })
+        }
     }
     
     // MARK: - Binary Search Tests
