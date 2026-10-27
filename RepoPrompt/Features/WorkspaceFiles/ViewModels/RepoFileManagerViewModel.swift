@@ -5743,16 +5743,6 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 	}
 }
 	
-	func getSelectedFiles() -> [FileViewModel] {
-		return rootFolders.flatMap { folder in
-			getAllFiles(in: folder).filter { selectedFileIDs.contains($0.id) }
-		}
-	}
-	
-	private func getAllFiles(in folder: FolderViewModel) -> [FileViewModel] {
-		return gatherAllFileViewModels(in: folder)
-	}
-	
 	@MainActor
 	public func unloadRootFolder(_ folder: FolderViewModel) async {
 		let signpost = WorkspaceExitPerf.begin("unloadRootFolder")
@@ -5922,15 +5912,6 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 		return values.sorted { $0.standardizedFullPath < $1.standardizedFullPath }
 	}
 	
-	// Recursively collect all FileViewModels from all root folders.
-	func getAllFileViewModels() -> [FileViewModel] {
-		var allFiles: [FileViewModel] = []
-		for root in rootFolders {
-			allFiles.append(contentsOf: gatherAllFileViewModels(in: root))
-		}
-		return allFiles
-	}
-
 	/// Every file that the indexes of the root folders in a scope hold, in path order per root folder:
 	/// its tree item, or for a file without one a file view model that reads it by path.
 	func getAllFileViewModels(in scope: LookupRootScope) -> [FileViewModel] {
@@ -5944,17 +5925,18 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 			}
 		}
 	}
-	
-	// Collect all files that have codemaps available
-	@MainActor
-	func collectAllFilesWithCodemaps() -> [FileViewModel] {
-		let indexedFiles = allFilesSnapshot(sorted: true)
-		if !indexedFiles.isEmpty || rootFolders.isEmpty {
-			return indexedFiles.filter { $0.fileAPI != nil }
+
+	/// The file extensions of every file that the indexes of the root folders hold, lowercased.
+	func indexedFileExtensions() -> Set<String> {
+		var extensions = Set<String>()
+		for index in rootFolderIndexes.values {
+			for path in index.filePaths {
+				extensions.insert((path as NSString).pathExtension.lowercased())
+			}
 		}
-		return getAllFileViewModels().filter { $0.fileAPI != nil }
+		return extensions
 	}
-	
+
 	// 4) Helper to gather FileViewModels recursively
 	private func gatherAllFileViewModels(in folder: FolderViewModel) -> [FileViewModel] {
 		var visitedFolderIDs = Set<UUID>()
@@ -10915,7 +10897,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		currentBatchScanTask?.cancel()
 		
 		// Gather all known file VMs that are relevant
-		let allFiles = getAllFileViewModels().filter {
+		let allFiles = getAllFileViewModels(in: .allLoaded).filter {
 			guard let ext = $0.fileExtension else { return false }
 			return SyntaxManager.isSupportedFileExtension(ext)
 		}
@@ -10995,10 +10977,14 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		// Clear all caches in the code scan actor
 		await codeScanActor.clearAllCaches(rootFolders: rootPaths)
 		
-		// Clear the in-memory file APIs and reset scan state
-		for file in getAllFileViewModels() {
+		// Clear the in-memory file APIs of the tree items, the selected and auto codemap files and the files without a tree item
+		for file in fileHierarchyIndex.filesByFullPath.values {
 			file.setCodeMap(nil)
 		}
+		for file in selectedFiles + autoCodemapFiles {
+			file.setCodeMap(nil)
+		}
+		codemapCapableAPIsByFullPath.removeAll()
 		
 		// Reset scan tracking variables
 		remainingScanCount = 0
@@ -11031,7 +11017,7 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			pattern: pattern,
 			isRegex: isRegex,
 			options: SearchOptions(caseInsensitive: caseInsensitive),
-			in: getAllFileViewModels()
+			in: getAllFileViewModels(in: .allLoaded)
 		)
 	}
 
@@ -12295,7 +12281,7 @@ extension RepoFileManagerViewModel {
 	@MainActor
 	func indexedFilesWithCodemaps() -> [FileViewModel] {
 		var paths = Set(codemapCapableAPIsByFullPath.keys)
-		for file in collectAllFilesWithCodemaps() {
+		for file in fileHierarchyIndex.filesByFullPath.values where file.fileAPI != nil {
 			paths.insert(file.standardizedFullPath)
 		}
 		return paths.sorted().compactMap { path in

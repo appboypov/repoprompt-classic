@@ -8390,7 +8390,7 @@ func computeSelectionSlicesVirtual(
 
 	var snapshot: [UUID: [LineRange]] = [:]
 	for (full, ranges) in finalSelection.slices where !ranges.isEmpty {
-		if let vm = fileManager.findFileByFullPath(full) {
+		if let vm = fileManager.promptFile(forStandardizedPath: StandardizedPath.absolute(full)) {
 			snapshot[vm.id] = ranges
 		}
 	}
@@ -8688,7 +8688,7 @@ nonisolated static func mcpDisplayPath(
 
 
 	// MARK: – Shared validation helpers
-	/// Returns every path that cannot be resolved to a loaded `FileViewModel` or `FolderViewModel`.
+	/// Returns every path that names no file or folder of a root folder's index and no loaded folder.
 	private func invalidPaths(in paths: [String]) async -> [String] {
 		// Separate paths into likely files and likely folders based on extension
 		var likelyFilePaths: [String] = []
@@ -8717,15 +8717,7 @@ nonisolated static func mcpDisplayPath(
 		for path in likelyFilePaths {
 			if foundFiles[path] == nil {
 				// Not found as file, but could still be a folder with extension
-				let normalizedPath = fileManager.normalizeUserInputPath(path)
-				let standardizedPath = (normalizedPath as NSString).standardizingPath
-				let isAbsolute = standardizedPath.hasPrefix("/")
-
-				let folderVM: FolderViewModel? = isAbsolute
-					? fileManager.findFolderByFullPath(standardizedPath)
-					: fileManager.findFolderByRelativePath(standardizedPath)
-
-				if folderVM == nil {
+				if !isKnownFolderOrIndexedItem(path) {
 					invalidPaths.append(path)
 				}
 			}
@@ -8733,28 +8725,21 @@ nonisolated static func mcpDisplayPath(
 
 		// Check folder paths
 		for path in likelyFolderPaths {
-			let normalizedPath = fileManager.normalizeUserInputPath(path)
-			let standardizedPath = (normalizedPath as NSString).standardizingPath
-			let isAbsolute = standardizedPath.hasPrefix("/")
-
-			// First try as folder
-			let folderVM: FolderViewModel? = isAbsolute
-				? fileManager.findFolderByFullPath(standardizedPath)
-				: fileManager.findFolderByRelativePath(standardizedPath)
-
-			if folderVM == nil {
-				// Not found as folder, try as file (in case it's a file without extension)
-				let fileVM: FileViewModel? = isAbsolute
-					? fileManager.findFileByFullPath(standardizedPath)
-					: fileManager.findFileByRelativePath(standardizedPath)
-
-				if fileVM == nil {
-					invalidPaths.append(path)
-				}
+			if !isKnownFolderOrIndexedItem(path) {
+				invalidPaths.append(path)
 			}
 		}
 
 		return invalidPaths
+	}
+
+	/// Whether a path names a root folder, a folder with a tree item, or a file or folder a root folder's index holds.
+	private func isKnownFolderOrIndexedItem(_ path: String) -> Bool {
+		if fileManager.indexedItem(atPath: path) != nil { return true }
+		let standardizedPath = (fileManager.normalizeUserInputPath(path) as NSString).standardizingPath
+		return standardizedPath.hasPrefix("/")
+			? fileManager.findFolderByFullPath(standardizedPath) != nil
+			: fileManager.findFolderByRelativePath(standardizedPath) != nil
 	}
 
     /// Reads a file with optional slicing. Supports 1-based indices and a negative sentinel

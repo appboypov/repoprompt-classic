@@ -10294,7 +10294,7 @@ File: \(displayPath)
 		if promptManager.activeComposeTabID == tabID {
 			var didChange = false
 			for path in resolvedPaths {
-				guard let file = fileManager.findFileByFullPath(path) else { continue }
+				guard let file = fileManager.promptFile(forStandardizedPath: StandardizedPath.absolute(path)) else { continue }
 				let hadSliceSelection = fileManager.selectionSlicesByFileID[file.id] != nil
 				if !file.isChecked || fileManager.isAutoCodemapFile(file) || hadSliceSelection {
 					didChange = true
