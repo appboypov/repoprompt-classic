@@ -2718,15 +2718,13 @@ func loadFolder(
 	/// Called by the "@-mention" text editor when a token is committed.
 	@MainActor
 	public func togglePath(_ relativePath: String) {
-		if let file = findFileByRelativePath(relativePath) {
+		guard let item = indexedItem(atPath: relativePath) else { return }
+		if item.isFolder {
+			setFolderSelected(atStandardizedPath: item.standardizedFullPath, true)
+		} else if let file = promptFile(forStandardizedPath: item.standardizedFullPath) {
 			toggleFile(file, fromSearch: true)
-			refreshRootFolderState()
-			return
 		}
-		if let folder = findFolderByRelativePath(relativePath) {
-			folder.forceCheckRecursive()
-			refreshRootFolderState()
-		}
+		refreshRootFolderState()
 	}
 
 	// ------------------------------------------------------------------
@@ -2736,90 +2734,28 @@ func loadFolder(
 	/// If it is already selected nothing happens.
 	@MainActor
 	public func selectPath(_ relativePath: String, kind: MentionKind?) {
-		let normalizedPath      = normalizeUserInputPath(relativePath)
-		let standardizedPath    = (normalizedPath as NSString).standardizingPath
-		let isAbsolute          = standardizedPath.hasPrefix("/")
-		
-		// Resolve candidate VMs depending on path kind
-		let fileVM:   FileViewModel?   = isAbsolute
-			? findFileByFullPath(standardizedPath)
-			: findFileByRelativePath(standardizedPath)
-		let folderVM: FolderViewModel? = isAbsolute
-			? findFolderByFullPath(standardizedPath)
-			: findFolderByRelativePath(standardizedPath)
-		
-		// 1️⃣ Explicit kind supplied ------------------------------------------------
-		if let kind = kind {
-			switch kind {
-			case .folder:
-				if let folder = folderVM, folder.checkboxState != .checked {
-					folder.forceCheckRecursive()
-					refreshRootFolderState()
-				}
-				return
-			case .file:
-				if let file = fileVM, !file.isChecked {
-					setFileToggled(file, isToggled: true)
-					refreshRootFolderState()
-				}
-				return
-			case .skill:
-				return
-			}
-		}
-		
-		// 2️⃣ Kind not supplied – best-effort inference -----------------------------
-		if let file = fileVM, !file.isChecked {
-			setFileToggled(file, isToggled: true)
-			refreshRootFolderState()
-		} else if let folder = folderVM, folder.checkboxState != .checked {
-			folder.forceCheckRecursive()
-			refreshRootFolderState()
-		}
+		setPathSelected(relativePath, kind: kind, true)
 	}
 
 	/// Removes the selection for the given path when it is currently selected.
 	@MainActor
 	public func deselectPath(_ relativePath: String, kind: MentionKind?) {
-		let normalizedPath      = normalizeUserInputPath(relativePath)
-		let standardizedPath    = (normalizedPath as NSString).standardizingPath
-		let isAbsolute          = standardizedPath.hasPrefix("/")
-		
-		let fileVM:   FileViewModel?   = isAbsolute
-			? findFileByFullPath(standardizedPath)
-			: findFileByRelativePath(standardizedPath)
-		let folderVM: FolderViewModel? = isAbsolute
-			? findFolderByFullPath(standardizedPath)
-			: findFolderByRelativePath(standardizedPath)
-		
-		// 1️⃣ Explicit kind supplied ------------------------------------------------
-		if let kind = kind {
-			switch kind {
-			case .folder:
-				if let folder = folderVM, folder.checkboxState != .unchecked {
-					setFolderStateOnSubtree(folder, newState: .unchecked)
-					refreshRootFolderState()
-				}
-				return
-			case .file:
-				if let file = fileVM, file.isChecked {
-					setFileToggled(file, isToggled: false)
-					refreshRootFolderState()
-				}
-				return
-			case .skill:
-				return
-			}
+		setPathSelected(relativePath, kind: kind, false)
+	}
+
+	/// Selects or deselects the file or folder a mention names, whether or not its folder is opened.
+	/// A kind that does not match the item leaves the selection as it is.
+	@MainActor
+	private func setPathSelected(_ userPath: String, kind: MentionKind?, _ selected: Bool) {
+		guard kind != .skill, let item = indexedItem(atPath: userPath) else { return }
+		if let kind, (kind == .folder) != item.isFolder { return }
+		if item.isFolder {
+			guard setFolderSelected(atStandardizedPath: item.standardizedFullPath, selected) else { return }
+		} else {
+			guard let file = promptFile(forStandardizedPath: item.standardizedFullPath), file.isChecked != selected else { return }
+			setFileToggled(file, isToggled: selected)
 		}
-		
-		// 2️⃣ Kind not supplied – inference ----------------------------------------
-		if let file = fileVM, file.isChecked {
-			setFileToggled(file, isToggled: false)
-			refreshRootFolderState()
-		} else if let folder = folderVM, folder.checkboxState != .unchecked {
-			setFolderStateOnSubtree(folder, newState: .unchecked)
-			refreshRootFolderState()
-		}
+		refreshRootFolderState()
 	}
 	
 	/// Rebuilds the index *only* for the given root folder: removes old references, then re-walks to add fresh entries.
@@ -6531,88 +6467,43 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 	}
 	
 	@MainActor
-func toggleFolder(_ folder: FolderViewModel, fromSearch: Bool = false) {
-	guard !isLoading, folder.isValid else { return }
-	// A folder whose subtree reading has not finished listing cannot be ticked yet.
-	let rootKey = StandardizedPath.absolute(folder.rootPath)
-	let relativePath = RelativePath.fromStandardized(
-		standardizedAbsolutePath: folder.standardizedFullPath,
-		standardizedRootPath: rootKey
-	)
-	guard rootFolderIndexes[rootKey]?.folders[relativePath]?.isSubtreeRead != false else { return }
-
-	// Flip the entire subtree in a single main-actor pass; no yielding.
-	performSelectionBatch {
-		let newState: CheckboxState = (folder.checkboxState == .unchecked) ? .checked : .unchecked
-		setFolderStateOnSubtree(folder, newState: newState)
+	func toggleFolder(_ folder: FolderViewModel, fromSearch: Bool = false) {
+		guard folder.isValid else { return }
+		toggleFolder(atStandardizedPath: folder.standardizedFullPath)
 	}
 
-	// One cheap recompute from this folder up to the root (O(depth)).
-	recomputeAncestorStates(startingAt: folder)
-
-	// Notify any listeners that the folder row can refresh UI affordances.
-	folderRefreshPublisher.send(folder)
-}
-
-	/*
+	/// Selects every file under a folder of a root folder's index when none is selected, else deselects them all.
 	@MainActor
-	private func setFolderStateOnSubtree(_ folder: FolderViewModel, newState: CheckboxState) {
-		var stack = [folder]
-		while let current = stack.popLast() {
-			for child in current.children {
-				switch child {
-				case .file(let fileVM):
-					fileVM.setIsChecked(newState == .checked)
-				case .folder(let subFolder):
-					stack.append(subFolder)
-				}
-			}
-			current.updateCheckboxStateImmediately(newState: newState)
+	func toggleFolder(atStandardizedPath path: String) {
+		guard !isLoading, let folder = indexedFolder(atStandardizedPath: path),
+			let index = rootFolderIndexes[folder.root.standardizedFullPath],
+			// A folder whose subtree reading has not finished listing cannot be ticked yet.
+			index.folders[folder.relativePath]?.isSubtreeRead == true
+		else { return }
+		setFolderSelected(atStandardizedPath: path, index.checkboxState(ofFolder: folder.relativePath) == .unchecked)
+		if let treeFolder = findFolderByFullPath(path) {
+			recomputeAncestorStates(startingAt: treeFolder)
+			// Notify any listeners that the folder row can refresh UI affordances.
+			folderRefreshPublisher.send(treeFolder)
 		}
 	}
-	*/
+
+	/// Selects or deselects every file under a folder of a root folder's index, whether or not its folders are opened.
+	/// Returns whether the selection changed.
 	@MainActor
-private func setFolderStateOnSubtree(_ folder: FolderViewModel,
-										newState: CheckboxState) {
-	var stack = [folder]
-	while let current = stack.popLast() {
-		for child in current.children {
-			switch child {
-			case .file(let fileVM):
-				let target = (newState == .checked)
-				// Avoid emitting onCheckStateChanged when the state is already correct
-				if fileVM.isChecked != target {
-					fileVM.setIsChecked(target)
-				}
-			case .folder(let subFolder):
-				stack.append(subFolder)
-			}
-		}
-		current.updateCheckboxStateImmediately()
-	}
-}
-	
-	@MainActor
-	private func setFolderStateToUncheckedOnlyWhereChecked(_ folder: FolderViewModel) {
-		// Batch uncheck all checked files in the subtree
+	@discardableResult
+	func setFolderSelected(atStandardizedPath path: String, _ selected: Bool) -> Bool {
+		guard let folder = indexedFolder(atStandardizedPath: path),
+			let index = rootFolderIndexes[folder.root.standardizedFullPath],
+			index.checkboxState(ofFolder: folder.relativePath) != (selected ? .checked : .unchecked)
+		else { return false }
+		let files = files(under: folder)
 		performSelectionBatch {
-			var stack: [FolderViewModel] = [folder]
-			while let current = stack.popLast() {
-				for child in current.children {
-					switch child {
-					case .folder(let subFolder):
-						stack.append(subFolder)
-					case .file(let childFile):
-						if childFile.isChecked {
-							childFile.setIsChecked(false)
-						}
-					}
-				}
+			for file in files where file.isChecked != selected {
+				file.setIsChecked(selected)
 			}
 		}
-
-		// Fast O(depth) recompute up the chain instead of full recursive walk
-		recomputeAncestorStates(startingAt: folder)
+		return true
 	}
 	
 	@MainActor
@@ -6696,94 +6587,6 @@ private func setFolderStateOnSubtree(_ folder: FolderViewModel,
 		}
 	}
 	
-	func findFullPath(for relativePath: String) -> String? {
-		for rootFolder in rootFolders {
-			if let fullPath = searchForFile(withRelativePath: relativePath, in: rootFolder, currentPath: rootFolder.fullPath) {
-				return fullPath
-			}
-		}
-		return nil
-	}
-	
-	private func searchForFile(
-		withRelativePath relativePath: String,
-		in folder: FolderViewModel,
-		currentPath: String
-	) -> String? {
-		var visitedFolderIDs = Set<UUID>()
-		return searchForFile(
-			withRelativePath: relativePath,
-			in: folder,
-			currentPath: currentPath,
-			visitedFolderIDs: &visitedFolderIDs
-		)
-	}
-	
-	private func searchForFile(
-		withRelativePath relativePath: String,
-		in folder: FolderViewModel,
-		currentPath: String,
-		visitedFolderIDs: inout Set<UUID>
-	) -> String? {
-		guard visitedFolderIDs.insert(folder.id).inserted else { return nil }
-		for child in folder.children {
-			switch child {
-			case .file(let file):
-				if file.relativePath == relativePath {
-					return file.fullPath
-				}
-			case .folder(let subFolder):
-				let newPath = (currentPath as NSString).appendingPathComponent(subFolder.name)
-				if let path = searchForFile(
-					withRelativePath: relativePath,
-					in: subFolder,
-					currentPath: newPath,
-					visitedFolderIDs: &visitedFolderIDs
-				) {
-					return path
-				}
-			}
-		}
-		return nil
-	}
-	
-	@MainActor
-	private func clearFolderSelectionRecursive(_ folder: FolderViewModel) {
-		var visitedFolderIDs = Set<UUID>()
-		var stack: [FolderViewModel] = [folder]
-		while let current = stack.popLast() {
-			guard visitedFolderIDs.insert(current.id).inserted else { continue }
-			for child in current.children {
-				switch child {
-				case .folder(let childFolder):
-					stack.append(childFolder)
-				case .file(let childFile):
-					childFile.setIsChecked(false)
-				}
-			}
-		}
-	}
-	
-	private func updateSelectedFiles() async {
-		let selected = await withTaskGroup(of: [FileViewModel].self) { group in
-			for folder in self.rootFolders {
-				group.addTask {
-					await self.getAllSelectedFiles(in: folder)
-				}
-			}
-			
-			var allSelected: [FileViewModel] = []
-			for await folderSelected in group {
-				allSelected.append(contentsOf: folderSelected)
-			}
-			return allSelected
-		}
-		
-		// Keep both collections consistent
-		let newIDs = Set(selected.map(\.id))
-		commitSelectionState(selected, newIDs)
-	}
-	
 	func isFileSelected(_ requestedPath: String) -> Bool {
 		let trimmedRequest = requestedPath.trimmingCharacters(in: .whitespacesAndNewlines)
 		
@@ -6795,27 +6598,6 @@ private func setFolderStateOnSubtree(_ folder: FolderViewModel,
 			return true
 		}
 		return false
-	}
-	
-	@MainActor
-	private func getAllSelectedFiles(in folder: FolderViewModel) async -> [FileViewModel] {
-		var files: [FileViewModel] = []
-		var visitedFolderIDs = Set<UUID>()
-		var stack: [FolderViewModel] = [folder]
-		while let current = stack.popLast() {
-			guard visitedFolderIDs.insert(current.id).inserted else { continue }
-			for child in current.children {
-				switch child {
-				case .file(let file) where file.isChecked:
-					files.append(file)
-				case .folder(let subFolder):
-					stack.append(subFolder)
-				default:
-					break
-				}
-			}
-		}
-		return files
 	}
 	
 	@MainActor
@@ -13815,13 +13597,8 @@ extension RepoFileManagerViewModel {
 				continue
 			}
 
-			if let file = findFileByRelativePath(standardized) {
-				result.insert(file.standardizedFullPath)
-				continue
-			}
-
-			if let full = findFullPath(for: standardized) {
-				result.insert((full as NSString).standardizingPath)
+			if let item = indexedItem(atPath: standardized), !item.isFolder {
+				result.insert(item.standardizedFullPath)
 			}
 		}
 		return result

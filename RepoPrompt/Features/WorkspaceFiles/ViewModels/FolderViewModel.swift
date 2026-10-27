@@ -790,59 +790,7 @@ class FolderViewModel: ObservableObject, Identifiable, FileSystemItemViewModel, 
 		applyCheckboxState(computeCheckboxState())
 	}
 	
-	// MARK: - Recursive Checkbox & Expand/Collapse
-	
-	/// Toggle this folder’s checkbox from checked→unchecked or vice versa, applying to entire subtree.
-	@MainActor
-	func toggleCheckedRecursive() {
-		let newState: CheckboxState
-		switch self.checkboxState {
-		case .unchecked:
-			newState = .checked
-		case .checked, .mixed:
-			newState = .unchecked
-		}
-		setCheckboxStateOnSubtree(newValue: newState)
-		bubbleCheckboxStateUp()
-	}
-	
-	// ------------------------------------------------------------------
-	// MARK: Mention support
-	// ------------------------------------------------------------------
-	
-	/// Forces the entire subtree to the `.checked` state, regardless of its
-	/// current mixed/unchecked status. Called when a user selects a folder
-	/// via an "@" mention token.
-	@MainActor
-	public func forceCheckRecursive() {
-		// Re-use the existing private recursive setter.
-		setCheckboxStateOnSubtree(newValue: .checked)
-		bubbleCheckboxStateUp()
-	}
-	
-	/// Recursively sets the entire subtree's checkboxes to the specified state.
-	@MainActor
-	private func setCheckboxStateOnSubtree(newValue: CheckboxState) {
-		for file in files {
-			file.setIsChecked(newValue == .checked)
-		}
-		for subFolder in subfolders {
-			subFolder.setCheckboxStateOnSubtree(newValue: newValue)
-		}
-		updateCheckboxState()
-	}
-	
-	/// Forces parent folders to recalc state after a checkbox change.
-	@MainActor
-	func bubbleCheckboxStateUp() {
-		var current = self.parent
-		var visited = Set<UUID>()
-		while let folder = current {
-			if !visited.insert(folder.id).inserted { break } // cycle detected
-			folder.updateCheckboxStateImmediately()
-			current = folder.parent
-		}
-	}
+	// MARK: - Expand/Collapse
 	
 	/// Recursively expand this folder and all its subfolders
 	@MainActor

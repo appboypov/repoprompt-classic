@@ -143,26 +143,13 @@ struct AttributedTextKitView: NSViewRepresentable {
 		/// Toggles (checks / un-checks) the file-manager selection for the
 		/// given path, correctly handling both files and folders.
 		private func toggleModel(for path: String, kind: MentionKind?) {
-			guard let fm = parent.fileManager else { return }
-
-			// Prefer explicit kind if supplied, otherwise infer from models.
-			let isFolder: Bool = {
-				if let k = kind { return k == .folder }
-				return fm.findFolderByRelativePath(path) != nil
-			}()
-
-			if isFolder {
-				if let folderVM = fm.findFolderByRelativePath(path) {
-					fm.toggleFolder(folderVM)
-				} else {
-					fm.togglePath(path)        // fallback
-				}
-			} else {
-				if let fileVM = fm.findFileByRelativePath(path) {
-					fm.toggleFile(fileVM)
-				} else {
-					fm.togglePath(path)        // fallback
-				}
+			guard let fm = parent.fileManager, let item = fm.indexedItem(atPath: path) else { return }
+			// An explicit kind that does not match the item leaves the selection as it is.
+			if let kind, (kind == .folder) != item.isFolder { return }
+			if item.isFolder {
+				fm.toggleFolder(atStandardizedPath: item.standardizedFullPath)
+			} else if let fileVM = fm.promptFile(forStandardizedPath: item.standardizedFullPath) {
+				fm.toggleFile(fileVM)
 			}
 		}
 
@@ -544,12 +531,7 @@ private func applyMentionAttributes(on tv: NSTextView,
 				// Resolve kind only once per distinct path
 				let resolvedKind: MentionKind? = {
 					if let cached = kindCache[rawPath] { return cached }
-					var kind: MentionKind? = nil
-					if fm.findFolderByRelativePath(rawPath) != nil {
-						kind = .folder
-					} else if fm.findFileByRelativePath(rawPath) != nil {
-						kind = .file
-					}
+					let kind: MentionKind? = fm.indexedItem(atPath: rawPath).map { $0.isFolder ? .folder : .file }
 					kindCache[rawPath] = kind
 					return kind
 				}()

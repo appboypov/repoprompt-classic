@@ -986,6 +986,23 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testMentioningAFolderThatIsNotOpenedSelectsAndDeselectsItsFiles() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+
+		fileManagerVM.selectPath("src/deep", kind: .folder)
+
+		XCTAssertEqual(index.selectedFilePaths, ["src/deep/Deep.swift", "src/deep/notes.md"])
+		XCTAssertEqual(index.checkboxState(ofFolder: "src"), .mixed)
+
+		fileManagerVM.selectPath("src/deep", kind: .file)
+		fileManagerVM.deselectPath("src/deep", kind: nil)
+
+		XCTAssertEqual(index.selectedFilePaths, [])
+		XCTAssertEqual(fileManagerVM.selectedFiles.map(\.standardizedFullPath), [])
+	}
+
+	@MainActor
 	func testTickingAFolderWhoseSubtreeIsBeingReadSelectsNothing() async throws {
 		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
@@ -1348,18 +1365,26 @@ final class RepoFileManagerTests: XCTestCase {
 		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
 		defer { try? FileManager.default.removeItem(at: rootURL) }
 		let rootName = rootURL.lastPathComponent
+		let rootPath = StandardizedPath.absolute(rootURL.path)
+		func item(_ relativePath: String, isFolder: Bool) -> RepoFileManagerViewModel.IndexedItem {
+			RepoFileManagerViewModel.IndexedItem(
+				relativePath: relativePath,
+				standardizedFullPath: StandardizedPath.join(standardizedRoot: rootPath, standardizedRelativePath: relativePath),
+				isFolder: isFolder
+			)
+		}
 
 		XCTAssertEqual(
 			fileManagerVM.indexedItem(atPath: "src/deep/Deep.swift"),
-			RepoFileManagerViewModel.IndexedItem(relativePath: "src/deep/Deep.swift", isFolder: false)
+			item("src/deep/Deep.swift", isFolder: false)
 		)
 		XCTAssertEqual(
 			fileManagerVM.indexedItem(atPath: rootURL.appendingPathComponent("src/deep/notes.md").path),
-			RepoFileManagerViewModel.IndexedItem(relativePath: "src/deep/notes.md", isFolder: false)
+			item("src/deep/notes.md", isFolder: false)
 		)
 		XCTAssertEqual(
 			fileManagerVM.indexedItem(atPath: "\(rootName)/src/deep"),
-			RepoFileManagerViewModel.IndexedItem(relativePath: "src/deep", isFolder: true)
+			item("src/deep", isFolder: true)
 		)
 		XCTAssertNil(fileManagerVM.indexedItem(atPath: "src/deep/Missing.swift"))
 	}
@@ -4111,14 +4136,6 @@ extension RepoFileManagerTests {
 		fileManagerVM.addRootFolder(rootFolderVM)
 		let parent = await fileManagerVM.findParentFolder(for: rootFolderVM)
 		XCTAssertEqual(parent?.id, childFolderVM.id)
-	}
-
-	@MainActor
-	func testFindFullPathHandlesSelfCycle() async throws {
-		let (fileManagerVM, rootFolderVM, fileVM) = try await makeRootWithFile()
-		rootFolderVM.addSubfolder(rootFolderVM)
-		let fullPath = fileManagerVM.findFullPath(for: fileVM.relativePath)
-		XCTAssertEqual(fullPath, fileVM.fullPath)
 	}
 
 	@MainActor
