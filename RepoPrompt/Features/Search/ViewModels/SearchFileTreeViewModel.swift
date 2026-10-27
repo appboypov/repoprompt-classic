@@ -516,10 +516,11 @@ class SearchFileTreeViewModel: ObservableObject {
 		
 		var items: [String: [MatchedItem]] = [:]
 		var subfolderPaths: [String: Set<String>] = [:]
+		var seenPaths = Set<String>()
 		var score = candidates.count
 		for candidate in candidates {
 			defer { score -= 1 }
-			guard !isInsideMatchedFolder(candidate.path) else { continue }
+			guard seenPaths.insert(candidate.path).inserted, !isInsideMatchedFolder(candidate.path) else { continue }
 			let entry = ResultEntry(id: id(of: candidate.path), name: candidate.filename, relativePath: candidate.path)
 			var parent = parentPath(of: candidate.path)
 			items[parent, default: []].append(candidate.isFolder ? .contents(entry, score: score) : .file(entry, score: score))
@@ -667,7 +668,10 @@ class SearchFileTreeViewModel: ObservableObject {
 		var children: [SearchFileSystemItem]
 		switch unbuilt {
 		case .matches(let matched):
-			children = matched.children.map { child -> SearchFileSystemItem in
+			// Folders found empty stay hidden unless empty folders are shown, as in the file tree
+			let index = fileManager?.rootFolderIndexes[matched.rootPath]
+			let hidesEmptyFolders = fileManager?.showEmptyFolders == false
+			children = matched.children.compactMap { child -> SearchFileSystemItem? in
 				switch child {
 				case .folder(let subfolder):
 					return .folder(makeFolder(
@@ -679,8 +683,9 @@ class SearchFileTreeViewModel: ObservableObject {
 						bestScore: subfolder.bestScore,
 						unbuiltChildren: .matches(subfolder)
 					))
-				case .contents(let snapshot, let score):
-					return .folder(makeContentsFolder(snapshot, rootID: matched.rootID, rootPath: matched.rootPath, score: score))
+				case .contents(let entry, let score):
+					if hidesEmptyFolders, index?.folders[entry.relativePath]?.isKnownEmpty == true { return nil }
+					return .folder(makeContentsFolder(entry, rootID: matched.rootID, rootPath: matched.rootPath, score: score))
 				case .file(let file, let score):
 					return .file(makeFile(file, rootPath: matched.rootPath, score: score))
 				}
