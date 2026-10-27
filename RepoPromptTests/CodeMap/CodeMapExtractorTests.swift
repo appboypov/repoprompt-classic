@@ -242,10 +242,10 @@ final class CodeMapExtractorTests: XCTestCase {
 		root.addFile(file)
 
 		let live = CodeMapExtractor.generateFileTreeForRoots(
-			rootFolders: [root],
+			rootFolders: snapshotRoots([root]),
 			option: .files,
 			filePathDisplay: .relative,
-			selectedFileIDs: [file.id],
+			selectedFileIDs: [file.standardizedFullPath],
 			onlyIncludeRootsWithSelectedFiles: false,
 			includeLegend: true,
 			showCodeMapMarkers: false
@@ -286,7 +286,7 @@ final class CodeMapExtractorTests: XCTestCase {
 		codexRoot.addSubfolder(codexRs)
 
 		let live = CodeMapExtractor.generateFileTreeForRoots(
-			rootFolders: [repoPromptRoot, codexRoot],
+			rootFolders: snapshotRoots([repoPromptRoot, codexRoot], showEmptyFolders: true),
 			option: .files,
 			filePathDisplay: .relative,
 			selectedFileIDs: [],
@@ -327,7 +327,7 @@ final class CodeMapExtractorTests: XCTestCase {
 		root.addFile(file)
 
 		let live = CodeMapExtractor.generateFileTreeForRoots(
-			rootFolders: [root],
+			rootFolders: snapshotRoots([root]),
 			option: .files,
 			filePathDisplay: .relative,
 			selectedFileIDs: [],
@@ -367,7 +367,7 @@ final class CodeMapExtractorTests: XCTestCase {
 
 		let tree = CodeMapExtractor.generateFileTreeStartingAtPath(
 			startFolderFullPath: codexRs.fullPath,
-			rootFolders: [repoPromptRoot, codexRoot],
+			rootFolders: snapshotRoots([repoPromptRoot, codexRoot], showEmptyFolders: true),
 			mode: "full",
 			maxDepth: nil,
 			includeHidden: true,
@@ -401,7 +401,7 @@ final class CodeMapExtractorTests: XCTestCase {
 
 		let tree = CodeMapExtractor.generateFileTreeStartingAtPath(
 			startFolderFullPath: codexRoot.fullPath,
-			rootFolders: [parentRoot, codexRoot],
+			rootFolders: snapshotRoots([parentRoot, codexRoot], showEmptyFolders: true),
 			mode: "full",
 			maxDepth: nil,
 			includeHidden: true,
@@ -465,10 +465,10 @@ final class CodeMapExtractorTests: XCTestCase {
 		gitData.addFile(gitArtifact)
 
 		let live = CodeMapExtractor.generateFileTreeForRoots(
-			rootFolders: [root],
+			rootFolders: snapshotRoots([root]),
 			option: .auto,
 			filePathDisplay: .relative,
-			selectedFileIDs: [fileA.id],
+			selectedFileIDs: [fileA.standardizedFullPath],
 			onlyIncludeRootsWithSelectedFiles: false,
 			includeLegend: true
 		)
@@ -484,8 +484,25 @@ final class CodeMapExtractorTests: XCTestCase {
 		XCTAssertEqual(rendered, live)
 	}
 
-	/// Renders the tree of a context from indexes that hold exactly the folders and files of its root view models.
+	/// The tree of a context, rendered from indexes that hold exactly the folders and files of its root view models.
 	private func treeFromIndexes(_ context: FileTreeSelectionContext, showEmptyFolders: Bool = false) -> String {
+		CodeMapExtractor.generateFileTree(using: snapshotFromIndexes(context, showEmptyFolders: showEmptyFolders))
+	}
+
+	/// The snapshot folders of root view models, built from indexes that hold exactly their folders and files.
+	private func snapshotRoots(_ roots: [FolderViewModel], showEmptyFolders: Bool = false) -> [FileTreeFolderSnapshot] {
+		snapshotFromIndexes(FileTreeSelectionContext(
+			rootFolders: roots,
+			selectedFilePaths: [],
+			option: .files,
+			filePathDisplay: .relative,
+			onlyIncludeRootsWithSelectedFiles: false,
+			includeLegend: false
+		), showEmptyFolders: showEmptyFolders).roots
+	}
+
+	/// The snapshot of a context, built from indexes that hold exactly the folders and files of its root view models.
+	private func snapshotFromIndexes(_ context: FileTreeSelectionContext, showEmptyFolders: Bool) -> FileTreeSelectionSnapshot {
 		var indexes: [String: RootFolderIndex] = [:]
 		var filesByPath: [String: FileViewModel] = [:]
 		for root in context.rootFolders {
@@ -505,11 +522,10 @@ final class CodeMapExtractorTests: XCTestCase {
 			index.finishReading()
 			indexes[rootPath] = index
 		}
-		let snapshot = CodeMapExtractor.makeFileTreeSnapshot(
+		return CodeMapExtractor.makeFileTreeSnapshot(
 			using: context,
 			indexes: indexes,
 			showEmptyFolders: showEmptyFolders
 		) { filesByPath[$0]?.hasAcceptedCodeMap ?? false }
-		return CodeMapExtractor.generateFileTree(using: snapshot)
 	}
 }

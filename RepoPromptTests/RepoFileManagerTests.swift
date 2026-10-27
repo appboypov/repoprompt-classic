@@ -741,10 +741,10 @@ final class RepoFileManagerTests: XCTestCase {
 		let options: [FileTreeOption] = [.files, .selected, .auto]
 		let treesWithEveryFolderOpened = options.map { option in
 			CodeMapExtractor.generateFileTreeForRoots(
-				rootFolders: fileManagerVM.visibleRootFolders,
+				rootFolders: fileManagerVM.fileTreeRoots(of: fileManagerVM.visibleRootFolders),
 				option: option,
 				filePathDisplay: .relative,
-				selectedFileIDs: Set(selectedFiles.map(\.id)),
+				selectedFileIDs: Set(selectedFiles.map(\.standardizedFullPath)),
 				onlyIncludeRootsWithSelectedFiles: false
 			)
 		}

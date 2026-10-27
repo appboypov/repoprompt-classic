@@ -435,6 +435,13 @@ class RepoFileManagerViewModel: ObservableObject {
 		readingFileCounts.value.removeValue(forKey: rootKey)
 	}
 
+	/// Returns once no root folder is being read. A failed or removed load drops its entry too.
+	func waitUntilReadingIsComplete() async {
+		for await counts in readingFileCounts.values where counts.isEmpty {
+			return
+		}
+	}
+
 	// Track window focus
 	private var isWindowFocused: Bool = true
 	private var deferredReplayRoutingVersion: UInt64 = 0
@@ -5493,18 +5500,18 @@ private func removeFolderRecursive(
 	}
 	
 	private func resolveFile(rootPath: String, correctedPath: String) -> FileViewModel? {
-		findFileByFullPath(absolutePath(rootPath: rootPath, correctedPath: correctedPath))
+		promptFile(forStandardizedPath: StandardizedPath.absolute(absolutePath(rootPath: rootPath, correctedPath: correctedPath)))
 	}
 	
 	private func resolveFile(at location: PathLocation) -> FileViewModel? {
 		resolveFile(rootPath: location.rootPath, correctedPath: location.correctedPath)
 	}
 	
-	private func resolveFolder(rootPath: String, correctedPath: String) -> FolderViewModel? {
-		findFolderByFullPath(absolutePath(rootPath: rootPath, correctedPath: correctedPath))
+	private func resolveFolder(rootPath: String, correctedPath: String) -> IndexedFolder? {
+		indexedFolder(atStandardizedPath: StandardizedPath.absolute(absolutePath(rootPath: rootPath, correctedPath: correctedPath)))
 	}
 	
-	private func resolveFolder(at location: PathLocation) -> FolderViewModel? {
+	private func resolveFolder(at location: PathLocation) -> IndexedFolder? {
 		resolveFolder(rootPath: location.rootPath, correctedPath: location.correctedPath)
 	}
 	
@@ -7674,14 +7681,14 @@ private func findFolderRecursive(
 			guard !normalized.isEmpty else { continue }
 			if allowsExplicitSystemPathResolution(for: profile),
 			   let explicitResolution = resolveExplicitSystemPath(normalized) {
-				if let hit = fileHierarchyIndex.filesByFullPath[explicitResolution.standardizedAbsolutePath] {
+				if let hit = promptFile(forStandardizedPath: explicitResolution.standardizedAbsolutePath) {
 					results[original] = hit
 				}
 				continue
 			}
 			if (profile == .mcpRead || profile == .mcpSearchScope),
 			   let explicitResolution = resolveExplicitSystemPath(normalized) {
-				if let hit = fileHierarchyIndex.filesByFullPath[explicitResolution.standardizedAbsolutePath] {
+				if let hit = promptFile(forStandardizedPath: explicitResolution.standardizedAbsolutePath) {
 					results[original] = hit
 				}
 				continue
@@ -7695,7 +7702,7 @@ private func findFolderRecursive(
 				switch resolveVisibleRootAlias(normalized, requireRemainder: true, disambiguateRealSubpath: false) {
 				case .prefixed(let root, _, let remainder):
 					let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-					if let hit = fileHierarchyIndex.filesByFullPath[abs] {
+					if let hit = promptFile(forStandardizedPath: abs) {
 						results[original] = hit
 						continue
 					}
@@ -7716,7 +7723,7 @@ private func findFolderRecursive(
 					break
 				}
 				
-				if let hit = findFileByRelativePath(normalized, scope: lookupScope) {
+				if let hit = promptFile(forRelativePath: normalized, scope: lookupScope) {
 					results[original] = hit
 					continue
 				}
@@ -7724,7 +7731,7 @@ private func findFolderRecursive(
 			
 			if normalized.hasPrefix("/") {
 				let stdAbs = (normalized as NSString).standardizingPath
-				if let hit = fileHierarchyIndex.filesByFullPath[stdAbs] {
+				if let hit = promptFile(forStandardizedPath: stdAbs) {
 					results[original] = hit
 					continue
 				}
@@ -7760,7 +7767,7 @@ private func findFolderRecursive(
 		
 		for (originalPath, standardizedPath) in matcherResults {
 			if let standardizedPath = standardizedPath,
-				let fileVM = fileHierarchyIndex.filesByFullPath[standardizedPath] {
+				let fileVM = promptFile(forStandardizedPath: standardizedPath) {
 				results[originalPath] = fileVM
 			}
 		}
@@ -7790,14 +7797,14 @@ private func findFolderRecursive(
 		}
 
 		if standardized.hasPrefix("/") {
-			if let exact = fileHierarchyIndex.filesByFullPath[standardized] {
+			if let exact = promptFile(forStandardizedPath: standardized) {
 				return exact
 			}
 			if let aliasResolution = resolveLeadingSlashRootAlias(from: standardized, requireRemainder: false) {
 				switch aliasResolution {
 				case .prefixed(let root, _, let remainder):
 					let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-					return fileHierarchyIndex.filesByFullPath[abs]
+					return promptFile(forStandardizedPath: abs)
 				case .bareRoot, .ambiguous, .notAliasPrefixed:
 					return nil
 				}
@@ -7808,7 +7815,7 @@ private func findFolderRecursive(
 		switch resolveVisibleRootAlias(standardized, requireRemainder: true, disambiguateRealSubpath: false) {
 		case .prefixed(let root, _, let remainder):
 			let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-			if let exact = fileHierarchyIndex.filesByFullPath[abs] {
+			if let exact = promptFile(forStandardizedPath: abs) {
 				return exact
 			}
 			let literalMatches = literalRelativeFileMatches(for: standardized)
@@ -8441,6 +8448,12 @@ private func removeEmptyFolders(in folder: FolderViewModel, allowSorting: Bool =
 	}
 
 	@MainActor
+	func clientDisplayPath(for folder: IndexedFolder) -> String {
+		let root = WorkspaceRootRef(id: folder.root.id, name: folder.name, fullPath: folder.standardizedFullPath)
+		return clientDisplayPath(root: root, relativePath: folder.relativePath)
+	}
+
+	@MainActor
 	func unresolvedWorkspaceDisplayPath(for userPath: String) -> String? {
 		let trimmedInput = userPath.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !trimmedInput.isEmpty else { return nil }
@@ -8511,16 +8524,16 @@ private func removeEmptyFolders(in folder: FolderViewModel, allowSorting: Bool =
 		let standardizedRel = (relativePath as NSString).standardizingPath
 		return visibleRootFolders.compactMap { root in
 			let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(standardizedRel) as NSString).standardizingPath
-			return fileHierarchyIndex.filesByFullPath[abs]
+			return promptFile(forStandardizedPath: abs)
 		}
 	}
 	
 	@MainActor
-	private func literalRelativeFolderMatches(for relativePath: String) -> [FolderViewModel] {
+	private func literalRelativeFolderMatches(for relativePath: String) -> [IndexedFolder] {
 		let standardizedRel = (relativePath as NSString).standardizingPath
 		return visibleRootFolders.compactMap { root in
 			let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(standardizedRel) as NSString).standardizingPath
-			return fileHierarchyIndex.foldersByFullPath[abs]
+			return indexedFolder(atStandardizedPath: abs)
 		}
 	}
 
@@ -8583,11 +8596,11 @@ private func removeEmptyFolders(in folder: FolderViewModel, allowSorting: Bool =
 			))
 			switch kind {
 			case .file:
-				if findFileByFullPath(abs) != nil { return nil }
+				if indexHoldsFile(atStandardizedPath: abs) { return nil }
 			case .folder:
-				if findFolderByFullPath(abs) != nil { return nil }
+				if indexedFolder(atStandardizedPath: abs) != nil { return nil }
 			case .either:
-				if findFileByFullPath(abs) != nil || findFolderByFullPath(abs) != nil { return nil }
+				if indexHoldsFile(atStandardizedPath: abs) || indexedFolder(atStandardizedPath: abs) != nil { return nil }
 			}
 		case .notAliasPrefixed:
 			break
@@ -8605,11 +8618,11 @@ private func removeEmptyFolders(in folder: FolderViewModel, allowSorting: Bool =
 			))
 			switch kind {
 			case .file:
-				return findFileByFullPath(abs) != nil
+				return indexHoldsFile(atStandardizedPath: abs)
 			case .folder:
-				return findFolderByFullPath(abs) != nil
+				return indexedFolder(atStandardizedPath: abs) != nil
 			case .either:
-				return findFileByFullPath(abs) != nil || findFolderByFullPath(abs) != nil
+				return indexHoldsFile(atStandardizedPath: abs) || indexedFolder(atStandardizedPath: abs) != nil
 			}
 		}
 
@@ -8945,6 +8958,30 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 			}
 		}
 		rebuildFileHierarchyIndex(for: folder)
+		if rootFolderIndexes[folder.standardizedFullPath] == nil {
+			rootFolderIndexes[folder.standardizedFullPath] = readRootFolderIndexForTesting(of: folder)
+		}
+	}
+
+	/// The index that reading builds for a root folder, here built from its tree items.
+	@MainActor
+	private func readRootFolderIndexForTesting(of rootFolder: FolderViewModel) -> RootFolderIndex {
+		let rootPath = rootFolder.standardizedFullPath
+		let index = RootFolderIndex(rootPath: rootPath)
+		var pending = [rootFolder]
+		var visitedFolderIDs = Set<UUID>()
+		while let folder = pending.popLast() {
+			guard visitedFolderIDs.insert(folder.id).inserted else { continue }
+			for subfolder in folder.subfolders {
+				index.addFolder(RelativePath.from(absolutePath: subfolder.standardizedFullPath, rootPath: rootPath), isRead: true)
+				pending.append(subfolder)
+			}
+			for file in folder.files {
+				index.addFile(RelativePath.from(absolutePath: file.standardizedFullPath, rootPath: rootPath))
+			}
+		}
+		index.finishReading()
+		return index
 	}
 
 	@MainActor
@@ -9382,8 +9419,8 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		}
 
 		let remaining = candidateInputs.filter { !satisfiedInputs.contains($0) }
-        var matchedFolders: [FolderViewModel] = []
-        var folderResolvedInputs: [String: FolderViewModel] = [:]
+        var matchedFolders: [IndexedFolder] = []
+        var folderResolvedInputs: [String: IndexedFolder] = [:]
         for p in remaining {
 			let resolution = resolveFolderInput(p)
 			if let folder = resolution.folder {
@@ -9421,10 +9458,10 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 
         if expandFolders && !matchedFolders.isEmpty {
 			for folder in matchedFolders {
-				resolvedFiles.append(contentsOf: getFilesRecursively(under: folder))
+				resolvedFiles.append(contentsOf: files(under: folder))
             }
             for (inp, folder) in folderResolvedInputs {
-				resolvedMap[inp] = mcpDisplayPath(for: folder)
+				resolvedMap[inp] = mcpDisplayPath(forAbsolutePath: folder.standardizedFullPath)
                 satisfiedInputs.insert(inp)
             }
         }
@@ -9504,8 +9541,8 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 		}
 
 		let remaining = candidateInputs.filter { !satisfiedInputs.contains($0) }
-        var matchedFolders: [FolderViewModel] = []
-        var folderResolvedInputs: [String: FolderViewModel] = [:]
+        var matchedFolders: [IndexedFolder] = []
+        var folderResolvedInputs: [String: IndexedFolder] = [:]
         for p in remaining {
 			let resolution = resolveFolderInput(p)
 			if let folder = resolution.folder {
@@ -9543,10 +9580,10 @@ private func coalesceDeltas(_ deltas: [FileSystemDelta], inRoot standardizedRoot
 
         if expandFolders && !matchedFolders.isEmpty {
 			for folder in matchedFolders {
-				resolvedFiles.append(contentsOf: getFilesRecursively(under: folder))
+				resolvedFiles.append(contentsOf: files(under: folder))
             }
             for (inp, folder) in folderResolvedInputs {
-				resolvedMap[inp] = mcpDisplayPath(for: folder)
+				resolvedMap[inp] = mcpDisplayPath(forAbsolutePath: folder.standardizedFullPath)
                 satisfiedInputs.insert(inp)
             }
         }
@@ -11684,7 +11721,7 @@ extension RepoFileManagerViewModel {
 				appendClause(.exactFolder(
 					absLower: folder.standardizedFullPath.lowercased(),
 					relLower: (folder.relativePath as NSString).standardizingPath.lowercased(),
-					restrictedRootPath: (folder.rootPath as NSString).standardizingPath
+					restrictedRootPath: folder.root.standardizedFullPath
 				))
 				continue
 			}
@@ -12218,6 +12255,52 @@ extension RepoFileManagerViewModel {
 		let isFolder: Bool
 	}
 
+	/// A folder that a root folder's index holds, whether or not the file tree opened it.
+	struct IndexedFolder {
+		let root: FolderViewModel
+		/// The folder's path relative to `root`. It is empty for the root folder itself.
+		let relativePath: String
+
+		var standardizedFullPath: String {
+			relativePath.isEmpty
+				? root.standardizedFullPath
+				: StandardizedPath.join(standardizedRoot: root.standardizedFullPath, standardizedRelativePath: relativePath)
+		}
+
+		var name: String {
+			relativePath.isEmpty ? root.name : (relativePath as NSString).lastPathComponent
+		}
+	}
+
+	/// The folder at a standardized absolute path, in the root folder that holds it.
+	@MainActor
+	func indexedFolder(atStandardizedPath path: String) -> IndexedFolder? {
+		guard let root = rootFolders
+			.filter({ path == $0.standardizedFullPath || path.hasPrefix($0.standardizedFullPath + "/") })
+			.max(by: { $0.standardizedFullPath.count < $1.standardizedFullPath.count })
+		else { return nil }
+		if path == root.standardizedFullPath {
+			return IndexedFolder(root: root, relativePath: "")
+		}
+		let relativePath = String(path.dropFirst(root.standardizedFullPath.count + 1))
+		guard rootFolderIndexes[root.standardizedFullPath]?.folders[relativePath] != nil else { return nil }
+		return IndexedFolder(root: root, relativePath: relativePath)
+	}
+
+	/// Every file under a folder, sorted by path, as `promptFile(forStandardizedPath:)` gives it.
+	@MainActor
+	func files(under folder: IndexedFolder) -> [FileViewModel] {
+		guard let index = rootFolderIndexes[folder.root.standardizedFullPath] else { return [] }
+		let prefix = folder.relativePath.isEmpty ? "" : folder.relativePath + "/"
+		return index.filePaths
+			.filter { $0.hasPrefix(prefix) }
+			.sorted()
+			.compactMap { promptFile(forStandardizedPath: StandardizedPath.join(
+				standardizedRoot: folder.root.standardizedFullPath,
+				standardizedRelativePath: $0
+			)) }
+	}
+
 	/// The item a user path names in a root folder's index, whether or not its folder is opened.
 	/// An absolute path belongs to the root folder that holds it. A relative path belongs to the first root folder
 	/// that holds it, else to the root folder its first component names.
@@ -12283,6 +12366,37 @@ extension RepoFileManagerViewModel {
 		return file
 	}
 
+	/// The file of a relative path in the first root folder of `scope` whose index holds it.
+	@MainActor
+	func promptFile(forRelativePath relativePath: String, scope: LookupRootScope) -> FileViewModel? {
+		for absolutePath in absolutePathCandidates(forRelativePath: StandardizedPath.relative(relativePath), scope: scope) {
+			if let file = promptFile(forStandardizedPath: absolutePath) {
+				return file
+			}
+		}
+		return nil
+	}
+
+	/// Whether a root folder's index holds a file at a standardized absolute path.
+	@MainActor
+	func indexHoldsFile(atStandardizedPath path: String) -> Bool {
+		fileHierarchyIndex.filesByFullPath[path] != nil
+			|| indexedRootAndRelativePath(ofFileWithoutTreeItem: path) != nil
+	}
+
+	/// Every file with a codemap that a root folder's index holds, sorted by path, as `promptFile(forStandardizedPath:)` gives it.
+	@MainActor
+	func indexedFilesWithCodemaps() -> [FileViewModel] {
+		var paths = Set(codemapCapableAPIsByFullPath.keys)
+		for file in collectAllFilesWithCodemaps() {
+			paths.insert(file.standardizedFullPath)
+		}
+		return paths.sorted().compactMap { path in
+			guard let file = promptFile(forStandardizedPath: path), file.fileAPI != nil else { return nil }
+			return file
+		}
+	}
+
 	/// The file tree of a context, built from the indexes of its root folders.
 	@MainActor
 	func fileTreeSnapshot(using context: FileTreeSelectionContext) -> FileTreeSelectionSnapshot {
@@ -12296,6 +12410,19 @@ extension RepoFileManagerViewModel {
 			}
 			return codemapCapableAPIsByFullPath[path] != nil
 		}
+	}
+
+	/// The folders of the file tree of `rootFolders`, built from their indexes.
+	@MainActor
+	func fileTreeRoots(of rootFolders: [FolderViewModel]) -> [FileTreeFolderSnapshot] {
+		fileTreeSnapshot(using: FileTreeSelectionContext(
+			rootFolders: rootFolders,
+			selectedFilePaths: [],
+			option: .files,
+			filePathDisplay: .relative,
+			onlyIncludeRootsWithSelectedFiles: false,
+			includeLegend: false
+		)).roots
 	}
 
 	@MainActor
@@ -13129,7 +13256,7 @@ extension RepoFileManagerViewModel {
 	public func resolveFolderForUserInput(
 		_ userPath: String,
 		rootScope: LookupRootScope = .visibleWorkspace
-	) -> FolderViewModel? {
+	) -> IndexedFolder? {
 		resolveFolderInput(userPath, rootScope: rootScope).folder
 	}
 
@@ -13137,14 +13264,14 @@ extension RepoFileManagerViewModel {
 	private func resolveFolderInput(
 		_ path: String,
 		rootScope: LookupRootScope = .visibleWorkspace
-	) -> (folder: FolderViewModel?, displayPath: String?, issue: PathResolutionIssue?) {
+	) -> (folder: IndexedFolder?, displayPath: String?, issue: PathResolutionIssue?) {
 		let normalized = normalizeUserInputPath(path)
 		let cleaned = normalized.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !cleaned.isEmpty else { return (nil, nil, .emptyInput) }
 
 		if let explicitResolution = resolveExplicitSystemPath(cleaned),
-		   let folder = findFolderByFullPath(explicitResolution.standardizedAbsolutePath) {
-			return (folder, mcpDisplayPath(for: folder), nil)
+		   let folder = indexedFolder(atStandardizedPath: explicitResolution.standardizedAbsolutePath) {
+			return (folder, mcpDisplayPath(forAbsolutePath: folder.standardizedFullPath), nil)
 		}
 
 		if let issue = exactPathResolutionIssue(for: cleaned, kind: .folder, rootScope: rootScope) {
@@ -13153,18 +13280,18 @@ extension RepoFileManagerViewModel {
 		
 		if cleaned.hasPrefix("/") {
 			let standardized = (cleaned as NSString).standardizingPath
-			if let folder = findFolderByFullPath(standardized) {
+			if let folder = indexedFolder(atStandardizedPath: standardized) {
 				return (folder, clientDisplayPath(for: folder), nil)
 			}
 			if let aliasResolution = resolveLeadingSlashRootAlias(from: standardized, requireRemainder: false) {
 				switch aliasResolution {
 				case .bareRoot(let root, _):
 					if let folder = rootFolders.first(where: { $0.id == root.id }) {
-						return (folder, clientDisplayPath(root: root, relativePath: ""), nil)
+						return (IndexedFolder(root: folder, relativePath: ""), clientDisplayPath(root: root, relativePath: ""), nil)
 					}
 				case .prefixed(let root, _, let remainder):
 					let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-					if let folder = findFolderByFullPath(abs) {
+					if let folder = indexedFolder(atStandardizedPath: abs) {
 						return (folder, clientDisplayPath(root: root, relativePath: folder.relativePath), nil)
 					}
 				case .ambiguous(let alias, let matchingRoots):
@@ -13187,11 +13314,11 @@ extension RepoFileManagerViewModel {
 		switch resolveVisibleRootAlias(cleaned, requireRemainder: false, disambiguateRealSubpath: false) {
 		case .bareRoot(let root, _):
 			if let folder = rootFolders.first(where: { $0.id == root.id }) {
-				return (folder, clientDisplayPath(root: root, relativePath: ""), nil)
+				return (IndexedFolder(root: folder, relativePath: ""), clientDisplayPath(root: root, relativePath: ""), nil)
 			}
 		case .prefixed(let root, _, let remainder):
 			let abs = ((root.standardizedFullPath as NSString).appendingPathComponent(remainder) as NSString).standardizingPath
-			if let folder = findFolderByFullPath(abs) {
+			if let folder = indexedFolder(atStandardizedPath: abs) {
 				return (folder, clientDisplayPath(root: root, relativePath: folder.relativePath), nil)
 			}
 			let literalMatches = literalRelativeFolderMatches(for: cleaned)
@@ -13204,8 +13331,10 @@ extension RepoFileManagerViewModel {
 			break
 		}
 		
-		if let folder = findFolderByRelativePath(cleaned, scope: rootScope) {
-			return (folder, mcpDisplayPath(for: folder), nil)
+		for absolutePath in absolutePathCandidates(forRelativePath: StandardizedPath.relative(cleaned), scope: rootScope) {
+			if let folder = indexedFolder(atStandardizedPath: absolutePath) {
+				return (folder, mcpDisplayPath(forAbsolutePath: folder.standardizedFullPath), nil)
+			}
 		}
 		
 		return (nil, nil, nil)
@@ -13219,7 +13348,7 @@ extension RepoFileManagerViewModel {
 		let direct = resolveFolderInput(path, rootScope: rootScope)
 		if let folder = direct.folder {
 			return FolderInputResolution(
-				files: getFilesRecursively(under: folder),
+				files: files(under: folder),
 				handled: true,
 				displayPath: direct.displayPath,
 				issue: nil
@@ -13246,9 +13375,9 @@ extension RepoFileManagerViewModel {
 		),
 		   let folder = resolveFolder(at: loc) {
 			return FolderInputResolution(
-				files: getFilesRecursively(under: folder),
+				files: files(under: folder),
 				handled: true,
-				displayPath: mcpDisplayPath(for: folder),
+				displayPath: mcpDisplayPath(forAbsolutePath: folder.standardizedFullPath),
 				issue: nil
 			)
 		}

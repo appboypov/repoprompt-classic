@@ -69,7 +69,7 @@ extension MCPServerViewModel {
 				}
 			case .complete:
 				// Include ALL files with codemaps in the workspace (except selected files)
-				for file in fileManager.getAllFileViewModels() where file.fileAPI != nil && !selectedIDs.contains(file.id) {
+				for file in fileManager.indexedFilesWithCodemaps() where !selectedIDs.contains(file.id) {
 					if seen.insert(file.id).inserted {
 						result.append(CodemapEntry(file: file, origin: .auto))
 					}
@@ -165,7 +165,7 @@ extension MCPServerViewModel {
 			for rawPath in stored.selectedPaths {
 				guard let standardized = StoredSelectionPathNormalization.standardizedPath(rawPath) else { continue }
 				guard seenSelected.insert(standardized).inserted else { continue }
-				if let vm = fileManager.findFileByFullPath(standardized) {
+				if let vm = fileManager.promptFile(forStandardizedPath: standardized) {
 					let ranges = normalizedSlices[standardized]
 					selected.append((vm, ranges))
 				} else {
@@ -194,7 +194,7 @@ extension MCPServerViewModel {
 				selected = filteredSelected
 			case .complete:
 				// Include ALL files with codemaps in the workspace (except selected files)
-				for file in fileManager.getAllFileViewModels() where file.fileAPI != nil && !selectedIDs.contains(file.id) {
+				for file in fileManager.indexedFilesWithCodemaps() where !selectedIDs.contains(file.id) {
 					if seenCodemap.insert(file.id).inserted {
 						codemap.append(CodemapEntry(file: file, origin: .auto))
 					}
@@ -204,7 +204,7 @@ extension MCPServerViewModel {
 				for rawPath in stored.autoCodemapPaths {
 					guard let standardized = StoredSelectionPathNormalization.standardizedPath(rawPath) else { continue }
 					guard !selectedStandard.contains(standardized) else { continue }
-					if let vm = fileManager.findFileByFullPath(standardized) {
+					if let vm = fileManager.promptFile(forStandardizedPath: standardized) {
 						if seenCodemap.insert(vm.id).inserted {
 							// Determine origin: manual if codemapAutoEnabled is false, else auto
 							let origin: CodemapOrigin = stored.codemapAutoEnabled ? .auto : .manual
@@ -230,13 +230,6 @@ extension MCPServerViewModel {
 		return collections.selected.map { $0.file }
 	}
 
-	/// Returns the identifiers of files selected in the active execution context.
-	@MainActor
-	func selectedIDsForCurrentExecContext() async -> Set<UUID> {
-		let result = await selectedVMsAndIDsForCurrentExecContext()
-		return result.ids
-	}
-
 	@MainActor
 	func selectionCollectionsForCurrentExecContext() async -> SelectionReplyAssembler.SelectionCollections {
 		let metadata = await captureRequestMetadata()
@@ -258,16 +251,15 @@ extension MCPServerViewModel {
 		}
 	}
 
-	/// Convenience helper returning both selected file view models and their IDs.
+	/// Standardized full paths of the files the file tree marks as selected in the active execution context.
 	@MainActor
-	func selectedVMsAndIDsForCurrentExecContext() async -> (files: [FileViewModel], ids: Set<UUID>) {
+	func selectedFilePathsForCurrentExecContext() async -> Set<String> {
 		let collections = await selectionCollectionsForCurrentExecContext()
-		let files = collections.selected.map { $0.file }
-		var ids = Set(files.map(\.id))
+		var paths = Set(collections.selected.map(\.file.standardizedFullPath))
 		if effectiveMCPCodeMapUsage(promptVM.codeMapUsage) == .selected {
-			ids.formUnion(collections.codemap.map(\.file.id))
+			paths.formUnion(collections.codemap.map(\.file.standardizedFullPath))
 		}
-		return (files, ids)
+		return paths
 	}
 
 	struct PathFormatter {
