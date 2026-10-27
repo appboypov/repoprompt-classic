@@ -1212,6 +1212,54 @@ final class RepoFileManagerTests: XCTestCase {
 	}
 
 	@MainActor
+	func testLoadingARootFolderOpensItsSavedExpandedFoldersAndDropsTheMissingOnes() async throws {
+		let rootURL = try makeCodeRoot()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let srcPath = rootURL.appendingPathComponent("src").path
+		let deepPath = rootURL.appendingPathComponent("src/deep").path
+		let gonePath = rootURL.appendingPathComponent("src/gone").path
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		let workspace = WorkspaceModel(
+			name: "Test",
+			repoPaths: [rootURL.path],
+			workingExpandedFolders: [deepPath, srcPath, gonePath]
+		)
+
+		try await fileManagerVM.loadFolder(at: rootURL, for: workspace, freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
+
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(srcPath))
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(deepPath))
+		XCTAssertTrue(src.isExpanded)
+		XCTAssertTrue(deep.isExpanded)
+		XCTAssertEqual(childNames(of: deep), ["Deep.swift", "notes.md"])
+		let expandedPaths = Set(fileManagerVM.snapshotExpandedFolderFullPaths())
+		XCTAssertTrue(expandedPaths.isSuperset(of: [src.standardizedFullPath, deep.standardizedFullPath]))
+		XCTAssertFalse(expandedPaths.contains(StandardizedPath.absolute(gonePath)))
+	}
+
+	@MainActor
+	func testRestoringATabsExpandedFoldersOpensThemAndClosesTheOthers() async throws {
+		let (fileManagerVM, rootURL, _) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let deepPath = rootURL.appendingPathComponent("src/deep").path
+
+		await fileManagerVM.restoreExpansionState(from: [rootURL.path, deepPath])
+
+		let src = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("src").path))
+		let deep = try XCTUnwrap(fileManagerVM.findFolderByFullPath(deepPath))
+		XCTAssertTrue(src.isExpanded)
+		XCTAssertTrue(deep.isExpanded)
+		XCTAssertEqual(childNames(of: deep), ["Deep.swift", "notes.md"])
+
+		await fileManagerVM.restoreExpansionState(from: [rootURL.path, "src"])
+
+		XCTAssertTrue(src.isExpanded)
+		XCTAssertFalse(deep.isExpanded)
+	}
+
+	@MainActor
 	private func waitUntil(_ condition: () -> Bool) async throws {
 		let deadline = Date().addingTimeInterval(10)
 		while !condition() {
