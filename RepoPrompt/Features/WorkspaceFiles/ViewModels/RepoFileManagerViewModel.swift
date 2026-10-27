@@ -693,7 +693,7 @@ class RepoFileManagerViewModel: ObservableObject {
 	@Published private(set) var isLoading: Bool = false
 	@Published private(set) var error: FileManagerError?
 	
-	var showEmptyFolders: Bool = false
+	var showEmptyFolders: Bool = true
 	var skipSymlinks: Bool = true
 	var respectGitignore: Bool = true
 	var respectRepoIgnore: Bool = true
@@ -2332,6 +2332,17 @@ func loadFolder(
 		guard let index = rootFolderIndexes[rootKey] else { return }
 		addToIndex(chunk, rootKey: rootKey)
 		readingFileCounts.value[rootKey] = index.filePaths.count
+		guard !showEmptyFolders else { return }
+		// A folder whose subtree this chunk finished reading, and each such folder above it, may now be known empty.
+		var finishedFolderPaths: [String] = []
+		for readFolder in chunk.readFolders {
+			var path = readFolder
+			while !path.isEmpty, index.folders[path]?.isSubtreeRead == true {
+				finishedFolderPaths.append(path)
+				path = (path as NSString).deletingLastPathComponent
+			}
+		}
+		removeKnownEmptyFolders(finishedFolderPaths, rootKey: rootKey)
 	}
 
 	#if DEBUG
@@ -2358,12 +2369,37 @@ func loadFolder(
 		index.finishReading()
 		readingFileCounts.value.removeValue(forKey: rootKey)
 		readingTasks[rootKey] = nil
+		if !showEmptyFolders {
+			let builtFolderPaths = fileHierarchyIndex.foldersByFullPath.values
+				.filter { StandardizedPath.absolute($0.rootPath) == rootKey }
+				.map(\.relativePath)
+			removeKnownEmptyFolders(builtFolderPaths, rootKey: rootKey)
+		}
 		invalidateStaticSnapshot(forRootFullPath: rootKey)
 		// A root folder still being added gets its scan at the end of `loadFolder`.
 		if codeScanEnabled,
 			folderBeingAdded?.standardizedFullPath != rootKey,
 			let root = rootFolders.first(where: { $0.standardizedFullPath == rootKey }) {
 			enqueueOrDeferInitialRootLoadScan(for: root)
+		}
+	}
+
+	/// Drops the tree items of the folders reading found empty, with everything under them, when empty folders are hidden.
+	private func removeKnownEmptyFolders(_ relativePaths: [String], rootKey: String) {
+		guard !showEmptyFolders, let index = rootFolderIndexes[rootKey] else { return }
+		for relativePath in relativePaths where !relativePath.isEmpty {
+			guard index.folders[relativePath]?.isKnownEmpty == true,
+				let folder = fileHierarchyIndex.foldersByFullPath[
+					StandardizedPath.join(standardizedRoot: rootKey, standardizedRelativePath: relativePath)
+				]
+			else { continue }
+			unregisterExpansionTracking(for: folder)
+			folder.parent?.removeSubfolder(folder)
+			var pending = [folder]
+			while let current = pending.popLast() {
+				fileHierarchyIndex.removeFolder(forKey: current.standardizedFullPath, expectedRootKey: rootKey)
+				pending.append(contentsOf: current.subfolders)
+			}
 		}
 	}
 
