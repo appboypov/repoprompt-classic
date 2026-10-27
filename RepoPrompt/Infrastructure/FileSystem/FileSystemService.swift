@@ -4139,6 +4139,25 @@ actor FileSystemService {
 			effectiveRulesSnapshot = context.rules
 		}
 
+		return try await onFolderReadingThread {
+			classifyEntries(
+				context: context,
+				scanResult: scanResult,
+				rules: effectiveRulesSnapshot,
+				skipSymlinks: skipSymlinks,
+				trackCycles: trackCycles
+			)
+		}
+	}
+
+	/// Keeps the entries of one listed folder that the ignore rules allow, and the folders under it that reading enters next.
+	private static func classifyEntries(
+		context: DirectoryContext,
+		scanResult: DirectoryScanResult,
+		rules effectiveRulesSnapshot: IgnoreRulesSnapshot,
+		skipSymlinks: Bool,
+		trackCycles: Bool
+	) -> DirectoryChunkResult {
 		var folders: [FSItemDTO] = []
 		folders.reserveCapacity(scanResult.entries.count)
 		var files: [FSItemDTO] = []
@@ -4247,6 +4266,22 @@ actor FileSystemService {
 			readFolders: readFolders,
 			ignoreCacheDelta: localCache
 		)
+	}
+
+	/// Folder reading lists folders from disk and matches their entries against the ignore rules on these threads,
+	/// so reading a huge root folder never holds the threads that every other task of the app runs on.
+	private static let folderReadingQueue = DispatchQueue(
+		label: "com.repoprompt.folder-reading",
+		qos: .utility,
+		attributes: .concurrent
+	)
+
+	private static func onFolderReadingThread<T>(_ work: @escaping () throws -> T) async throws -> T {
+		try await withCheckedThrowingContinuation { continuation in
+			folderReadingQueue.async {
+				continuation.resume(with: Result { try work() })
+			}
+		}
 	}
 
 	@inline(__always)
@@ -4489,12 +4524,12 @@ actor FileSystemService {
 	) async throws -> DirectoryChunkResult {
 		let scanResult: DirectoryScanResult
 		do {
-			let testMode = await service.isTestMode
-			if testMode {
-				let fm = await service.fm
-				scanResult = try Self.listDirectoryWithIgnoreDetection(context.absPath, fm: fm)
-			} else {
-				scanResult = try Self.listDirectoryWithIgnoreDetection(context.absPath)
+			let fm: (any TestFS)? = await service.isTestMode ? await service.fm : nil
+			scanResult = try await onFolderReadingThread {
+				if let fm {
+					return try Self.listDirectoryWithIgnoreDetection(context.absPath, fm: fm)
+				}
+				return try Self.listDirectoryWithIgnoreDetection(context.absPath)
 			}
 		} catch {
 			return DirectoryChunkResult(folders: [], files: [], subdirs: [], readFolders: [context.relPath], ignoreCacheDelta: [:])
@@ -4525,7 +4560,7 @@ actor FileSystemService {
 	) async throws -> DirectoryChunkResult {
 		let scanResult: DirectoryScanResult
 		do {
-			scanResult = try Self.listDirectoryWithIgnoreDetection(context.absPath)
+			scanResult = try await onFolderReadingThread { try Self.listDirectoryWithIgnoreDetection(context.absPath) }
 		} catch {
 			return DirectoryChunkResult(folders: [], files: [], subdirs: [], readFolders: [context.relPath], ignoreCacheDelta: [:])
 		}
