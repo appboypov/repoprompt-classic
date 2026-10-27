@@ -1437,15 +1437,19 @@ final class RepoFileManagerTests: XCTestCase {
 		}
 	}
 
-	private func fileRelativePaths(in folders: [SearchFolderViewModel]) -> Set<String> {
+	/// The files the results hold once each of their folders is opened.
+	@MainActor
+	private func fileRelativePaths(shownBy searchVM: SearchFileTreeViewModel) -> Set<String> {
 		var paths = Set<String>()
-		for folder in folders {
+		var folders = searchVM.rootFolders
+		while let folder = folders.popLast() {
+			searchVM.buildChildren(of: folder)
 			for child in folder.children {
 				switch child {
 				case .file(let file):
 					paths.insert(file.relativePath)
 				case .folder(let subfolder):
-					paths.formUnion(fileRelativePaths(in: [subfolder]))
+					folders.append(subfolder)
 				}
 			}
 		}
@@ -1460,9 +1464,9 @@ final class RepoFileManagerTests: XCTestCase {
 		searchVM.setFileManager(fileManagerVM)
 
 		searchVM.searchText = "Deep"
-		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/Deep.swift") }
 
-		XCTAssertTrue(fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift"))
+		XCTAssertTrue(fileRelativePaths(shownBy: searchVM).contains("src/deep/Deep.swift"))
 	}
 
 	@MainActor
@@ -1474,6 +1478,7 @@ final class RepoFileManagerTests: XCTestCase {
 		searchVM.setFileManager(fileManagerVM)
 		func searchFile(in folders: [SearchFolderViewModel]) -> SearchFileViewModel? {
 			for folder in folders {
+				searchVM.buildChildren(of: folder)
 				for child in folder.children {
 					switch child {
 					case .file(let file) where file.relativePath == "src/deep/Deep.swift":
@@ -1505,15 +1510,15 @@ final class RepoFileManagerTests: XCTestCase {
 		let searchVM = SearchFileTreeViewModel()
 		searchVM.setFileManager(fileManagerVM)
 		searchVM.searchText = "Deep"
-		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
-		XCTAssertFalse(fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/DeepLater.swift"))
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/Deep.swift") }
+		XCTAssertFalse(fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepLater.swift"))
 
 		index.addFile("src/deep/DeepLater.swift")
 		fileManagerVM.readingFileCounts.value[index.rootPath] = index.filePaths.count
-		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/DeepLater.swift") }
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepLater.swift") }
 
 		XCTAssertTrue(
-			fileRelativePaths(in: searchVM.rootFolders).isSuperset(of: ["src/deep/Deep.swift", "src/deep/DeepLater.swift"])
+			fileRelativePaths(shownBy: searchVM).isSuperset(of: ["src/deep/Deep.swift", "src/deep/DeepLater.swift"])
 		)
 	}
 
@@ -1525,15 +1530,15 @@ final class RepoFileManagerTests: XCTestCase {
 		let searchVM = SearchFileTreeViewModel()
 		searchVM.setFileManager(fileManagerVM)
 		searchVM.searchText = "Deep"
-		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/Deep.swift") }
 
 		let newPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/DeepNew.swift")
 		XCTAssertTrue(FileManager.default.createFile(atPath: newPath, contents: Data()))
 		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/DeepNew.swift")], forRootFolder: root)
-		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/DeepNew.swift") }
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepNew.swift") }
 
 		XCTAssertTrue(
-			fileRelativePaths(in: searchVM.rootFolders).isSuperset(of: ["src/deep/Deep.swift", "src/deep/DeepNew.swift"])
+			fileRelativePaths(shownBy: searchVM).isSuperset(of: ["src/deep/Deep.swift", "src/deep/DeepNew.swift"])
 		)
 	}
 
@@ -1545,15 +1550,136 @@ final class RepoFileManagerTests: XCTestCase {
 		let searchVM = SearchFileTreeViewModel()
 		searchVM.setFileManager(fileManagerVM)
 		searchVM.searchText = "Deep"
-		try await waitUntil { fileRelativePaths(in: searchVM.rootFolders).contains("src/deep/Deep.swift") }
-		let before = fileRelativePaths(in: searchVM.rootFolders)
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/Deep.swift") }
+		let before = fileRelativePaths(shownBy: searchVM)
 
 		try "struct Deep { let changed = true }".write(to: rootURL.appendingPathComponent("src/deep/Deep.swift"), atomically: true, encoding: .utf8)
 		await fileManagerVM.applyFileSystemDeltasForTesting([.fileModified("src/deep/Deep.swift", nil)], forRootFolder: root)
 		try await Task.sleep(nanoseconds: 300_000_000)
 		try await waitUntil { searchVM.hasSearchResults }
 
-		XCTAssertEqual(fileRelativePaths(in: searchVM.rootFolders), before)
+		XCTAssertEqual(fileRelativePaths(shownBy: searchVM), before)
+	}
+
+	/// A loaded root folder that holds the given files.
+	@MainActor
+	private func makeLoadedRoot(files relativePaths: [String]) async throws -> (RepoFileManagerViewModel, URL) {
+		let rootURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		for relativePath in relativePaths {
+			let fileURL = rootURL.appendingPathComponent(relativePath)
+			try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+			try "text\n".write(to: fileURL, atomically: true, encoding: .utf8)
+		}
+		let fileManagerVM = RepoFileManagerViewModel()
+		fileManagerVM.beginDeferringInitialRootLoadScans()
+		try await fileManagerVM.loadFolder(at: rootURL, for: WorkspaceModel(name: "Test", repoPaths: [rootURL.path]), freshStart: true)
+		await fileManagerVM.waitUntilReadingIsComplete()
+		return (fileManagerVM, rootURL)
+	}
+
+	/// The result folder at a relative path, opening each folder on the way as the results view does.
+	@MainActor
+	private func resultFolder(at relativePath: String, shownBy searchVM: SearchFileTreeViewModel) -> SearchFolderViewModel? {
+		var folders = searchVM.rootFolders
+		while let folder = folders.popLast() {
+			if folder.relativePath == relativePath { return folder }
+			searchVM.buildChildren(of: folder)
+			for case .folder(let subfolder) in folder.children {
+				folders.append(subfolder)
+			}
+		}
+		return nil
+	}
+
+	private func childNames(of folder: SearchFolderViewModel) -> [String] {
+		folder.children.map { child in
+			switch child {
+			case .folder(let subfolder): subfolder.name
+			case .file(let file): file.name
+			}
+		}
+	}
+
+	@MainActor
+	func testTreeSearchShowsAFolderWhoseNameMatchesClosedWithItsWholeContents() async throws {
+		let crowd = (0..<1_300).map { String(format: "archive/wwfo-old/note-%04d.txt", $0) }
+		let (fileManagerVM, rootURL) = try await makeLoadedRoot(files: crowd + ["wwfo/inner/Doc.md", "wwfo/Top.md"])
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+
+		searchVM.searchText = "wwfo"
+		try await waitUntil { resultFolder(at: "wwfo", shownBy: searchVM) != nil }
+		let wwfo = try XCTUnwrap(resultFolder(at: "wwfo", shownBy: searchVM))
+
+		XCTAssertFalse(wwfo.isExpanded)
+		searchVM.buildChildren(of: wwfo)
+		XCTAssertEqual(childNames(of: wwfo), ["inner", "Top.md"])
+		XCTAssertNotNil(resultFolder(at: "archive/wwfo-old", shownBy: searchVM))
+	}
+
+	@MainActor
+	func testTreeSearchShowsEveryMatchingFile() async throws {
+		let matches = (0..<400).map { String(format: "files/match-%03d.txt", $0) }
+		let (fileManagerVM, rootURL) = try await makeLoadedRoot(files: matches + ["files/other.txt"])
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+
+		searchVM.searchText = "match"
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).count == matches.count }
+
+		XCTAssertEqual(fileRelativePaths(shownBy: searchVM), Set(matches))
+	}
+
+	@MainActor
+	func testTreeSearchKeepsItsResultsOnScreenWhileARefreshRuns() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "Deep"
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/Deep.swift") }
+		var showedNoResults = false
+		let rootFoldersWatch = searchVM.$rootFolders.dropFirst().sink { if $0.isEmpty { showedNoResults = true } }
+		let noResultsWatch = searchVM.$noResultsFound.sink { if $0 { showedNoResults = true } }
+		defer {
+			rootFoldersWatch.cancel()
+			noResultsWatch.cancel()
+		}
+
+		let newPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/DeepNew.swift")
+		XCTAssertTrue(FileManager.default.createFile(atPath: newPath, contents: Data()))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/DeepNew.swift")], forRootFolder: root)
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepNew.swift") }
+
+		XCTAssertTrue(fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepNew.swift"))
+		XCTAssertFalse(showedNoResults)
+	}
+
+	@MainActor
+	func testTreeSearchKeepsAnOpenedFolderOpenWhenItsResultsRefresh() async throws {
+		let (fileManagerVM, rootURL, index) = try await makeCodeRootWithUnopenedDeepFolder()
+		defer { try? FileManager.default.removeItem(at: rootURL) }
+		let root = try XCTUnwrap(fileManagerVM.rootFolders.first)
+		let searchVM = SearchFileTreeViewModel()
+		searchVM.setFileManager(fileManagerVM)
+		searchVM.searchText = "deep"
+		try await waitUntil { resultFolder(at: "src/deep", shownBy: searchVM) != nil }
+		let deep = try XCTUnwrap(resultFolder(at: "src/deep", shownBy: searchVM))
+		XCTAssertFalse(deep.isExpanded)
+
+		searchVM.setFolder(deep, isOpen: true)
+		let newPath = StandardizedPath.join(standardizedRoot: index.rootPath, standardizedRelativePath: "src/deep/DeepNew.swift")
+		XCTAssertTrue(FileManager.default.createFile(atPath: newPath, contents: Data()))
+		await fileManagerVM.applyFileSystemDeltasForTesting([.fileAdded("src/deep/DeepNew.swift")], forRootFolder: root)
+		try await waitUntil { fileRelativePaths(shownBy: searchVM).contains("src/deep/DeepNew.swift") }
+
+		let refreshedDeep = try XCTUnwrap(resultFolder(at: "src/deep", shownBy: searchVM))
+		XCTAssertFalse(refreshedDeep === deep)
+		XCTAssertTrue(refreshedDeep.isExpanded)
 	}
 
 	@MainActor
