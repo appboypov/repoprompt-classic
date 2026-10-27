@@ -3926,6 +3926,8 @@ func loadFolder(
 		// Attach (creating any missing ancestors)
 		insertFolder(folderVM, under: root, relativePath: relativePath)
 		applyCachedExpansionStateIfNeeded(to: folderVM)
+		// An open new folder gets its entries one by one as tree items; a closed one builds them when opened.
+		folderVM.childrenAreBuilt = folderVM.isExpanded
 		return FolderTopologyApplyOutcome(
 			parentFolderForStateRecompute: folderVM.parent ?? parentFolderForStateRecompute
 		)

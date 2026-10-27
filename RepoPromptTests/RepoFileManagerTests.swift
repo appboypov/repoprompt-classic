@@ -5185,7 +5185,7 @@ extension RepoFileManagerTests {
 		let secondBurstFolderURL = rootURL.appendingPathComponent(secondBurstFolder, isDirectory: true)
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent(firstBurstFolder, isDirectory: true).path))
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(secondBurstFolderURL.path))
-		XCTAssertNotNil(fileManagerVM.findFileByFullPath(secondBurstFolderURL.appendingPathComponent(secondBurstFile).path))
+		XCTAssertNotNil(fileManagerVM.promptFile(forStandardizedPath: StandardizedPath.absolute(secondBurstFolderURL.appendingPathComponent(secondBurstFile).path)))
 	}
 
 	@MainActor
@@ -5313,8 +5313,8 @@ extension RepoFileManagerTests {
 		XCTAssertEqual(secondPendingDeltaCountAfterReplay, 0)
 		XCTAssertNotNil(firstVM.findFolderByFullPath(firstQueuedFolderPath.path))
 		XCTAssertNotNil(secondVM.findFolderByFullPath(secondQueuedFolderPath.path))
-		XCTAssertNotNil(firstVM.findFileByFullPath(firstQueuedFolderPath.appendingPathComponent(queuedFileName).path))
-		XCTAssertNotNil(secondVM.findFileByFullPath(secondQueuedFolderPath.appendingPathComponent(queuedFileName).path))
+		XCTAssertNotNil(firstVM.promptFile(forStandardizedPath: StandardizedPath.absolute(firstQueuedFolderPath.appendingPathComponent(queuedFileName).path)))
+		XCTAssertNotNil(secondVM.promptFile(forStandardizedPath: StandardizedPath.absolute(secondQueuedFolderPath.appendingPathComponent(queuedFileName).path)))
 
 		let firstSample = try XCTUnwrap(firstVM.latestDeltaReplayPerfSampleForTesting())
 		let secondSample = try XCTUnwrap(secondVM.latestDeltaReplayPerfSampleForTesting())
@@ -5544,7 +5544,7 @@ extension RepoFileManagerTests {
 		XCTAssertNil(thirdChunk.rebuildDurationMS)
 
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent(queuedFolderName, isDirectory: true).path))
-		XCTAssertNotNil(fileManagerVM.findFileByFullPath(rootURL.appendingPathComponent(queuedFolderName, isDirectory: true).appendingPathComponent(queuedFileName).path))
+		XCTAssertNotNil(fileManagerVM.promptFile(forStandardizedPath: StandardizedPath.absolute(rootURL.appendingPathComponent(queuedFolderName, isDirectory: true).appendingPathComponent(queuedFileName).path)))
 		XCTAssertNil(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent(removedFolderName, isDirectory: true).path))
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent(replacementFolderName, isDirectory: true).path))
 	}
@@ -5994,7 +5994,7 @@ extension RepoFileManagerTests {
 		let freshNodeFolder = try XCTUnwrap(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent("Node", isDirectory: true).path))
 		XCTAssertNotEqual(freshNodeFolder.id, nodeFolder.id)
 		XCTAssertNil(fileManagerVM.findFileByFullPath(oldFile.standardizedFullPath))
-		XCTAssertNotNil(fileManagerVM.findFileByFullPath(rootURL.appendingPathComponent("Node/New.swift").path))
+		XCTAssertNotNil(fileManagerVM.promptFile(forStandardizedPath: StandardizedPath.absolute(rootURL.appendingPathComponent("Node/New.swift").path)))
 	}
 
 	@MainActor
@@ -6172,7 +6172,7 @@ extension RepoFileManagerTests {
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(rootURL.appendingPathComponent(firstBurstFolder, isDirectory: true).path))
 		let secondBurstFolderURL = rootURL.appendingPathComponent(secondBurstFolder, isDirectory: true)
 		XCTAssertNotNil(fileManagerVM.findFolderByFullPath(secondBurstFolderURL.path))
-		XCTAssertNotNil(fileManagerVM.findFileByFullPath(secondBurstFolderURL.appendingPathComponent(secondBurstFile).path))
+		XCTAssertNotNil(fileManagerVM.promptFile(forStandardizedPath: StandardizedPath.absolute(secondBurstFolderURL.appendingPathComponent(secondBurstFile).path)))
 	}
 
 	@MainActor
