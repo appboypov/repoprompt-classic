@@ -116,8 +116,6 @@ struct FileTreeView: View {
 		} message: {
 			Text(addFolderErrorMessage ?? "Unknown error.")
 		}
-		// Loading overlay
-		.overlay(loadingOverlay)
 		// "Filters" overlay
 		.sheet(isPresented: $showFilterOverlay) {
 			FilterOverlayView(isVisible: $showFilterOverlay, fileManager: fileManager)
@@ -229,45 +227,6 @@ struct FileTreeView: View {
 			return false
 		}
 		return fileManager.visibleRootFolders.isEmpty
-	}
-	
-	// MARK: - Loading Overlay
-	
-	private var loadingOverlay: some View {
-		Group {
-			if fileManager.isLoading && !workspaceViewModel.isWorkspaceSwitchOverlayVisible {
-				ZStack {
-					Color.black.opacity(0.3)
-						.edgesIgnoringSafeArea(.all)
-					
-					VStack(spacing: 4) {
-						VStack(spacing: 8) {
-							ProgressView()
-								.progressViewStyle(CircularProgressViewStyle(tint: .white))
-								.scaleEffect(1.5)
-							Text("Loading files...")
-								.foregroundColor(.white)
-								.font(.headline)
-						}
-						
-						Spacer()
-						
-						Button(action: {
-							fileManager.cancelAllLoadingTasks()
-						}) {
-							Text("Cancel")
-						}
-						.buttonStyle(CustomButtonStyle())
-					}
-					.padding(16)
-					.background(
-						RoundedRectangle(cornerRadius: 20)
-							.fill(Color(NSColor.windowBackgroundColor).opacity(0.9))
-					)
-					.frame(maxWidth: .infinity, maxHeight: 96)
-				}
-			}
-		}
 	}
 	
 	// MARK: - Toolbar & Search
