@@ -1793,19 +1793,8 @@ private func setCodeMapForScanResult(_ result: CodeScanActor.ScanResult) {
 			)
 		}
 		#endif
-		let normalizedPaths = paths.map { normalizeUserInputPath($0) }.filter { !$0.isEmpty }
-		var targetFullPaths = Set<String>()
-		
-		for path in normalizedPaths {
-			let standardized = (path as NSString).standardizingPath
-			if path.hasPrefix("/") {
-				if fileHierarchyIndex.foldersByFullPath[standardized] != nil {
-					targetFullPaths.insert(standardized)
-				}
-			} else if let folder = findFolderByRelativePath(standardized) {
-				targetFullPaths.insert(folder.standardizedFullPath)
-			}
-		}
+		let targets = savedFolderTargets(paths, inRoot: nil)
+		let targetFullPaths = Set(targets.map(\.standardizedFullPath))
 		
 		let currentExpanded = Set(expandedFolderPaths.map { ($0 as NSString).standardizingPath })
 		let toCollapse = currentExpanded.subtracting(targetFullPaths)
@@ -1825,8 +1814,9 @@ private func setCodeMapForScanResult(_ result: CodeScanActor.ScanResult) {
 		let chunkSize = 500
 		let foldersByFullPath = fileHierarchyIndex.foldersByFullPath
 		
+		let wasApplyingExpansionState = isApplyingExpansionState
 		isApplyingExpansionState = true
-		defer { isApplyingExpansionState = false }
+		defer { isApplyingExpansionState = wasApplyingExpansionState }
 		
 		var didChange = false
 		let collapseList = Array(toCollapse)
@@ -1851,27 +1841,14 @@ private func setCodeMapForScanResult(_ result: CodeScanActor.ScanResult) {
 			}
 		}
 		
-		let expandList = Array(toExpand)
-		if !expandList.isEmpty {
-			var index = 0
-			while index < expandList.count {
-				guard !Task.isCancelled else {
-					#if DEBUG
-					restoreExpansionOutcome = "cancelled"
-					#endif
-					return
-				}
-				let end = min(index + chunkSize, expandList.count)
-				for path in expandList[index..<end] {
-					if let folder = foldersByFullPath[path] {
-						if expandParentChain(of: folder) {
-							didChange = true
-						}
-					}
-				}
-				index = end
-				await Task.yield()
-			}
+		if !toExpand.isEmpty, await expandSavedFolders(paths, inRoot: nil) {
+			didChange = true
+		}
+		guard !Task.isCancelled else {
+			#if DEBUG
+			restoreExpansionOutcome = "cancelled"
+			#endif
+			return
 		}
 		
 		#if DEBUG
@@ -1893,6 +1870,83 @@ private func setCodeMapForScanResult(_ result: CodeScanActor.ScanResult) {
 				didChange = true
 			}
 			current = parentFolder.parent
+		}
+		return didChange
+	}
+
+	/// A saved expanded folder: its root folder and its path relative to that root.
+	private struct SavedFolderTarget {
+		let root: FolderViewModel
+		let relativePath: String
+
+		var standardizedFullPath: String {
+			StandardizedPath.join(standardizedRoot: root.standardizedFullPath, standardizedRelativePath: relativePath)
+		}
+	}
+
+	/// The root folder and relative path of each saved expanded folder. An absolute path belongs to the
+	/// root folder that holds it most closely, a relative path to the first root folder whose index holds it.
+	/// With `root`, only the folders of that root folder count.
+	@MainActor
+	private func savedFolderTargets(_ paths: [String], inRoot root: FolderViewModel?) -> [SavedFolderTarget] {
+		var targets: [SavedFolderTarget] = []
+		var seenFullPaths = Set<String>()
+		for path in paths {
+			let normalized = normalizeUserInputPath(path)
+			guard !normalized.isEmpty else { continue }
+			let standardized = (normalized as NSString).standardizingPath
+			let target: SavedFolderTarget?
+			if standardized.hasPrefix("/") {
+				target = rootFolders
+					.filter { standardized == $0.standardizedFullPath || standardized.hasPrefix($0.standardizedFullPath + "/") }
+					.max { $0.standardizedFullPath.count < $1.standardizedFullPath.count }
+					.map { SavedFolderTarget(root: $0, relativePath: RelativePath.from(absolutePath: standardized, rootPath: $0.standardizedFullPath)) }
+			} else {
+				let relativePath = StandardizedPath.relative(standardized)
+				target = rootFolders
+					.first { rootFolderIndexes[$0.standardizedFullPath]?.folders[relativePath] != nil }
+					.map { SavedFolderTarget(root: $0, relativePath: relativePath) }
+			}
+			guard let target, root.map({ $0 === target.root }) ?? true,
+				seenFullPaths.insert(target.standardizedFullPath).inserted
+			else { continue }
+			targets.append(target)
+		}
+		return targets
+	}
+
+	/// Opens each saved expanded folder: builds the tree items of every folder on its way down from its
+	/// root folder and of the folder itself, then expands them. A saved folder that no longer exists is
+	/// dropped. With `root`, only the folders of that root folder open. Returns whether a folder expanded.
+	@MainActor
+	private func expandSavedFolders(_ paths: [String], inRoot root: FolderViewModel?) async -> Bool {
+		let targets = savedFolderTargets(paths, inRoot: root)
+			.sorted { $0.relativePath.split(separator: "/").count < $1.relativePath.split(separator: "/").count }
+		guard !targets.isEmpty else { return false }
+
+		let wasApplyingExpansionState = isApplyingExpansionState
+		isApplyingExpansionState = true
+		defer { isApplyingExpansionState = wasApplyingExpansionState }
+
+		var didChange = false
+		for target in targets {
+			guard !Task.isCancelled else { break }
+			var folder: FolderViewModel? = target.root
+			var walkedRelativePath = ""
+			for component in target.relativePath.split(separator: "/") {
+				guard let current = folder else { break }
+				await buildChildren(of: current)
+				walkedRelativePath = walkedRelativePath.isEmpty ? String(component) : walkedRelativePath + "/" + component
+				folder = fileHierarchyIndex.foldersByFullPath[StandardizedPath.join(
+					standardizedRoot: target.root.standardizedFullPath,
+					standardizedRelativePath: walkedRelativePath
+				)]
+			}
+			guard let folder else { continue }
+			await buildChildren(of: folder)
+			if expandParentChain(of: folder) {
+				didChange = true
+			}
 		}
 		return didChange
 	}
@@ -2038,6 +2092,7 @@ func loadFolder(
 				#endif
 				await buildChildren(of: rootFolderVM)
 				registerExpansionTracking(for: rootFolderVM)
+				_ = await expandSavedFolders(workspace.workingExpandedFolders, inRoot: rootFolderVM)
 				
 				// No longer need to register subfolders with ExpansionManager
 				// The expansion state is stored directly in each FolderViewModel
