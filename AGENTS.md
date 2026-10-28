@@ -1,5 +1,22 @@
 # Repository Guidelines
 
+## Ownership and Shipping
+
+Brian is the only user of this fork (`origin`, `appboypov/repoprompt-classic`). `upstream` belongs to someone else and receives nothing. Finished work ships the moment it is done, without waiting for review:
+
+1. Commit it, push it and merge it into `main` on `origin`.
+2. Release it locally: build the Release configuration and put it in place of `/Applications/Repo Prompt.app`, so Brian works with it right away. Quit the running app first and open the new one after.
+
+```bash
+xcodebuild -project RepoPrompt.xcodeproj -scheme RepoPrompt -configuration Release build
+APP_PATH="$(xcodebuild -project RepoPrompt.xcodeproj -scheme RepoPrompt -configuration Release -showBuildSettings | awk -F ' = ' '/TARGET_BUILD_DIR/ { dir=$2 } /FULL_PRODUCT_NAME/ { name=$2 } END { print dir "/" name }')"
+osascript -e 'tell application id "com.pvncher.repoprompt" to quit'
+rm -rf "/Applications/Repo Prompt.app" && ditto "$APP_PATH" "/Applications/Repo Prompt.app"
+open "/Applications/Repo Prompt.app"
+```
+
+Work is done once the release is open in `/Applications`.
+
 ## Project Structure & Module Organization
 - `RepoPrompt/`: macOS app source (Swift/SwiftUI), features, services, models, views.
 - `repoprompt-mcp/`: CLI client for MCP connection and discovery.
