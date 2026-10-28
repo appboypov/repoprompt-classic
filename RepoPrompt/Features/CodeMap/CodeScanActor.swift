@@ -149,7 +149,7 @@ actor CodeScanActor {
 	private var activeScans = 0
 
 	/// The queue of ScanRequests waiting for a free slot
-	private var queue: [ScanRequest] = []
+	private var queue = ScanRequestQueue()
 
 	/// Tracks all active scanning tasks so we can cancel them if needed
 	private var scanTasks = Set<ScanningTask>()
@@ -248,6 +248,60 @@ actor CodeScanActor {
 		let relativePath: String
 		let fullPath: String
 		let rootFolderPath: String
+	}
+
+	/// Scan requests in arrival order. Taking the oldest one costs the same however long the queue is.
+	struct ScanRequestQueue: Sequence {
+		/// Requests already taken leave an empty slot, so their content is released at once.
+		/// The empty slots before `head` are dropped once they make up half of `slots`.
+		private var slots: [ScanRequest?] = []
+		private var head = 0
+
+		var isEmpty: Bool { head == slots.count }
+		var count: Int { slots.count - head }
+
+		mutating func append(_ request: ScanRequest) {
+			slots.append(request)
+		}
+
+		mutating func append<S: Sequence>(contentsOf requests: S) where S.Element == ScanRequest {
+			slots.append(contentsOf: requests.lazy.map { Optional($0) })
+		}
+
+		/// Takes the oldest request, or nil when the queue is empty.
+		mutating func popFirst() -> ScanRequest? {
+			guard head < slots.count, let request = slots[head] else { return nil }
+			slots[head] = nil
+			head += 1
+			if head == slots.count {
+				removeAll()
+			} else if head >= 1024, head * 2 >= slots.count {
+				slots.removeFirst(head)
+				head = 0
+			}
+			return request
+		}
+
+		mutating func removeAll(where shouldRemove: (ScanRequest) throws -> Bool) rethrows {
+			var kept: [ScanRequest?] = []
+			for case let request? in slots[head...] {
+				if try !shouldRemove(request) {
+					kept.append(request)
+				}
+			}
+			slots = kept
+			head = 0
+		}
+
+		mutating func removeAll() {
+			slots.removeAll(keepingCapacity: true)
+			head = 0
+		}
+
+		func makeIterator() -> AnyIterator<ScanRequest> {
+			var slotIterator = slots[head...].makeIterator()
+			return AnyIterator { slotIterator.next() ?? nil }
+		}
 	}
 
 	struct ScanResult: @unchecked Sendable {
@@ -996,9 +1050,7 @@ actor CodeScanActor {
 		// Pump the queue without recursion.
 		// - Drains oversized files inline (so we don't build a deep call stack).
 		// - Starts as many scans as we have capacity for (up to maxConcurrentScans).
-		while activeScans < maxConcurrentScans && !queue.isEmpty {
-			let request = queue.removeFirst()
-
+		while activeScans < maxConcurrentScans, let request = queue.popFirst() {
 			if let oversizeReason = SyntaxManager.shared.parsingOversizeReason(for: request.content) {
 				CodeMapPerfRuntime.sharedPipelineStats?.increment(\.oversizedSkips)
 				handleOversizedRequest(request, reason: oversizeReason)

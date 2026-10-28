@@ -14,9 +14,21 @@ struct CodeMapContentFingerprint: Codable, Equatable, Sendable {
 
 	init(content: String) {
 		let data = Data(content.utf8)
-		let hash = SHA256.hash(data: data)
-		self.contentHash = hash.compactMap { String(format: "%02x", $0) }.joined()
+		self.contentHash = Self.lowercaseHex(SHA256.hash(data: data))
 		self.byteCount = data.count
+	}
+
+	private static let hexDigits = Array("0123456789abcdef".utf8)
+
+	/// Each byte as two lowercase hexadecimal digits.
+	private static func lowercaseHex<Bytes: Sequence>(_ bytes: Bytes) -> String where Bytes.Element == UInt8 {
+		var digits: [UInt8] = []
+		digits.reserveCapacity(2 * SHA256.byteCount)
+		for byte in bytes {
+			digits.append(hexDigits[Int(byte >> 4)])
+			digits.append(hexDigits[Int(byte & 0x0f)])
+		}
+		return String(decoding: digits, as: UTF8.self)
 	}
 }
 

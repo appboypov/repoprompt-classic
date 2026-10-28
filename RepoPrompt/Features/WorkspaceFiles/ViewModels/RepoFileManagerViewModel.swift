@@ -12456,32 +12456,52 @@ extension RepoFileManagerViewModel {
 			// Debounce to coalesce rapid selection churn without blocking the main actor
 			try? await Task.sleep(nanoseconds: 400_000_000) // 400ms debounce
 			guard let self else { return }
-			defer { self.autoCodemapSyncTask = nil }
 			guard !Task.isCancelled else { return }
 			guard self.codemapAutoEnabled else { return }
 			if self.isAutoCodemapSyncPaused {
 				self.pendingAutoCodemapSync = true
 				return
 			}
-			self.syncAutoCodemaps()
+			await self.syncAutoCodemapsOffMainActor()
 		}
 	}
 
 	@MainActor
 	private func syncAutoCodemaps() {
+		guard let selectedFilesSnapshot = autoCodemapSelection() else { return }
+		applyAutoCodemaps(selectedFiles: selectedFilesSnapshot, allAPIs: cachedFileAPIs())
+	}
+
+	/// Same as `syncAutoCodemaps()`, with the codemaps gathered off the main actor.
+	/// A cancelled sync, or one that finds auto codemaps turned off, changes nothing.
+	@MainActor
+	private func syncAutoCodemapsOffMainActor() async {
+		guard let selectedFilesSnapshot = autoCodemapSelection() else { return }
+		let allAPIs = await cachedFileAPIsOffMainActor()
+		guard !Task.isCancelled, codemapAutoEnabled else { return }
+		applyAutoCodemaps(selectedFiles: selectedFilesSnapshot, allAPIs: allAPIs)
+	}
+
+	/// The selected files that auto codemaps start from. Nil when there are none or auto codemaps are off;
+	/// then the auto codemap files are cleared.
+	@MainActor
+	private func autoCodemapSelection() -> [FileViewModel]? {
 		guard codemapAutoEnabled else {
 			resetAutoCodemapFiles([])
-			return
+			return nil
 		}
 
 		let selectedFilesSnapshot = selectedFiles
 		guard !selectedFilesSnapshot.isEmpty else {
 			resetAutoCodemapFiles([])
-			return
+			return nil
 		}
+		return selectedFilesSnapshot
+	}
 
+	@MainActor
+	private func applyAutoCodemaps(selectedFiles selectedFilesSnapshot: [FileViewModel], allAPIs: [FileAPI]) {
 		let selectedPaths = Set(selectedFilesSnapshot.map(\.standardizedFullPath))
-		let allAPIs = cachedFileAPIs()
 		guard !allAPIs.isEmpty else {
 			resetAutoCodemapFiles([])
 			return
