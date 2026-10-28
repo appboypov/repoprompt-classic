@@ -204,6 +204,27 @@ final class WorkspaceShellViewModelTests: XCTestCase {
 		window.delegate = nil
 	}
 
+	func testWindowAttachedWhileStartingGoesOnlyToTheShownWorkspace() async throws {
+		let seed = await makeStartedShell()
+		let a = try await seed.add(name: "A", folderPath: try makeRoot("a"), makeVisible: false)
+		await seed.stop()
+		let shell = WorkspaceShellViewModel(preparesRemainingInBackground: false)
+		viewModel = shell
+		let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+
+		let starting = Task { await shell.start() }
+		while shell.hostRuntime == nil {
+			await Task.yield()
+		}
+		shell.attachNativeWindow(window)
+		await starting.value
+
+		XCTAssertNil(shell.hostRuntime?.nsWindow, "the hidden host runtime must not keep the window")
+		XCTAssertTrue(shell.runtime(for: a)?.nsWindow === window)
+		XCTAssertTrue(shell.installedWindowDelegateProxy?.windowState === shell.runtime(for: a))
+		window.delegate = nil
+	}
+
 	func testAttachABAKeepsSingleProxyWithNonProxyForwardedDelegate() async throws {
 		final class OriginalDelegate: NSObject, NSWindowDelegate {}
 		let shell = await makeStartedShell()

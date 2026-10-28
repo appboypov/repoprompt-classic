@@ -487,7 +487,8 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 	func attachNativeWindow(_ window: NSWindow) {
 		nativeWindow = window
 		windowStatesManager.shellNSWindow = window
-		let current = visibleRuntime ?? hostRuntime
+		let shown = windowStatesManager.visibleWindowState
+		let current = shown ?? hostRuntime
 		if windowDelegateProxy == nil, let current {
 			let proxy = InterceptingWindowDelegateProxy(windowState: current, forwardedDelegate: window.delegate)
 			proxy.willCloseHandler = { [weak self] in self?.flushAllWorkspaceState() }
@@ -496,7 +497,7 @@ final class WorkspaceShellViewModel: ObservableObject, WorkspaceShellCoordinatin
 		} else if let current {
 			windowDelegateProxy?.windowState = current
 		}
-		current?.attachWindow(window, installsDelegateProxy: false)
+		shown?.attachWindow(window, installsDelegateProxy: false)
 	}
 
 	/// The proxy installed on the shell window, for tests and the root view.
