@@ -110,10 +110,12 @@ class AppDelegate: NSObject, ObservableObject, NSApplicationDelegate {
 				await MCPPromptValidationService.shared.validateCodexPromptsOnLaunch()
 			}
 
-			// Load the ACP models discovered in earlier sessions, so agents without a
-			// model polling service (Antigravity) list their models before their first run.
+			// Load the ACP models discovered in earlier sessions, then fetch Antigravity's models
+			// when it has none, so agents without a model polling service (Antigravity) list
+			// their models before their first run.
 			Task.detached(priority: .utility) {
 				await AgentACPModelRegistry.shared.warmStandardStoreIfNeeded()
+				await APISettingsViewModel.discoverAntigravityModelsIfMissing()
 			}
 		}
 		

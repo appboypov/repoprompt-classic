@@ -73,6 +73,28 @@ final class ACPModelRegistryTests: XCTestCase {
 		)
 	}
 
+	func testUpdateDiscoveredModelsAnnouncesOnlyChangedModels() {
+		let snapshot = Self.antigravitySnapshot()
+
+		let changed = expectation(forNotification: .acpDiscoveredModelsChanged, object: nil)
+		XCTAssertTrue(AgentACPModelRegistry.shared.updateDiscoveredModels(snapshot, for: .antigravity))
+		wait(for: [changed], timeout: 1)
+
+		let unchanged = expectation(forNotification: .acpDiscoveredModelsChanged, object: nil)
+		unchanged.isInverted = true
+		XCTAssertFalse(AgentACPModelRegistry.shared.updateDiscoveredModels(snapshot, for: .antigravity))
+		wait(for: [unchanged], timeout: 0.2)
+	}
+
+	func testWarmAnnouncesPersistedModels() async {
+		ACPDynamicModelStore.save(Self.antigravitySnapshot(), for: .antigravity)
+		AgentACPModelRegistry.shared.test_clearMemoryPreservingStore(providerID: .antigravity)
+
+		let loaded = expectation(forNotification: .acpDiscoveredModelsChanged, object: nil)
+		await AgentACPModelRegistry.shared.test_warmStandardStore()
+		await fulfillment(of: [loaded], timeout: 1)
+	}
+
 	func testCatalogFallsBackToPersistedStoreAfterAsyncWarm() async {
 		let snapshot = ACPDiscoveredSessionModels(
 			options: [
@@ -308,6 +330,21 @@ final class ACPModelRegistryTests: XCTestCase {
 
 		XCTAssertEqual(snapshot.models.preferredModelRaw, "anthropic/claude-sonnet-4")
 		XCTAssertEqual(Set(snapshot.models.options.map(\.rawValue)), Set(["openai/gpt-5", "anthropic/claude-sonnet-4"]))
+	}
+
+	private static func antigravitySnapshot() -> ACPDiscoveredSessionModels {
+		ACPDiscoveredSessionModels(
+			options: [
+				AgentModelOption(
+					rawValue: "gemini-2.5-pro",
+					displayName: "Gemini 2.5 Pro",
+					description: nil,
+					isPlaceholderDefault: false,
+					isProviderDefault: true
+				)
+			],
+			currentModelRaw: "gemini-2.5-pro"
+		)
 	}
 
 	private static func openCodeSnapshot(currentModelRaw: String) -> ACPDiscoveredSessionModels {

@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @_spi(TestSupport) @testable import RepoPrompt
 
@@ -1252,6 +1253,96 @@ final class AgentModelResolutionTests: XCTestCase {
 		await viewModel.updateAvailableModels()
 
 		XCTAssertTrue(viewModel.availableModels.contains(.cursorCustom(name: AgentModel.cursorAuto.rawValue)))
+	}
+
+	@MainActor
+	func testAPISettingsListsAntigravityModelsOnceDiscovered() async {
+		let registry = AgentACPModelRegistry.shared
+		registry.test_reset(providerID: .antigravity)
+		defer { registry.test_reset(providerID: .antigravity) }
+		let keyManager = KeyManager()
+		let viewModel = APISettingsViewModel(
+			aiQueriesService: AIQueriesService(keyManager: keyManager),
+			keyManager: keyManager,
+			loadStoredDataOnInit: false
+		)
+
+		viewModel.isAntigravityConnected = true
+		await viewModel.updateAvailableModels()
+		XCTAssertFalse(viewModel.availableModels.contains { $0.providerType == .antigravity })
+
+		let listed = expectation(description: "Antigravity model listed")
+		listed.assertForOverFulfill = false
+		let subscription = viewModel.$availableModels
+			.filter { $0.contains(.antigravityCustom(name: "gemini-pro-agent")) }
+			.sink { _ in listed.fulfill() }
+		defer { subscription.cancel() }
+		registry.updateDiscoveredModels(
+			ACPDiscoveredSessionModels(
+				options: [
+					AgentModelOption(
+						rawValue: "gemini-pro-agent",
+						displayName: "Gemini Pro Agent",
+						description: nil,
+						isPlaceholderDefault: false,
+						isProviderDefault: true
+					)
+				],
+				currentModelRaw: "gemini-pro-agent"
+			),
+			for: .antigravity
+		)
+		await fulfillment(of: [listed], timeout: 2)
+	}
+
+	@MainActor
+	func testAPISettingsRefreshesModelsWhenAnotherWindowConnectsOpenCode() async {
+		let defaults = UserDefaults.standard
+		let previousOpenCodeConnected = defaults.object(forKey: "OpenCodeCLIConnected")
+		let registry = AgentACPModelRegistry.shared
+		defer {
+			if let previousOpenCodeConnected {
+				defaults.set(previousOpenCodeConnected, forKey: "OpenCodeCLIConnected")
+			} else {
+				defaults.removeObject(forKey: "OpenCodeCLIConnected")
+			}
+			registry.test_reset(providerID: .openCode)
+		}
+		defaults.set(false, forKey: "OpenCodeCLIConnected")
+		registry.test_reset(providerID: .openCode)
+		registry.updateDiscoveredModels(
+			ACPDiscoveredSessionModels(
+				options: [
+					AgentModelOption(
+						rawValue: "openai/gpt-5",
+						displayName: "GPT-5 via OpenCode",
+						description: nil,
+						isPlaceholderDefault: false,
+						isProviderDefault: true
+					)
+				],
+				currentModelRaw: "openai/gpt-5"
+			),
+			for: .openCode
+		)
+		let keyManager = KeyManager()
+		let viewModel = APISettingsViewModel(
+			aiQueriesService: AIQueriesService(keyManager: keyManager),
+			keyManager: keyManager,
+			loadStoredDataOnInit: false
+		)
+		await viewModel.updateAvailableModels()
+		XCTAssertFalse(viewModel.availableModels.contains { $0.providerType == .openCode })
+
+		let listed = expectation(description: "OpenCode model listed")
+		listed.assertForOverFulfill = false
+		let subscription = viewModel.$availableModels
+			.filter { $0.contains(.openCodeCustom(name: "openai/gpt-5")) }
+			.sink { _ in listed.fulfill() }
+		defer { subscription.cancel() }
+		defaults.set(true, forKey: "OpenCodeCLIConnected")
+		NotificationCenter.default.post(name: .openCodeConnectionChanged, object: nil)
+		await fulfillment(of: [listed], timeout: 2)
 	}
 
 	@MainActor

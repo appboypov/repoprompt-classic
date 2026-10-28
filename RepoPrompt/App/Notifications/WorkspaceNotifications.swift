@@ -39,4 +39,6 @@ extension Notification.Name {
 	/// Posted when Cursor CLI connection status changes
 	/// userInfo mirrors `claudeCodeConnectionChanged`
 	static let cursorConnectionChanged = Notification.Name("cursorConnectionChanged")
+	/// Posted when the models an ACP agent reports change, and when the models of earlier sessions finish loading
+	static let acpDiscoveredModelsChanged = Notification.Name("acpDiscoveredModelsChanged")
 }

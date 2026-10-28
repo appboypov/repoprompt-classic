@@ -288,7 +288,7 @@ public class APISettingsViewModel: ObservableObject {
 	private var openCodeModelsTask:   Task<Void, Never>?
 	private var cursorModelsTask:     Task<Void, Never>?
 	private var openRouterModelsTask: Task<Void, Never>?
-	private var cliConnectionCancellables = Set<AnyCancellable>()
+	private var cliProviderCancellables = Set<AnyCancellable>()
 	private var hasLoadedStoredData = false
 	private var isLoadingStoredData = false
 	private var hasStoredZAIKey = false
@@ -345,7 +345,7 @@ public class APISettingsViewModel: ObservableObject {
 		}
 	}
 
-	private func installCLIConnectionObservers() {
+	private func installCLIProviderObservers() {
 		Publishers.MergeMany([
 			NotificationCenter.default.publisher(for: .claudeCodeConnectionChanged).map { _ in () },
 			NotificationCenter.default.publisher(for: .codexConnectionChanged).map { _ in () },
@@ -357,7 +357,13 @@ public class APISettingsViewModel: ObservableObject {
 		.sink { [weak self] _ in
 			self?.reloadCLIConnectionFlagsFromDefaults()
 		}
-		.store(in: &cliConnectionCancellables)
+		.store(in: &cliProviderCancellables)
+		NotificationCenter.default.publisher(for: .acpDiscoveredModelsChanged)
+			.receive(on: DispatchQueue.main)
+			.sink { [weak self] _ in
+				Task { await self?.updateAvailableModels() }
+			}
+			.store(in: &cliProviderCancellables)
 	}
 
 	private func reloadCLIConnectionFlagsFromDefaults() {
@@ -370,11 +376,12 @@ public class APISettingsViewModel: ObservableObject {
 		isAntigravityConnected = Self.antigravityIsReady()
 		isOpenCodeConnected = UserDefaults.standard.bool(forKey: "OpenCodeCLIConnected")
 		isCursorConnected = UserDefaults.standard.bool(forKey: "CursorCLIConnected")
-		guard wasCursorConnected != isCursorConnected else { return }
-		if isCursorConnected {
-			startCursorModelsSubscriptionIfNeeded(workspacePath: nil)
-		} else {
-			stopCursorModelsSubscription(clearModels: true)
+		if wasCursorConnected != isCursorConnected {
+			if isCursorConnected {
+				startCursorModelsSubscriptionIfNeeded(workspacePath: nil)
+			} else {
+				stopCursorModelsSubscription(clearModels: true)
+			}
 		}
 		Task { await updateAvailableModels() }
 	}
@@ -792,7 +799,7 @@ public class APISettingsViewModel: ObservableObject {
 	init(aiQueriesService: AIQueriesService, keyManager: KeyManager, loadStoredDataOnInit: Bool = true) {
 		self.aiQueriesService = aiQueriesService
 		self.keyManager = keyManager
-		installCLIConnectionObservers()
+		installCLIProviderObservers()
 		if loadStoredDataOnInit {
 			Task {
 				await self.loadStoredDataIfNeeded()
@@ -2702,12 +2709,27 @@ public class APISettingsViewModel: ObservableObject {
 			throw error
 		}
 		await refreshAntigravityConnection()
+		Task { await Self.discoverAntigravityModelsIfMissing() }
 	}
 
 	/// Signs in to Antigravity with the user's Google account. The server opens
 	/// the browser and waits for the sign-in, then opens one session so the
 	/// account's models reach the model registry.
 	func signInToAntigravity() async throws {
+		do {
+			try await Self.openAntigravitySession(authMethodID: "oauth-personal")
+			antigravityError = nil
+		} catch {
+			antigravityError = error.localizedDescription
+			await refreshAntigravityConnection()
+			throw error
+		}
+		await refreshAntigravityConnection()
+	}
+
+	/// Opens and closes one Antigravity session, which records the account's
+	/// models in the model registry and stores the account's plan name.
+	private static func openAntigravitySession(authMethodID: String?) async throws {
 		let request = ACPRunRequest(
 			agentKind: .antigravity,
 			modelString: nil,
@@ -2720,34 +2742,38 @@ public class APISettingsViewModel: ObservableObject {
 			config: AntigravityAgentConfig(
 				enableDebugLogging: DiscoverAgentService.enableDebugLogging,
 				includeRepoPromptMCPServer: false,
-				authMethodID: "oauth-personal"
+				authMethodID: authMethodID
 			)
 		)
+		let support = await provider.support(for: request)
+		guard support == .supported else {
+			throw AIProviderError.invalidConfiguration(detail: support.reason ?? "Antigravity is not available.")
+		}
+		let controller = try ACPAgentSessionController(
+			provider: provider,
+			runRequest: request,
+			requestTimeouts: ACPAgentSessionController.RequestTimeouts(bootstrapSeconds: 300)
+		)
 		do {
-			let support = await provider.support(for: request)
-			guard support == .supported else {
-				throw AIProviderError.invalidConfiguration(detail: support.reason ?? "Antigravity is not available.")
-			}
-			let controller = try ACPAgentSessionController(
-				provider: provider,
-				runRequest: request,
-				requestTimeouts: ACPAgentSessionController.RequestTimeouts(bootstrapSeconds: 300)
-			)
-			do {
-				let bootstrap = try await controller.bootstrap()
-				await controller.shutdown()
-				UserDefaults.standard.set(bootstrap.accountPlanName, forKey: Self.antigravityAccountPlanNameKey)
-			} catch {
-				await controller.shutdown()
-				throw error
-			}
-			antigravityError = nil
+			let bootstrap = try await controller.bootstrap()
+			await controller.shutdown()
+			UserDefaults.standard.set(bootstrap.accountPlanName, forKey: Self.antigravityAccountPlanNameKey)
 		} catch {
-			antigravityError = error.localizedDescription
-			await refreshAntigravityConnection()
+			await controller.shutdown()
 			throw error
 		}
-		await refreshAntigravityConnection()
+	}
+
+	/// Fetches Antigravity's models with one session when Antigravity is ready
+	/// and the model registry holds none, so the model pickers can list them.
+	static func discoverAntigravityModelsIfMissing() async {
+		guard antigravityIsReady(),
+			await AgentACPModelRegistry.shared.resolvedSnapshotAfterWarmingStandardStore(for: .antigravity) == nil else { return }
+		do {
+			try await openAntigravitySession(authMethodID: nil)
+		} catch {
+			print("Antigravity model discovery failed: \(error.localizedDescription)")
+		}
 	}
 
 	func signOutFromAntigravity() async {

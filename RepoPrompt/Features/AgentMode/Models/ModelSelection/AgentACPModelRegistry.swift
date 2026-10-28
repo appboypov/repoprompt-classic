@@ -37,6 +37,7 @@ final class AgentACPModelRegistry {
 
 		guard didChange else { return false }
 		ACPDynamicModelStore.save(normalizedSnapshot, for: providerID)
+		NotificationCenter.default.post(name: .acpDiscoveredModelsChanged, object: nil)
 		return true
 	}
 
@@ -82,6 +83,8 @@ final class AgentACPModelRegistry {
 		didWarmStandardStore = true
 		standardStoreWarmTask = nil
 		lock.unlock()
+		guard !loadedSnapshots.isEmpty else { return }
+		NotificationCenter.default.post(name: .acpDiscoveredModelsChanged, object: nil)
 	}
 
 	func resolvedSnapshotAfterWarmingStandardStore(
