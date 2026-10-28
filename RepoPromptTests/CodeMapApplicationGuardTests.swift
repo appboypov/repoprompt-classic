@@ -104,11 +104,46 @@ final class CodeMapApplicationGuardTests: XCTestCase {
 		let cachedAPIs = manager.cachedFileAPIs()
 		XCTAssertEqual(cachedAPIs.count, 1)
 		XCTAssertEqual(cachedAPIs.first?.definedTypeNames ?? [], Set(["CurrentType"]))
+		let offMainActorAPIs = await manager.cachedFileAPIsOffMainActor()
+		XCTAssertEqual(offMainActorAPIs.map(\.definedTypeNames), cachedAPIs.map(\.definedTypeNames))
 
 		let staleSamePathAPI = makeAPI(path: filePath, typeName: "StaleSamePathType")
 		let validatedAPIs = manager.validatedCurrentFileAPIs(from: [staleSamePathAPI])
 		XCTAssertEqual(validatedAPIs.count, 1)
 		XCTAssertEqual(validatedAPIs.first?.definedTypeNames ?? [], Set(["CurrentType"]))
+	}
+
+	@MainActor
+	func testIndexedCodemapsWithoutTreeItemJudgesEachPathByItsDeepestRootFolder() {
+		let outerIndex = RootFolderIndex(rootPath: "/r")
+		for path in ["a.swift", "t.swift", "n/x.swift", "m/z.swift"] {
+			outerIndex.addFile(path)
+		}
+		let nestedIndex = RootFolderIndex(rootPath: "/r/n")
+		nestedIndex.addFile("y.swift")
+		let codemaps = [
+			"/r/a.swift": makeAPI(path: "/r/a.swift", typeName: "OuterIndexed"),
+			"/r/t.swift": makeAPI(path: "/r/t.swift", typeName: "TreeFile"),
+			"/r/n/x.swift": makeAPI(path: "/r/n/x.swift", typeName: "OnlyInOuterIndex"),
+			"/r/n/y.swift": makeAPI(path: "/r/n/y.swift", typeName: "NestedIndexed"),
+			"/r/m/z.swift": makeAPI(path: "/r/m/z.swift", typeName: "UnderRootWithoutIndex"),
+			"/elsewhere/e.swift": makeAPI(path: "/elsewhere/e.swift", typeName: "OutsideRoots")
+		]
+
+		let apis = RepoFileManagerViewModel.indexedCodemapsWithoutTreeItem(
+			codemaps,
+			treeFilePaths: ["/r/t.swift"],
+			roots: [
+				(rootPath: "/r/n", index: nestedIndex.contents),
+				(rootPath: "/r/m", index: nil),
+				(rootPath: "/r", index: outerIndex.contents)
+			]
+		)
+
+		XCTAssertEqual(
+			Set(apis.flatMap(\.definedTypeNames)),
+			["OuterIndexed", "NestedIndexed"]
+		)
 	}
 
 	@MainActor

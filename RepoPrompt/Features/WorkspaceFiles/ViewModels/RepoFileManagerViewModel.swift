@@ -5991,13 +5991,7 @@ func toggleFile(_ file: FileViewModel, fromSearch: Bool = false) {
 
 	/// The file extensions of every file that the indexes of the root folders hold, lowercased.
 	func indexedFileExtensions() -> Set<String> {
-		var extensions = Set<String>()
-		for index in rootFolderIndexes.values {
-			for path in index.filePaths {
-				extensions.insert((path as NSString).pathExtension.lowercased())
-			}
-		}
-		return extensions
+		Set(rootFolderIndexes.values.flatMap(\.fileCountsByExtension.keys))
 	}
 
 	// 4) Helper to gather FileViewModels recursively
@@ -12202,12 +12196,59 @@ extension RepoFileManagerViewModel {
 	/// The codemaps of every code file: from the tree items, and stored by path for files without a tree item.
 	@MainActor
 	func cachedFileAPIs() -> [FileAPI] {
-		var apis = validatedFileAPIsSnapshot(sorted: false)
-		for (path, api) in codemapCapableAPIsByFullPath
-		where findFileByFullPath(path) == nil && indexedRootAndRelativePath(ofFileWithoutTreeItem: path) != nil {
-			apis.append(api)
+		let inputs = codemapGatherInputs()
+		return validatedFileAPIsSnapshot(sorted: false) + Self.indexedCodemapsWithoutTreeItem(
+			inputs.codemaps,
+			treeFilePaths: inputs.treeFilePaths,
+			roots: inputs.roots
+		)
+	}
+
+	/// The same codemaps as `cachedFileAPIs()`. The codemaps of files without a tree item are gathered off the main actor.
+	@MainActor
+	func cachedFileAPIsOffMainActor() async -> [FileAPI] {
+		let treeAPIs = validatedFileAPIsSnapshot(sorted: false)
+		let inputs = codemapGatherInputs()
+		let apisWithoutTreeItem = await Task.detached(priority: .userInitiated) {
+			Self.indexedCodemapsWithoutTreeItem(
+				inputs.codemaps,
+				treeFilePaths: inputs.treeFilePaths,
+				roots: inputs.roots
+			)
+		}.value
+		return treeAPIs + apisWithoutTreeItem
+	}
+
+	/// The codemaps stored by path, the paths of the files with a tree item and each root folder with its index,
+	/// the deepest root folder first.
+	@MainActor
+	private func codemapGatherInputs() -> (
+		codemaps: [String: FileAPI],
+		treeFilePaths: Set<String>,
+		roots: [(rootPath: String, index: RootFolderIndex.Contents?)]
+	) {
+		let roots = rootFolders
+			.map { (rootPath: $0.standardizedFullPath, index: rootFolderIndexes[$0.standardizedFullPath]?.contents) }
+			.sorted { $0.rootPath.count > $1.rootPath.count }
+		return (codemapCapableAPIsByFullPath, Set(fileHierarchyIndex.filesByFullPath.keys), roots)
+	}
+
+	/// The codemaps stored by path whose file has no tree item and is held by the index of the deepest root folder above it.
+	/// `roots` lists the deepest root folder first.
+	nonisolated static func indexedCodemapsWithoutTreeItem(
+		_ codemaps: [String: FileAPI],
+		treeFilePaths: Set<String>,
+		roots: [(rootPath: String, index: RootFolderIndex.Contents?)]
+	) -> [FileAPI] {
+		codemaps.compactMap { path, api in
+			guard !treeFilePaths.contains(path),
+				let root = roots.first(where: { path.hasPrefix($0.rootPath + "/") }),
+				let index = root.index
+			else { return nil }
+			let relativePath = String(path.dropFirst(root.rootPath.count + 1))
+			let isIndexed = index.folders[RootFolderIndex.parentPath(of: relativePath)]?.childFilePaths.contains(relativePath) == true
+			return isIndexed ? api : nil
 		}
-		return apis
 	}
 
 	/// The root folder whose index holds a file at a path, with the file's path relative to that root folder.

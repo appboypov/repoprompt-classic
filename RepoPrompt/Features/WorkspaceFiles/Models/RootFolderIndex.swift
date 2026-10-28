@@ -91,6 +91,8 @@ final class RootFolderIndex {
 	var filePaths: FilePaths { FilePaths(folders: folders, count: root.fileCount) }
 	/// The files of the selection.
 	private(set) var selectedFilePaths: Set<String> = []
+	/// How many files of the index have each lowercased file extension; the empty string counts files without one.
+	private(set) var fileCountsByExtension: [String: Int] = [:]
 	/// Selected files reading has not found yet. Each is selected once reading adds it.
 	private var pendingSelectedFilePaths: Set<String> = []
 	/// Folders ticked before reading listed their subtree. Each gets every file under it selected once its subtree is read.
@@ -249,6 +251,7 @@ final class RootFolderIndex {
 		}
 		let parent = folder(at: Self.parentPath(of: path))
 		parent.childFilePaths.insert(path)
+		fileCountsByExtension[Self.fileExtension(of: path), default: 0] += 1
 		logPathChange(.added(path, isFolder: false))
 		var current: Folder? = parent
 		while let node = current {
@@ -320,6 +323,7 @@ final class RootFolderIndex {
 	func remove(_ path: String) {
 		guard !path.isEmpty else { return }
 		if let parent = folders[Self.parentPath(of: path)], parent.childFilePaths.remove(path) != nil {
+			uncountExtensions(of: [path])
 			advanceGeneration()
 			logPathChange(.removed(path))
 			let selectedCount = selectedFilePaths.remove(path) == nil ? 0 : 1
@@ -345,9 +349,22 @@ final class RootFolderIndex {
 		var pending: [String] = [path]
 		while let folderPath = pending.popLast() {
 			guard let removed = folders.removeValue(forKey: folderPath) else { continue }
+			uncountExtensions(of: removed.childFilePaths)
 			unreadFolderPaths.remove(folderPath)
 			selectedFilePaths.subtract(removed.childFilePaths)
 			pending.append(contentsOf: removed.childFolderPaths)
+		}
+	}
+
+	private func uncountExtensions<S: Sequence>(of paths: S) where S.Element == String {
+		for path in paths {
+			let fileExtension = Self.fileExtension(of: path)
+			guard let count = fileCountsByExtension[fileExtension] else { continue }
+			if count <= 1 {
+				fileCountsByExtension.removeValue(forKey: fileExtension)
+			} else {
+				fileCountsByExtension[fileExtension] = count - 1
+			}
 		}
 	}
 
@@ -385,8 +402,12 @@ final class RootFolderIndex {
 		pathChangeLog.removeFirst(dropped)
 	}
 
-	private nonisolated static func parentPath(of path: String) -> String {
+	nonisolated static func parentPath(of path: String) -> String {
 		guard let slash = path.lastIndex(of: "/") else { return "" }
 		return String(path[..<slash])
+	}
+
+	private nonisolated static func fileExtension(of path: String) -> String {
+		(path as NSString).pathExtension.lowercased()
 	}
 }

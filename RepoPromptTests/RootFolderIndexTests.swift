@@ -478,4 +478,30 @@ final class RootFolderIndexTests: XCTestCase {
 		XCTAssertEqual(contents.folders["src"]?.isKnownEmpty, false)
 		XCTAssertEqual(contents.folders["unread"]?.isKnownEmpty, false)
 	}
+
+	func testFileCountsByExtensionFollowAddedAndRemovedFiles() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("a.SWIFT")
+		index.addFile("src/b.ts")
+		index.addFile("src/c.ts")
+		index.addFile("README")
+		XCTAssertEqual(index.fileCountsByExtension, ["swift": 1, "ts": 2, "": 1])
+
+		index.remove("src/b.ts")
+		XCTAssertEqual(index.fileCountsByExtension, ["swift": 1, "ts": 1, "": 1])
+
+		index.remove("src")
+		XCTAssertEqual(index.fileCountsByExtension, ["swift": 1, "": 1])
+	}
+
+	func testAFileAddedWhereAFolderWasDropsTheFolderFilesFromTheExtensionCounts() {
+		let index = RootFolderIndex(rootPath: "/repo")
+		index.addFile("lib/a.ts")
+		index.addFile("lib/deep/b.md")
+		index.addFile("c.ts")
+
+		index.addFile("lib")
+
+		XCTAssertEqual(index.fileCountsByExtension, ["ts": 1, "": 1])
+	}
 }

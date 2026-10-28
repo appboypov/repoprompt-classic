@@ -713,12 +713,10 @@ actor CodeScanActor {
 	}
 
 	private func removeCacheEntry(relativePath: String, rootKey: String) {
-		guard var rootEntry = rootCaches[rootKey],
-			rootEntry.files.removeValue(forKey: relativePath) != nil else {
+		guard rootCaches[rootKey]?.files.removeValue(forKey: relativePath) != nil else {
 			return
 		}
 
-		rootCaches[rootKey] = rootEntry
 		dirtyRootFoldersForDisk.insert(rootKey)
 	}
 
@@ -1075,11 +1073,8 @@ actor CodeScanActor {
 		codeScanActorDebugLog("Skipping code map for oversized file: \(request.relativePath) - \(reason)")
 		acceptedAPIFileIDs.remove(request.fileID)
 		let rootKey = canonicalRoot(request.rootFolderPath)
-		if var rootEntry = rootCaches[rootKey] {
-			if rootEntry.files.removeValue(forKey: request.relativePath) != nil {
-				rootCaches[rootKey] = rootEntry
-				dirtyRootFoldersForDisk.insert(rootKey)
-			}
+		if rootCaches[rootKey]?.files.removeValue(forKey: request.relativePath) != nil {
+			dirtyRootFoldersForDisk.insert(rootKey)
 		}
 		outstandingScans = max(outstandingScans - 1, 0)
 		resultBatchBuffer.append(ScanResult(request: request, fileAPI: nil))
@@ -1103,13 +1098,11 @@ actor CodeScanActor {
 
 			// Update the in-memory root cache
 			let rootKey = canonicalRoot(request.rootFolderPath)
-			var rootEntry = rootCaches[rootKey] ?? CodeMapCacheRootFolder(files: [:])
-			rootEntry.files[request.relativePath] = CodeMapCacheFileEntry(
+			rootCaches[rootKey, default: CodeMapCacheRootFolder(files: [:])].files[request.relativePath] = CodeMapCacheFileEntry(
 				modificationDate: request.modificationDate,
 				contentFingerprint: CodeMapContentFingerprint(content: request.content),
 				fileAPI: fileAPI
 			)
-			rootCaches[rootKey] = rootEntry
 
 			// Mark this root as needing a disk flush
 			dirtyRootFoldersForDisk.insert(rootKey)

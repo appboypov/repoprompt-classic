@@ -362,7 +362,8 @@ class TokenCountingViewModel: ObservableObject {
 		}
 		let duplicatePromptAtTop = includeUserPrompt ? copySnapshot.duplicateUserInstructionsAtTop : false
 		
-		let allFileAPIs = fileManager.cachedFileAPIs()
+		let allFileAPIs = await fileManager.cachedFileAPIsOffMainActor()
+		guard !Task.isCancelled else { return }
 		
 		// Cache the file APIs for reuse
 		self.cachedFileAPIs = allFileAPIs
