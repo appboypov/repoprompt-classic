@@ -1916,7 +1916,7 @@ final class WindowRoutingService: Service {
 
 		guard createIfMissing else {
 			throw MCPError.invalidParams(
-				"No existing workspace exactly matches working_dirs [\(normalizedWorkingDirs.joined(separator: ", "))] and no workspace repo_paths superset contains those roots. Exact matching uses the full workspace repo_paths set (order-insensitive); superset fallback uses root-set membership only, not descendant paths. Retry with create_if_missing=true to create one."
+				"No existing workspace exactly matches working_dirs [\(normalizedWorkingDirs.joined(separator: ", "))] and no workspace repo_paths superset contains those roots. Exact matching uses the full workspace repo_paths set (order-insensitive); superset fallback uses root-set membership only, not descendant paths. Bind a tab of the workspace whose root holds those folders."
 			)
 		}
 

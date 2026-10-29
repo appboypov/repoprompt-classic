@@ -68,7 +68,8 @@ enum ClaudeCodeCommands {
 	/// Version 61: rp-deep-plan — adds explicit halt-on-`ask_user`-timeout handling for involvement-mode checkpoints. When the user has actively picked a mode that promises a pause (Up front → Phase 1.5, Mid-flow → Phase 5) and a downstream `ask_user` returns `timed_out: true`, the workflow halts at that checkpoint instead of proceeding with assumed answers — resuming from the same prompt when the user replies. The Phase 1 involvement-mode prompt itself is exempt: a timeout there means "no signal" and falls through to Hands-off (same as `skipped: true`), so the workflow doesn't stall before any direction has been given. Adds a Core principle, a Phase 1 "Handling the answer" sub-section that distinguishes the three result shapes, halt reminders at the end of Phase 1.5 / Phase 5, and a matching anti-pattern.
 	/// Version 62: rp-deep-plan — reworks the `context_builder` export handoff. Phase 4 now treats the export as the plan *draft*: its content is copied into the plan file faithfully (the scaffold's `Goal` and per-item `Done when` framing preserved), without the orchestrator second-guessing how much implementation detail to keep — if the export framed the approach and work items well, that framing is design output worth keeping. The export survives Phase 4 as a reference input to the Phase 6 design critique, which becomes the arbiter of specificity: it compares plan vs. export and flags both over-specified tactical choices the implementation agent should own and under-specified or dropped framing. The export is deleted only after the critique is folded in. Retunes the "concise" core principle and Phase 7 polish framing so specificity is the critique's call, not a by-hand directive.
 	/// Version 63: rp-deep-plan — preserves Phase 2 explore-agent findings as durable context. Phase 2 gains an explicit "capture the findings" step — curate the load-bearing evidence (distill, don't dump raw agent output); Phase 3's `## Background` is now populated substantively at scaffold time (distilled evidence, not draft prose or transcripts) rather than a one-line placeholder; Phase 4 stops re-typing a two-bullet findings summary into the `context_builder` prompt and instead points the builder at the plan's `## Background`. Adds matching anti-patterns against both losing the findings and dumping raw explore output.
-	static let skillsVersion = 64
+	/// Version 65: Workspace verification — agents work in the workspace whose root holds their project and create only their own tab there. The MCP step no longer tells them to create a workspace, and the CLI check becomes one rule.
+	static let skillsVersion = 65
 
 	/// Variant for tool invocation examples in prompts.
 	enum ToolVariant {
@@ -222,11 +223,8 @@ rp-cli --context-id <context_id> -e 'tree --type roots'
 {"tool":"manage_workspaces","args":{"action":"create_tab","name":"<task name>","workspace":"<workspace_name>"}}
 {"tool":"bind_context","args":{"op":"bind","context_id":"<context_id from create_tab>"}}
 ```
-If no workspace holds the project, create one: `{"tool":"manage_workspaces","args":{"action":"create","name":"<name>","folder_path":"/absolute/path/to/project"}}`, then create the tab.
 """ : """
-**Check the output:**
-- If your target root appears under a workspace → create your tab there and proceed to \(nextStep)
-- If not → create the workspace: `rp-cli -e 'workspace create "<name>" --folder-path /absolute/path/to/project'`, then create the tab
+**Check the output:** create your tab in the workspace whose root holds your target root and proceed to \(nextStep)
 
 **CLI Context Routing:**
 - One window holds every workspace; nothing is opened or switched for your work
