@@ -455,7 +455,7 @@ SwiftUI views are organized per feature under `Features/*/Views/` plus reusable 
 
 ## Testing Structure
 
-- **Targets:** `RepoPromptTests` (296 Swift files, unit + integration) and `RepoPromptUITests` (XCUITest). Test plan: `RepoPrompt.xctestplan` (skips `ChangedFileAndParserTests`; sets `OS_ACTIVITY_MODE=disable`).
+- **Targets:** `RepoPromptTests` (296 Swift files, unit + integration) and `RepoPromptUITests` (XCUITest). Test plan: `RepoPrompt.xctestplan` (skips `ChangedFileAndParserTests`; sets `OS_ACTIVITY_MODE=disable`; turns code coverage off).
 - **Naming:** Tests mirror the type under test (`PathMatcherTests.swift`, `ApplyEditsCoreTests.swift`); selectors are target-prefixed (`RepoPromptTests/ApplyEditsCoreTests/testExactMatch`).
 - **Organization:** Mostly flat under `RepoPromptTests/`, with grouped subfolders: `AgentMode/` (+ `HistoricalAudit`), `Benchmark/`, `CodeMap/` (`Fixtures/`, `Goldens/`, `Helpers/` per language), `MCP/ApplyEdits/`, `PathMatching/`, `Process/`, `Security/`, `Services/`, `Settings/`.
 - **Fixtures:** `RepoPromptTests/Fixtures/` (agent/Claude/Codex session fixtures), `CodeMap/Fixtures` + `CodeMap/Goldens` (golden-file codemap parity across 13 languages). `Infrastructure/FileSystem/TestSupport/TestFS.swift` provides an in-memory file system for service tests.

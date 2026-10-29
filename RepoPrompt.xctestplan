@@ -9,6 +9,7 @@
     }
   ],
   "defaultOptions" : {
+    "codeCoverage" : false,
     "environmentVariableEntries" : [
       {
         "key" : "OS_ACTIVITY_MODE",
